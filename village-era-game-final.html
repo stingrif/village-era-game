@@ -114,6 +114,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 <div class="online-dot" style="width:6px;height:6px"></div>
 <span id="playerName">Игрок</span>
 <button type="button" class="btn btn-small" style="padding:4px 10px;font-size:16px" onclick="G.openHelp()" title="Обучение">📖</button>
+<button type="button" class="btn btn-small" style="padding:4px 10px;font-size:16px" onclick="G.openAboutProject()" title="О проекте">ℹ️</button>
 </div>
 </div>
 
@@ -147,8 +148,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 
 <div class="digs-left">
 <div style="font-size:18px;font-weight:700;color:#ffa500;margin-bottom:10px">⛏️ Попытки копания</div>
-<div class="digs-count" id="digsLeft">5</div>
-<div style="font-size:14px;opacity:.8">из 5 доступно</div>
+<div class="digs-count" id="digsLeft">3</div>
+<div style="font-size:14px;opacity:.8">из 3 доступно</div>
 <div style="font-size:12px;opacity:.7;margin-top:10px">Восстановятся через: <span id="digsTimer">--:--</span></div>
 </div>
 
@@ -162,7 +163,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 <div class="info" style="margin-top:15px">
 <div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:10px">💎 За кристаллы</div>
 <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
-<button class="btn btn-small" onclick="G.buyDigsForGems()">+5 попыток (10💎)</button>
+<button class="btn btn-small" onclick="G.buyDigsForGems()">+3 попыток (10💎)</button>
 <button class="btn btn-small" onclick="G.reduceCheckinForGems()">Чекин сейчас (15💎)</button>
 <button class="btn btn-small" onclick="G.buyMineHint()">Подсказка 1 ячейки (5💎)</button>
 <button class="btn btn-small" onclick="G.buyFullScan()">Полное сканирование (15💎)</button>
@@ -250,7 +251,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 <div class="checkin-card">
 <div style="font-size:20px;font-weight:700;color:#ffa500;margin-bottom:15px">⏰ Ежедневный Чекин</div>
 <div style="font-size:14px;margin-bottom:10px">Получай попытки копания каждые 10 часов!</div>
-<div style="font-size:16px;font-weight:700;margin:15px 0">Попыток: <span id="checkinDigs">5</span>/5</div>
+<div style="font-size:16px;font-weight:700;margin:15px 0">Попыток: <span id="checkinDigs">3</span>/3</div>
 <div style="font-size:14px;margin-bottom:15px" id="checkinTimer">Доступно сейчас!</div>
 <div style="background:rgba(0,0,0,.3);padding:15px;border-radius:10px;margin:15px 0">
 <div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:10px">📊 Ваша позиция</div>
@@ -300,13 +301,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 <div id="leaderboardModal" class="modal"><div class="mc"><button class="mcl" onclick="G.closeM('leaderboardModal')">×</button><div class="mt">🏆 Полный Лидерборд</div><div id="lbmc"></div></div></div>
 <div id="rewardModal" class="modal"><div class="mc"><button class="mcl" onclick="G.closeM('rewardModal')">×</button><div class="mt" id="rwmt">Награда!</div><div id="rwmc"></div></div></div>
 <div id="helpModal" class="modal"><div class="mc" style="max-width:520px"><button class="mcl" onclick="G.closeM('helpModal')">×</button><div class="mt">📖 Обучение</div><div id="helpmc"></div></div></div>
+<div id="aboutModal" class="modal"><div class="mc" style="max-width:560px"><button class="mcl" onclick="G.closeM('aboutModal')">×</button><div class="mt">ℹ️ О проекте</div><div id="aboutmc" style="max-height:70vh;overflow-y:auto;padding:8px 0"></div></div></div>
 
 <div id="notif" class="notif"></div>
 
 <script>
 const G={
 d:{
-gems:0,coins:1000,wood:100,stone:100,era:1,eraStart:Date.now(),vLevel:1,skyFall:false,skyStart:null,lossMult:1,buildings:[],mineBlocks:[],relicsFound:0,relics:[],amulets:[],buffs:[],digsLeft:5,lastCheckin:null,
+gems:0,coins:1000,wood:100,stone:100,era:1,eraStart:Date.now(),vLevel:1,skyFall:false,skyStart:null,lossMult:1,buildings:[],mineBlocks:[],relicsFound:0,relics:[],amulets:[],buffs:[],digsLeft:3,lastCheckin:null,
 exp:0,level:0,createdAt:Date.now(),actions:0,weekId:null,weeklyScore:0,withdrawsThisWeek:0,lock:{active:false,amount:0,until:0},kyc:{verified:false},sellDay:null,sellsToday:0,
 walletBound:false,walletVerifyCode:null,subscribedChannels:{phxpw:false,ludoman:false,kriptobratv:false},points:0,eraMedals:[],mineHintIndices:[],mineScanActive:false,phoenixEyeActive:false,
 burnedCount:0,letters:[],phoenixQuestCompleted:false
@@ -316,24 +318,29 @@ RUS_ALPHABET:'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ
 tonWallet:'UQD6RieTjAKQckERVNlCtSlGOgdfsmCAgLI2abAVz_tl3nuz',
 walletBindAmountTON:0.1,
 subsChannels:[
-{id:'phxpw',name:'PHOENIX PHXPW',url:'https://t.me/PHXPW',reward:{gems:5,points:50}},
-{id:'ludoman',name:'THE1000LUDOMAN',url:'https://t.me/ludoman_1000',reward:{gems:5,points:50}},
-{id:'kriptobratv',name:'CHIP GROOP',url:'https://t.me/kriptobratv',reward:{gems:5,points:50}}
+{id:'phoenix_channel',name:'Phoenix PHOEX — канал',url:'https://t.me/PHXPW',reward:{gems:5,points:50}},
+{id:'phoenix_chat',name:'Phoenix — чат',url:'https://t.me/phxpwchat',reward:{gems:5,points:50}},
+{id:'phoenix_reward',name:'Phoenix Reward',url:'https://t.me/+PPW1fH5sefM4NTEy',reward:{gems:8,points:80}},
+{id:'phoenix_lucky',name:'Phoenix Lucky',url:'https://t.me/+OwQ7nEHLIkA2ZDJi',reward:{gems:5,points:50}},
+{id:'whales',name:'Чат китов Phoenix (5000 PHOEX)',url:'https://t.me/+1930JmDV1DVjMDM8',reward:{gems:10,points:100}},
+{id:'premium_club',name:'Премиум клуб Phoenix (30$/мес)',url:'https://t.me/+X3yGXxrQ7Fs3NzY0',reward:{gems:15,points:150}}
 ],
 gemsCosts:{digs5:10,checkinNow:15,hint:5,fullScan:15,phoenixEye:25,exp100:20},
 POINTS_PER_TON:10,
+COIN_TO_TON:320,
+basePriceByRarity:{fire:80,yin:150,yan:280,tsy:600,magic:1500,epic:5000},
 pointsPerCoin:10,
 myPlayerId:null,
 API_BASE:(typeof window.GAME_API_BASE!=='undefined'?window.GAME_API_BASE:''),
 allPlayers:[],
 
 raritySystem:{
-epic:{name:'Эпический',color:'#9b59b6',chance:0.01,items:[]},
-magic:{name:'Магический',color:'#3498db',chance:0.05,items:[]},
-tsy:{name:'Цы',color:'#2ecc71',chance:0.15,items:[]},
-yan:{name:'Янь',color:'#f39c12',chance:0.25,items:[]},
-yin:{name:'Инь',color:'#7f8c8d',chance:0.30,items:[]},
-fire:{name:'Алый Огонь',color:'#ff4500',chance:0.24,items:[]}
+epic:{name:'Эпический',color:'#9b59b6',chance:0.001,dropWeight:1,items:[]},
+magic:{name:'Магический',color:'#3498db',chance:0.01,dropWeight:10,items:[]},
+tsy:{name:'Цы',color:'#2ecc71',chance:0.08,dropWeight:8,items:[]},
+yan:{name:'Янь',color:'#f39c12',chance:0.15,dropWeight:15,items:[]},
+yin:{name:'Инь',color:'#7f8c8d',chance:0.26,dropWeight:26,items:[]},
+fire:{name:'Алый Огонь',color:'#ff4500',chance:0.50,dropWeight:50,items:[]}
 },
 
 buildingTypes:{
@@ -353,10 +360,10 @@ selectedMerge:[],
 
 economy:{
 levels:{
-0:{name:'Новичок',canWithdraw:false,sell:{tax:0.25,perDay:2,maxValue:80}},
-1:{name:'Ученик',canWithdraw:false,sell:{tax:0.20,perDay:4,maxValue:150}},
-2:{name:'Опытный',canWithdraw:false,sell:{tax:0.15,perDay:7,maxValue:300}},
-3:{name:'Ветеран',canWithdraw:true,sell:{tax:0.12,perDay:10,maxValue:800}}
+0:{name:'Новичок',canWithdraw:false,sell:{tax:0.15,perDay:2,maxValue:5000}},
+1:{name:'Ученик',canWithdraw:false,sell:{tax:0.12,perDay:4,maxValue:5000}},
+2:{name:'Опытный',canWithdraw:false,sell:{tax:0.10,perDay:7,maxValue:5000}},
+3:{name:'Ветеран',canWithdraw:true,sell:{tax:0.08,perDay:10,maxValue:5000}}
 },
 withdraw:{perUserCapTON:5,globalCapTON:50,minAmountTON:0.5,kycUsdThreshold:100,firstLockTON:10,firstLockDays:14},
 scoring:{relicWeight:120,villageWeight:80,actionWeight:1,expWeight:2},
@@ -725,7 +732,8 @@ this.d.mineScanActive=false;
 this.d.phoenixEyeActive=false;
 this.d.mineBlocks=[];
 const sz=36;
-const prizeCount=Math.max(1,Math.floor(sz*0.05));
+const rand=Math.random();
+const prizeCount=rand<0.10?2:rand<0.30?3:rand<0.60?4:rand<0.85?5:6;
 const prizeIndices=[];
 while(prizeIndices.length<prizeCount){
 const idx=Math.floor(Math.random()*sz);
@@ -733,7 +741,7 @@ if(!prizeIndices.includes(idx))prizeIndices.push(idx);
 }
 for(let i=0;i<sz;i++){
 if(prizeIndices.includes(i)){
-const rarity=this.rollRarity();
+const rarity=this.rollRarityForMine();
 this.d.mineBlocks.push({cl:false,rarity:rarity,reward:this.getReward(rarity),hasPrize:true});
 }else{
 this.d.mineBlocks.push({cl:false,rarity:'empty',reward:{type:'empty'},hasPrize:false});
@@ -748,6 +756,17 @@ let cumulative=0;
 for(const[key,data]of Object.entries(this.raritySystem)){
 cumulative+=data.chance;
 if(rand<=cumulative)return key;
+}
+return 'fire';
+},
+
+rollRarityForMine(){
+const total=Object.values(this.raritySystem).reduce((s,data)=>s+(data.dropWeight||10),0);
+let r=Math.random()*total;
+for(const[key,data]of Object.entries(this.raritySystem)){
+const w=data.dropWeight||10;
+if(r<w)return key;
+r-=w;
 }
 return 'fire';
 },
@@ -820,8 +839,8 @@ buyDigsForGems(){
 const cost=this.gemsCosts.digs5;
 if((this.d.gems||0)<cost){ this.notify('Недостаточно кристаллов','error'); return; }
 this.d.gems-=cost;
-this.d.digsLeft=(this.d.digsLeft||0)+5;
-this.notify('+5 попыток копания!');
+this.d.digsLeft=(this.d.digsLeft||0)+3;
+this.notify('+3 попыток копания!');
 this.updateUI(); this.renderMine(); this.save();
 },
 
@@ -936,9 +955,9 @@ return;
 }
 }
 this.d.actions++;this.addExp(10);
-this.d.digsLeft=5;
+this.d.digsLeft=3;
 this.d.lastCheckin=now;
-this.notify('✅ Получено 5 попыток копания!');
+this.notify('✅ Получено 3 попыток копания!');
 this.updateCheckinUI();
 this.renderMine();
 this.save();
@@ -1021,12 +1040,13 @@ const g=groups[key];
 const r=g.r;
 const firstIdx=g.indices[0];
 const qty=g.indices.length;
-const p=r.ev*10||100;
+const p=this.basePriceByRarity[r.rarity]||80;
 const pPts=Math.ceil(p/10);
+const tonEq=(p/this.COIN_TO_TON).toFixed(2);
 const c=document.createElement('div');
 c.className='rc';
 c.style.borderColor=this.raritySystem[r.rarity||'fire'].color;
-c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><span style="font-size:20px;margin-right:8px">${r.i}</span><span style="color:#ffa500;font-weight:700">${r.n}</span></div></div><div style="font-size:12px;opacity:.9;margin-bottom:6px">Эффект: +${r.ev}%</div>${qty>1?`<div class="inv-qty">× ${qty}</div>`:''}<div style="font-size:11px;opacity:.85;margin-bottom:4px">${p} 🪙 (${pPts} ⭐ поинтов)</div><div style="display:flex;gap:5px;margin-top:8px"><button class="btn btn-small btn-success" onclick="G.sellR(${firstIdx})">Продать за ${p}🪙</button><button class="btn btn-small btn-warning" onclick="G.showMerge()">Слияние</button></div>`;
+c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><span style="font-size:20px;margin-right:8px">${r.i}</span><span style="color:#ffa500;font-weight:700">${r.n}</span></div></div><div style="font-size:12px;opacity:.9;margin-bottom:6px">Эффект: +${r.ev}%</div>${qty>1?`<div class="inv-qty">× ${qty}</div>`:''}<div style="font-size:11px;opacity:.85;margin-bottom:4px">${p} 🪙 (${tonEq} TON) · ${pPts} ⭐</div><div style="display:flex;gap:5px;margin-top:8px"><button class="btn btn-small btn-success" onclick="G.sellR(${firstIdx})">Продать за ${p}🪙</button><button class="btn btn-small btn-warning" onclick="G.showMerge()">Слияние</button></div>`;
 l.appendChild(c);
 });
 },
@@ -1130,7 +1150,7 @@ const today=new Date().toDateString();
 if(this.d.sellDay!==today){ this.d.sellDay=today; this.d.sellsToday=0; }
 this.d.sellsToday=this.d.sellsToday||0;
 const r=this.d.relics[idx];
-const raw=r.ev*10||100;
+const raw=this.basePriceByRarity[r.rarity]||80;
 if(this.d.sellsToday>=sell.perDay){
 this.notify('Лимит продаж на сегодня исчерпан.','error');return;
 }
@@ -1139,7 +1159,8 @@ this.notify('Эта продажа превышает лимит по уровн
 }
 const tax=Math.floor(raw*sell.tax);
 const net=Math.max(0,raw-tax);
-if(confirm(`Продать ${r.n} за ${raw} 🪙? Налог: ${tax} 🪙, получите: ${net} 🪙`)){
+const tonEq=(raw/this.COIN_TO_TON).toFixed(2);
+if(confirm(`Продать ${r.n} за ${raw} 🪙 (${tonEq} TON)? Налог: ${tax} 🪙, получите: ${net} 🪙`)){
 this.d.coins+=net;
 this.d.relics.splice(idx,1);
 this.d.sellsToday++;
@@ -1162,19 +1183,27 @@ const h=`<div class="info">
 <div style="margin:15px 0">
 <div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:10px">Сумма (TON):</div>
 <input id="wdAmt" class="tx-input" type="number" min="0.5" step="0.1" value="0.5">
+<div style="font-size:12px;opacity:.9;margin-top:6px">Комиссия вывода 5%. К получению: <span id="wdNetTon">0.48</span> TON</div>
 <button class="btn btn-warning btn-big" onclick="G.requestWithdraw()">Отправить запрос</button>
 <div style="font-size:12px;opacity:.7;margin-top:10px">Выдача происходит weekly batch. В демо — без реальных выплат.</div>
 </div>`;
 document.getElementById('txmt').textContent='Withdraw (demo)';
 document.getElementById('txmc').innerHTML=h;
+const wdInput=document.getElementById('wdAmt');
+const updateWdNet=()=>{ const el=document.getElementById('wdNetTon'); if(el){ const a=parseFloat(wdInput.value||'0')||0; el.textContent=(a*0.95).toFixed(2); } };
+if(wdInput){ wdInput.oninput=updateWdNet; updateWdNet(); }
 this.openM('txModal');
 },
 
 requestWithdraw(){
 const amt=parseFloat(document.getElementById('wdAmt').value||'0');
+const netTon=(amt*0.95).toFixed(2);
 const res=this.canWithdrawTON(amt);
 if(!res.ok){
 this.notify('Вывод отклонён: проверь условия.','error');
+return;
+}
+if(!confirm(`Запросить вывод ${amt} TON? Комиссия 5%, к получению: ${netTon} TON`)){
 return;
 }
 if(!(this.d.lock&&this.d.lock.active)){
@@ -1514,6 +1543,24 @@ const h=`
 `;
 document.getElementById('helpmc').innerHTML=h;
 this.openM('helpModal');
+},
+
+openAboutProject(){
+const links=[
+{name:'Сайт проекта',url:'https://phoenixpaw.com',icon:'🌐'},
+{name:'Купить PHOEX (Swap)',url:'https://app.ston.fi/swap?ft=TON&tt=EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43&chartVisible=true&chartInterval=1w',icon:'💱'},
+{name:'Пулы (DexScreener)',url:'https://dexscreener.com/ton/eqadltefzxg_xtelfakfgd-hpvkrejqv_fdc7z2rooddrndm',icon:'📊'},
+{name:'Стейкинг (jVault)',url:'https://jvault.xyz/staking/v2/stake/FIRST-YEAR-COMPL',icon:'🔒'},
+{name:'NFT коллекция',url:'https://getgems.io/phoenixpaw',icon:'🖼️'}
+];
+let h=`
+<div class="help-section"><h4>🪙 Токен PHOEX (Phoenix)</h4><p>Официальный токен проекта Phoenix. Контракт в сети TON. Используется для наград, стейкинга, комиссий и внутренней экономики игры. Символ: <strong>PHOEX</strong> (ранее PHXPW).</p><p style="font-size:11px;word-break:break-all;opacity:.9">Контракт: EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43</p></div>
+<div class="help-section"><h4>📌 О проекте</h4><p>Village Era — игра в мире Phoenix: деревня, шахта, реликвии, маркет и квесты. Чекин и подписки на каналы дают попытки копания и награды. Соберите буквы и выполните квест «ФЕНИКС» для заявки на награду. Сжигание реликвий даёт опыт и буквы.</p></div>
+<div class="help-section"><h4>🔗 Ссылки</h4><div style="display:flex;flex-direction:column;gap:8px">`;
+links.forEach(l=>{ h+=`<a href="${l.url}" target="_blank" rel="noopener" style="color:#ffa500;font-weight:600;display:flex;align-items:center;gap:8px">${l.icon} ${l.name}</a>`; });
+h+='</div></div>';
+document.getElementById('aboutmc').innerHTML=h;
+this.openM('aboutModal');
 },
 
 notify(msg,type=''){

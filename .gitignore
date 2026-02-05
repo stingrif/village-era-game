@@ -1,0 +1,12 @@
+# Локальные env и сгенерированный конфиг
+.env
+.env.local
+.env.server
+config.js
+
+# Бэкенд: venv и .env
+бэкенд/venv/
+бэкенд/.env
+
+# Node (если появятся зависимости)
+node_modules/

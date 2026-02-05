@@ -31,7 +31,7 @@ DEFAULT_STATE = {
     "relics": [],
     "amulets": [],
     "buffs": [],
-    "digsLeft": 5,
+    "digsLeft": 3,
     "lastCheckin": None,
     "exp": 0,
     "level": 0,
@@ -161,9 +161,10 @@ def apply_sell(state: Dict, relic_idx: int) -> Dict:
     if relic_idx < 0 or relic_idx >= len(relics):
         return state
     r = relics[relic_idx]
-    raw = (r.get("ev") or 10) * 10 or 100
+    base_prices = {"fire": 80, "yin": 150, "yan": 280, "tsy": 600, "magic": 1500, "epic": 5000}
+    raw = base_prices.get(r.get("rarity"), (r.get("ev") or 10) * 10 or 80)
     level = state.get("level", 0)
-    tax_rates = {0: 0.25, 1: 0.20, 2: 0.15, 3: 0.12}
+    tax_rates = {0: 0.15, 1: 0.12, 2: 0.10, 3: 0.08}
     tax = tax_rates.get(level, 0.25)
     tax_amt = int(raw * tax)
     net = max(0, raw - tax_amt)
