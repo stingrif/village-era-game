@@ -1,0 +1,46 @@
+# Сервисы для бэкенда игры (поднимаются независимо).
+# Запуск из папки бэкенд/docker:
+#   docker compose up redis -d
+#   docker compose --profile db up -d  # с локальным Postgres
+
+name: village-era
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: village-era-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: village-era-postgres
+    profiles:
+      - db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: village
+      POSTGRES_PASSWORD: village
+      POSTGRES_DB: village_era
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U village -d village_era"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:

@@ -1,52 +1,39 @@
-# Village Era Game Backend
+# Village Era — бэкенд
 
-API для игры «Эра Деревни»: состояние, действия, квест ФЕНИКС, уведомление админу. Критичные данные вынесены в отдельные поля и таблицы.
+API для игры «Эра Деревни». Единая точка входа по бэкенду: каждая тема описана в одном документе (ссылки ниже).
+
+---
 
 ## Стек
 
-- Python 3.10+, FastAPI, asyncpg (PostgreSQL), Redis (опционально)
+Python 3.10+, FastAPI, asyncpg (PostgreSQL), Redis (опционально).
 
-## Переменные окружения
+---
 
-- `DATABASE_URL` — PostgreSQL
-- `REDIS_URL` — кэш (опционально)
-- `GAME_ADMIN_TG_ID` — Telegram ID админа (496560064)
-- `GAME_NOTIFY_BOT_TOKEN` — токен бота для уведомлений
-- `PHOENIX_QUEST_REWARD_AMOUNT` — 100000
-- `MIN_BURN_COUNT_FOR_PHOENIX_QUEST` — минимум сжиганий для награды (по умолчанию 5)
-- `MIN_ACCOUNT_AGE_DAYS_FOR_PHOENIX_QUEST` — минимум дней в игре (по умолчанию 3)
-- `PHOENIX_QUEST_SUBMIT_RATE_LIMIT_SEC` — пауза между попытками завершить квест (сек)
-- `BURN_DIMINISHING_AFTER` — после скольких сжиганий опыт ×0.5 (по умолчанию 50)
+## Источники (один документ на тему)
 
-## Запуск
+| Тема | Документ |
+|------|----------|
+| **Запуск локально** | [RUN_LOCAL.md](RUN_LOCAL.md) — Postgres, Redis (Docker), venv, фронт, переменные. |
+| **REST API (эндпоинты)** | [API_REFERENCE.md](API_REFERENCE.md) — все пути, заголовки, env для API и внешних сервисов. |
+| **Соответствие архитектуре** | [СООТВЕТСТВИЕ_АРХИТЕКТУРЕ.md](СООТВЕТСТВИЕ_АРХИТЕКТУРЕ.md) — что реализовано / не реализовано по 25_Архитектура и 18_Dev. |
+| **Docker (Redis, опц. Postgres)** | [docker/README.md](docker/README.md) — `docker-compose.yml` в папке **docker/**; команды из `бэкенд/docker`. |
+| **Скрипты проверки** | [скрипты/README.md](скрипты/README.md) — БД, API, iCryptoCheck-балансы. |
+| **Тесты** | [tests/README_TESTS.md](tests/README_TESTS.md) — запуск E2E, TEST_API_BASE_URL. |
+| **Админ-панель** | [API_REFERENCE.md](API_REFERENCE.md) § 0.1 — партнёрские токены, задания, тексты страниц (доступ по GAME_ADMIN_TG_ID). |
+| **Переменные окружения** | [env.example](env.example) — полный список ключей. Как задать .env: см. [../ENV_README.md](../ENV_README.md). |
+
+Механики игры (чекин, шахта, крафт, вывод и т.д.) описаны в **[Инструкция](../Инструкция/00_ОГЛАВЛЕНИЕ.md)**; архитектура и потоки — в [Инструкция/25_Архитектура.md](../Инструкция/25_Архитектура.md).
+
+---
+
+## Быстрый старт
 
 ```bash
-cd "Игра/бэкенд"
+cd бэкенд
 pip install -r requirements.txt
+# Задать DATABASE_URL, REDIS_URL в .env (см. env.example и RUN_LOCAL.md)
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Эндпоинты
-
-- `GET /api/game/state` — состояние игрока (заголовок `X-Telegram-User-Id` или `X-User-Id`)
-- `POST /api/game/action` — действие: `sync`, `collect`, `burn`, `sell`, `buy_diamonds_points`, `phoenix_quest_submit`. Для квеста в `params` обязательно передаётся `letters_sequence: "ФЕНИКС"`; проверка последовательности и условий только на сервере.
-
-Отдельного эндпоинта под награду квеста нет — всё через `action`.
-
-## БД
-
-- `game_players`: критические поля в колонках (`phoenix_quest_completed`, `burned_count`, `points_balance`, `created_at`), остальное в JSON `state`.
-- `pending_payouts`: заявки на выплату (claim-ticket). Выплату 100k Phoenix обрабатывать вручную или воркером по этой таблице.
-
-## Поинты
-
-- Целые числа, округление на сервере (`math.ceil` от TON × POINTS_PER_TON). Дробные в БД не хранятся.
-
-## Награда квеста ФЕНИКС
-
-- Не мгновенная выплата: создаётся запись в `pending_payouts`, админу уходит уведомление в Telegram.
-- Условия: минимум N сжиганий и M дней с создания аккаунта (см. переменные выше), плюс серверная проверка последовательности букв и rate-limit на попытки.
-
-## Фронт
-
-В HTML задать `G.API_BASE = 'http://...'` для работы с API. Завершение квеста — через `action: 'phoenix_quest_submit'` с `params.letters_sequence: 'ФЕНИКС'`.
+Проверка подключений: `python скрипты/check_db_connections.py` (см. скрипты/README.md).

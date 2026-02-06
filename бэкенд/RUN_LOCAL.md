@@ -57,7 +57,7 @@ export DATABASE_URL="postgresql://phoenix:PASTE_PASSWORD@127.0.0.1:5440/PhoenixB
 export DATABASE_URL="postgresql://project:PASTE_PASSWORD@127.0.0.1:5432/PhoenixBD"
 ```
 
-Порт смотрите в `ports:` вашего docker-compose (например `5432:5432` → порт 5432).
+Порт смотрите в `ports:` в `бэкенд/docker/docker-compose.yml` (например `5432:5432` → порт 5432).
 
 ### Отдельная база для игры (рекомендуется)
 
@@ -92,6 +92,20 @@ export DATABASE_URL="postgresql://project:PASTE_PASSWORD@127.0.0.1:5432/village_
 ```bash
 psql "postgresql://project:PASTE_PASSWORD@192.168.1.149:5440/PhoenixBD"
 ```
+
+---
+
+## 1.5 Redis (Docker)
+
+Postgres у вас уже есть. Redis можно поднять отдельно через Docker. Перейдите в папку **бэкенд** (там лежит `docker-compose.yml`):
+
+```bash
+cd бэкенд
+docker compose up redis -d
+```
+(Если вы в другом каталоге, укажите полный путь к бэкенду, например: `cd /Users/Den/Downloads/Игра/бэкенд`.)
+
+В `.env` укажите: `REDIS_URL=redis://localhost:6379/0`. Подробнее — в **docker/README.md**. Проверка всех подключений: `python скрипты/check_db_connections.py`.
 
 ---
 
