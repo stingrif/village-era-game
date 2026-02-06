@@ -4,6 +4,57 @@
 
 ---
 
+## 0. Игровое REST API (Village Era, 25_Архитектура)
+
+Базовый префикс: `/api/game`. Заголовок идентификации: `X-Telegram-User-Id` или `X-User-Id` (telegram_id).
+
+| Метод и путь | Назначение |
+|--------------|------------|
+| GET `/api/game/config` | Публичный конфиг: field, mine, eggs (без авторизации) |
+| GET `/api/game/state` | Состояние игры (legacy JSONB) |
+| POST `/api/game/action` | Действия: collect, burn, phoenix_quest_submit, buy_diamonds_points, sell, sync |
+| POST `/api/game/checkin` | Чекин: раз в 10 ч → 3 попытки шахты |
+| GET `/api/game/checkin-state` | next_checkin_at, streak |
+| GET `/api/game/attempts` | Текущий баланс попыток копания |
+| POST `/api/game/mine/create` | Создать сессию шахты 6×6 → mine_id |
+| POST `/api/game/mine/dig` | Копать ячейку: body `{ "mine_id", "cell_index" }` |
+| GET `/api/game/mine/{mine_id}` | Сессия шахты (grid_size, opened_cells, без призовых) |
+| GET `/api/game/partner-tokens` | Список активных партнёрских токенов (для оплаты и т.д.) |
+| GET `/api/game/tasks` | Список активных заданий/контрактов |
+| GET `/api/game/page-texts/{page_id}` | Тексты страницы (косметика): village, mine, profile, about и т.д. |
+
+Конфиг игры: `GAME_CONFIG_PATH` (по умолчанию `data/game_config.json`). См. [18_Dev_таблицы_и_формулы.md](../Инструкция/18_Dev_таблицы_и_формулы.md), [25_Архитектура.md](../Инструкция/25_Архитектура.md).
+
+---
+
+## 0.1 Админ-панель API
+
+Префикс: `/api/admin`. Доступ только при `X-Telegram-User-Id` = `GAME_ADMIN_TG_ID` (иначе 403). Во всех списках и создании сущностей можно передать `project_id` (query или body, по умолчанию `1`) для мультипроектности.
+
+| Метод и путь | Назначение |
+|--------------|------------|
+| GET `/api/admin/partner-tokens` | Список партнёрских токенов (query: `project_id`, `active_only`) |
+| POST `/api/admin/partner-tokens` | Добавить токен: body `{ "token_address", "symbol", "name?", "usage?", "sort_order?", "project_id?" }` |
+| DELETE `/api/admin/partner-tokens/{id}` | Удалить партнёрский токен |
+| GET `/api/admin/tasks` | Список заданий (query: `project_id`, `active_only`) |
+| POST `/api/admin/tasks` | Добавить задание: body `{ "task_key", "title", "description?", "reward_type?", "reward_value?", "conditions_json?", "sort_order?", "project_id?" }` |
+| PUT `/api/admin/tasks/{id}` | Обновить задание (поля по необходимости) |
+| DELETE `/api/admin/tasks/{id}` | Удалить задание |
+| GET `/api/admin/page-texts` | Все тексты по страницам (query: `project_id`) |
+| GET `/api/admin/page-texts/{page_id}` | Тексты одной страницы (query: `project_id`) |
+| PUT `/api/admin/page-texts/{page_id}` | Сохранить тексты: body `{ "key1": "value1", ... }`; опционально `project_id` в body |
+| GET `/api/admin/channels` | Список каналов/чатов проекта (query: `project_id`, `active_only`) |
+| POST `/api/admin/channels` | Добавить канал/чат: body `{ "chat_id", "title?", "channel_type?", "sort_order?", "project_id?" }` |
+| DELETE `/api/admin/channels/{channel_id}` | Удалить канал/чат из проекта |
+| GET `/api/admin/check-user-in-chat` | Проверить, в чате ли пользователь (query: `chat_id`, `user_id` — telegram_id). Нужен `BOT_TOKEN`, бот — админ в чате |
+| POST `/api/admin/activity` | Записать событие активности: body `{ "telegram_id", "event_type", "channel_id?", "event_meta?", "project_id?" }`. event_type: `message_sent`, `reaction_received` и др. |
+| GET `/api/admin/activity/log` | Лог активности (query: `project_id`, `user_id?`, `telegram_id?`, `limit`, `offset`) |
+| GET `/api/admin/activity/stats` | Сводка по пользователям: всего сообщений, реакций, по типам реакций, последняя активность (query: `project_id`, `user_id?`) |
+
+Партнёрские токены — только те, что в партнёрстве (оплата, призовой пул и т.д.). Задания — контракты/квесты с наградами. Тексты страниц — произвольные ключ/значение для подписей, описаний на экранах (village, mine, profile, about и др.). Каналы/чаты привязываются к проекту для рассылок и проверки участников. Активность: мониторинг сообщений, реакций, где и когда пользователь активен — пишется в `activity_log` и агрегаты в `user_activity_stats`.
+
+---
+
 ## 1. Все переменные окружения по разделам
 
 (Полный список — в `env.example`; здесь — краткая сводка для вызова API и парсинга.)
