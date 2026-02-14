@@ -33,11 +33,12 @@ iCryptoCheck — платёжный шлюз для TON и токенов про
 
 | Заголовок | Значение | Когда использовать |
 |-----------|----------|--------------------|
-| `iCryptoCheck-Key` | Значение `*_WALLET_ID` (API-токен приложения) | GET /app/info, привязка к конкретному кошельку |
+| `iCryptoCheck-Key` | `ICRYPTOCHECK_API_KEY` | **POST /app/transfer** — перевод пользователю (общий ключ приложения) |
+| `iCryptoCheck-Key` | Значение `*_WALLET_ID` (API-токен приложения) | **GET /app/info** — баланс конкретного кошелька |
 | `Accept` | `application/json` | Все запросы |
 | `Content-Type` | `application/json` | POST с телом |
 
-По документации iCryptoCheck может использоваться один общий ключ или ключ на приложение — уточняйте в вашем контракте/документации iCryptoCheck.
+**Важно:** для **перевода** используется **общий ключ** `ICRYPTOCHECK_API_KEY`. Для **баланса кошелька** — соответствующий `*_WALLET_ID`.
 
 ---
 
@@ -86,47 +87,55 @@ curl -s -H "iCryptoCheck-Key: YOUR_PROJECT_WALLET_ID" \
 
 ### 3.2 POST /app/transfer — перевод на Telegram ID
 
-**Назначение:** отправить TON или токен пользователю по его **Telegram ID**. Получатель получит вывод через бота iCryptoCheck (или встроенный механизм шлюза).
+**Назначение:** отправить TON или токен пользователю по его **Telegram ID**. Получатель получает вывод через бота iCryptoCheck.
 
-**Статус у нас:** в бэкенде **заглушка**. Эндпоинт `POST /api/game/withdraw/request` проверяет eligibility и возвращает `"iCryptoCheck not configured"`; реальный вызов iCryptoCheck не выполняется.
+**Статус у нас:** ✅ **работает** (проверено тестами). В бэкенде автоматический вызов из `POST /api/game/withdraw/request` пока не подключён — тест выполнялся скриптом/curl.
 
-**Шаблон запроса:**
+**Заголовок:** обязательно **`iCryptoCheck-Key: <ICRYPTOCHECK_API_KEY>`** (общий API-ключ приложения), **не** `*_WALLET_ID`.
+
+**Запрос:**
 
 ```http
 POST {ICRYPTOCHECK_API_URL}/app/transfer
 Content-Type: application/json
-iCryptoCheck-Key: <wallet_id>   # обычно USER_PAYOUTS_WALLET_ID или PROJECT_WALLET_ID
+iCryptoCheck-Key: <ICRYPTOCHECK_API_KEY>
 Accept: application/json
 
 {
-  "telegram_id": 123456789,
-  "amount": "1.5",
-  "currency": "TON"
+  "tgUserId": "496560064",
+  "currency": "PHXPW",
+  "amount": "1000",
+  "description": "награды за задания"
 }
 ```
 
-**Варианты полей (подставить по доке iCryptoCheck):**
+**Поля (обязательные и проверенные):**
 
-| Поле | Описание | Пример |
-|------|----------|--------|
-| `telegram_id` | ID пользователя в Telegram | `123456789` |
-| `amount` | Сумма (строка или число) | `"1.5"` |
-| `currency` | TON или символ токена | `"TON"`, `"PHXPW"` |
-| `comment` | Комментарий к переводу (опционально) | `"withdraw"` |
+| Поле | Тип | Описание | Пример |
+|------|-----|----------|--------|
+| `tgUserId` | строка | ID пользователя в Telegram | `"496560064"` |
+| `currency` | строка | Символ токена или TON | `"PHXPW"`, `"TON"` |
+| `amount` | строка или число | Сумма | `"1000"` или `1000` |
+| `description` | строка | Комментарий к переводу (показывается получателю) | `"награды за задания"` |
 
-**Шаблон ответа (ожидаемый):**
+**Важно:** для комментария в сообщении получателю используется поле **`description`**. Поле `comment` API игнорирует.
+
+**Пример ответа (201 Created):**
 
 ```json
 {
   "success": true,
   "data": {
-    "transaction_id": "...",
-    "status": "pending"
+    "id": "6990f228758bbc0deb8c171d",
+    "tgUserId": "496560064",
+    "currency": "PHXPW",
+    "amount": "1000.000000000",
+    "description": "награды за задания"
   }
 }
 ```
 
-При ошибке — `success: false`, в теле сообщение об ошибке. После подключения в коде вызывать из обработчика `POST /api/game/withdraw/request` (body: `amount`, `to_telegram_id`).
+При ошибке валидации — `400` и `success: false`, в `errors` — список полей (например `tgUserId`, `currency` обязательны).
 
 ---
 
@@ -227,9 +236,9 @@ Accept: application/json
 
 | Операция | Метод iCryptoCheck | У нас в коде | Доступ для других |
 |----------|--------------------|--------------|--------------------|
-| Баланс приложения (кошелька) | GET /app/info | ✅ Скрипт `скрипты/check_icryptocheck_balances.py` | Запуск: `python скрипты/check_icryptocheck_balances.py` из папки бэкенд. В env задать нужные `*_WALLET_ID`. |
-| Перевод на Telegram ID | POST /app/transfer | ❌ Заглушка в `POST /api/game/withdraw/request` | Подключить вызов iCryptoCheck в `api/routes.py` по шаблону выше. |
-| Вывод на TON-адрес | POST /app/withdrawal | ❌ Не вызывается | Аналогично, в обработчике withdraw при `to_address`. |
+| Баланс приложения (кошелька) | GET /app/info | ✅ Скрипт `скрипты/check_icryptocheck_balances.py` | Запуск: `python скрипты/check_icryptocheck_balances.py` из папки бэкенд. В заголовке — `*_WALLET_ID`. |
+| Перевод на Telegram ID | POST /app/transfer | ✅ Проверено (тест скриптом) | Ключ: `ICRYPTOCHECK_API_KEY`. Поля: `tgUserId`, `currency`, `amount`, `description`. Автовызов из `POST /api/game/withdraw/request` — пока не подключён. |
+| Вывод на TON-адрес | POST /app/withdrawal | ❌ Не вызывается | В обработчике withdraw при `to_address`. |
 | Адрес депозита (стейкинг) | POST /app/payment-addresses | ❌ Заглушка в `POST /api/game/staking/create` | Подключить в стейкинг-логике, сохранять адрес в БД. |
 
 **Проверка балансов (помощь другим):**  
@@ -268,8 +277,8 @@ Webhook от iCryptoCheck (если включён): в env задаются `IC
 
 | Тип | URL | Метод | Ключ в заголовке | Тело (POST) |
 |-----|-----|--------|-------------------|-------------|
-| Баланс приложения | `/app/info` | GET | iCryptoCheck-Key: wallet_id | — |
-| Перевод на Telegram | `/app/transfer` | POST | iCryptoCheck-Key: wallet_id | telegram_id, amount, currency |
+| Баланс приложения | `/app/info` | GET | iCryptoCheck-Key: `*_WALLET_ID` | — |
+| Перевод на Telegram | `/app/transfer` | POST | iCryptoCheck-Key: **ICRYPTOCHECK_API_KEY** | tgUserId, currency, amount, description |
 | Вывод на адрес | `/app/withdrawal` | POST | iCryptoCheck-Key: wallet_id | address, amount, currency |
 | Адрес депозита | `/app/payment-addresses` | POST | iCryptoCheck-Key: wallet_id | user_id/telegram_id, session_id |
 

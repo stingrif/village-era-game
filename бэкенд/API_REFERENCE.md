@@ -227,10 +227,15 @@ GET {TON_API_URL}/accounts/{address}/nfts?limit=100
 
 ## 4. iCryptoCheck API
 
-Базовый URL: `ICRYPTOCHECK_API_URL` (например `https://api.icryptocheck.com/api/v1`).  
-Ключ: `ICRYPTOCHECK_API_KEY` (заголовок или query — по доке iCryptoCheck).
+Базовый URL: `ICRYPTOCHECK_API_URL` (например `https://api.icryptocheck.com/api/v1`).
 
-**Идентификаторы кошельков (wallet_id):** в env заданы как `PROJECT_WALLET_ID`, `STAKING_POOL_WALLET_ID`, `ANIMALS_POOL_WALLET_ID`, `USER_PAYOUTS_WALLET_ID`, `PROJECT_INCOME_WALLET_ID`, `BURN_WALLET_ID`, `HOLDERS_REWARDS_WALLET_ID`. Каждый `wallet_id` соответствует приложению/токену в iCryptoCheck — подставлять в вызовы API по балансам/выводам согласно документации iCryptoCheck.
+**Ключи:**
+- **Перевод пользователю:** заголовок `iCryptoCheck-Key: ICRYPTOCHECK_API_KEY` (общий ключ приложения).
+- **Баланс кошелька:** заголовок `iCryptoCheck-Key: <wallet_id>` — один из `PROJECT_WALLET_ID`, `STAKING_POOL_WALLET_ID`, `ANIMALS_POOL_WALLET_ID`, `USER_PAYOUTS_WALLET_ID`, `PROJECT_INCOME_WALLET_ID`, `BURN_WALLET_ID`, `HOLDERS_REWARDS_WALLET_ID`.
+
+**Эндпоинты (проверенные):**
+- `GET /app/info` — баланс приложения (ключ: wallet_id). Используется в `скрипты/check_icryptocheck_balances.py`.
+- `POST /app/transfer` — перевод на Telegram ID (ключ: **ICRYPTOCHECK_API_KEY**). Тело: `tgUserId` (строка), `currency`, `amount`, `description` (комментарий получателю). Ответ 201: `data.id`, `data.amount`, `data.description`. Подробно — [Инструкция 23](../Инструкция/23_Вывод_через_iCryptoCheck.md).
 
 **Лимиты:** `ICRYPTOCHECK_RATE_LIMIT`, задержка `ICRYPTOCHECK_MIN_DELAY` между запросами.
 

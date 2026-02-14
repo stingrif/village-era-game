@@ -37,7 +37,9 @@ python скрипты/check_apis.py
 
 Проверка балансов кошельков проекта в iCryptoCheck. В iCryptoCheck **wallet_id = API-токен** приложения. Для каждого из переменных `PROJECT_WALLET_ID`, `STAKING_POOL_WALLET_ID`, `ANIMALS_POOL_WALLET_ID`, `USER_PAYOUTS_WALLET_ID`, `PROJECT_INCOME_WALLET_ID`, `BURN_WALLET_ID`, `HOLDERS_REWARDS_WALLET_ID` выполняется запрос `GET /app/info` с заголовком `iCryptoCheck-Key: <wallet_id>` и выводятся балансы TON и токена проекта.
 
-Используются: `ICRYPTOCHECK_API_URL`, `TOKEN_DISPLAY_SYMBOL`, `ICRYPTOCHECK_TOKEN_SYMBOL`.
+Используются: `ICRYPTOCHECK_API_URL`, `TOKEN_DISPLAY_SYMBOL`, `ICRYPTOCHECK_TOKEN_SYMBOL`. В заголовке — соответствующий `*_WALLET_ID`.
+
+**Перевод (POST /app/transfer):** работает с ключом `ICRYPTOCHECK_API_KEY` (не wallet_id). Поля: `tgUserId`, `currency`, `amount`, `description`. Полное описание — [Инструкция 23 — Вывод через iCryptoCheck](../../Инструкция/23_Вывод_через_iCryptoCheck.md).
 
 ```bash
 python скрипты/check_icryptocheck_balances.py
