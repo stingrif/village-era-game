@@ -258,8 +258,9 @@ button,btn{cursor:pointer;font-size:14px}
 </div><!-- panelBlock -->
 </div><!-- wrap -->
 
+<script src="config.js"></script>
 <script>
-const API = (window.API_BASE || '').replace(/\/$/,'');
+const API = (window.GAME_API_BASE || window.API_BASE || '').replace(/\/$/,'');
 const ADM = API + '/api/admin';
 const PANEL = API + '/api/admin-panel';
 const TK = 'admin_panel_token';

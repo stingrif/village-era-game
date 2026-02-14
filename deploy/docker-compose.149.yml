@@ -34,6 +34,7 @@ services:
     restart: unless-stopped
     networks:
       - game
+      - caddy_net
 
   redis:
     image: redis:7-alpine
@@ -53,6 +54,9 @@ services:
 networks:
   game:
     driver: bridge
+  caddy_net:
+    external: true
+    name: n8n_default
 
 volumes:
   redis_data:
