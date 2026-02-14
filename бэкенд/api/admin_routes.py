@@ -30,8 +30,19 @@ from infrastructure.database import (
     get_dev_collections,
     get_all_dev_nfts,
     get_dev_profile_stats,
+    get_all_settings,
+    get_setting,
+    set_setting,
+    get_settings_defaults,
+    get_buildings_def,
+    get_all_holder_snapshots,
+    get_holder_snapshots_count,
+    add_withdraw_penalty,
+    mark_penalty_notified,
+    get_penalties_for_user,
 )
-from infrastructure.telegram_chat import check_user_in_chat
+from infrastructure.telegram_chat import check_user_in_chat, get_bot_chats
+from infrastructure.telegram_notify import notify_user_penalty
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -165,6 +176,237 @@ async def admin_dashboard(
                 "points": r["points_balance"],
             }
             for r in top5
+        ],
+    }
+
+
+# ——— Детализация дашборда ———
+
+@router.get("/dashboard/players")
+async def admin_dashboard_players(
+    filter: str = "all",
+    limit: int = 50,
+    offset: int = 0,
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Список игроков с детализацией. filter: all | online | today | week."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    pool = await get_pool()
+    where = ""
+    if filter == "online":
+        where = "WHERE updated_at > NOW() - INTERVAL '5 minutes'"
+    elif filter == "today":
+        where = "WHERE created_at > NOW() - INTERVAL '1 day'"
+    elif filter == "week":
+        where = "WHERE created_at > NOW() - INTERVAL '7 days'"
+    async with pool.acquire() as conn:
+        total = await conn.fetchval(f"SELECT COUNT(*) FROM game_players {where}") or 0
+        rows = await conn.fetch(f"""
+            SELECT telegram_id, username, first_name, points_balance,
+                   created_at, updated_at
+            FROM game_players {where}
+            ORDER BY updated_at DESC
+            LIMIT $1 OFFSET $2
+        """, limit, offset)
+        # checkin streaks for these players (join via users table)
+        tg_ids = [r["telegram_id"] for r in rows]
+        checkin_map = {}
+        if tg_ids:
+            crows = await conn.fetch("""
+                SELECT u.telegram_id, cs.streak, cs.last_checkin_at,
+                       ab.attempts as attempts
+                FROM users u
+                JOIN checkin_state cs ON cs.user_id = u.id
+                LEFT JOIN attempts_balance ab ON ab.user_id = u.id
+                WHERE u.telegram_id = ANY($1::bigint[])
+            """, tg_ids)
+            for cr in crows:
+                checkin_map[cr["telegram_id"]] = {
+                    "streak": cr["streak"],
+                    "last_checkin": cr["last_checkin_at"].isoformat() if cr["last_checkin_at"] else None,
+                    "attempts": cr["attempts"] or 0,
+                }
+    return {
+        "total": total,
+        "filter": filter,
+        "players": [
+            {
+                "telegram_id": r["telegram_id"],
+                "username": r["username"],
+                "first_name": r["first_name"],
+                "name": r["username"] or r["first_name"] or str(r["telegram_id"]),
+                "points": r["points_balance"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                "last_active": r["updated_at"].isoformat() if r["updated_at"] else None,
+                "checkin": checkin_map.get(r["telegram_id"]),
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/dashboard/nft-details")
+async def admin_dashboard_nft_details(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Детальная разбивка NFT по коллекциям с уникальными владельцами."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT c.id, c.name, c.collection_address, c.image, c.synced_at,
+                   COUNT(n.id) AS nft_count,
+                   COUNT(DISTINCT n.owner_address) FILTER (WHERE n.owner_address != '') AS unique_owners
+            FROM dev_collections c
+            LEFT JOIN dev_nfts n ON n.collection_id = c.id
+            GROUP BY c.id
+            ORDER BY nft_count DESC
+        """)
+        # recent NFTs
+        recent = await conn.fetch("""
+            SELECT n.name, n.image, n.owner_address, n.nft_address,
+                   c.name as collection_name, n.synced_at
+            FROM dev_nfts n
+            LEFT JOIN dev_collections c ON c.id = n.collection_id
+            ORDER BY n.synced_at DESC NULLS LAST
+            LIMIT 10
+        """)
+    return {
+        "collections": [
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "address": r["collection_address"],
+                "image": r["image"],
+                "nft_count": r["nft_count"],
+                "unique_owners": r["unique_owners"],
+                "synced_at": r["synced_at"].isoformat() if r["synced_at"] else None,
+            }
+            for r in rows
+        ],
+        "recent_nfts": [
+            {
+                "name": r["name"],
+                "image": r["image"],
+                "owner": r["owner_address"],
+                "address": r["nft_address"],
+                "collection": r["collection_name"],
+                "synced_at": r["synced_at"].isoformat() if r["synced_at"] else None,
+            }
+            for r in recent
+        ],
+    }
+
+
+@router.get("/dashboard/checkins")
+async def admin_dashboard_checkins(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Детализация чекинов: кто чекинился сегодня, стрики."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT u.telegram_id, cs.streak, cs.last_checkin_at,
+                   gp.username, gp.first_name,
+                   ab.attempts as attempts
+            FROM checkin_state cs
+            JOIN users u ON u.id = cs.user_id
+            JOIN game_players gp ON gp.telegram_id = u.telegram_id
+            LEFT JOIN attempts_balance ab ON ab.user_id = u.id
+            WHERE cs.last_checkin_at > NOW() - INTERVAL '1 day'
+            ORDER BY cs.last_checkin_at DESC
+        """)
+        max_streak = await conn.fetchval("SELECT MAX(streak) FROM checkin_state") or 0
+        avg_streak = await conn.fetchval("SELECT AVG(streak)::int FROM checkin_state WHERE streak > 0") or 0
+    return {
+        "today": [
+            {
+                "telegram_id": r["telegram_id"],
+                "name": r["username"] or r["first_name"] or str(r["telegram_id"]),
+                "streak": r["streak"],
+                "attempts": r["attempts"] or 0,
+                "last_checkin": r["last_checkin_at"].isoformat() if r["last_checkin_at"] else None,
+            }
+            for r in rows
+        ],
+        "max_streak": max_streak,
+        "avg_streak": avg_streak,
+    }
+
+
+@router.get("/dashboard/economy")
+async def admin_dashboard_economy(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Детализация экономики: потоки валют, последние транзакции."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # flows by currency and kind
+        flows = await conn.fetch("""
+            SELECT currency, kind,
+                   SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS total_in,
+                   SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) AS total_out,
+                   COUNT(*) AS tx_count
+            FROM economy_ledger
+            GROUP BY currency, kind
+            ORDER BY currency, total_in DESC
+        """)
+        # pending payouts
+        payouts = await conn.fetch("""
+            SELECT pp.id, pp.telegram_id, pp.reward_type, pp.amount, pp.status, pp.created_at,
+                   gp.username, gp.first_name
+            FROM pending_payouts pp
+            LEFT JOIN game_players gp ON gp.telegram_id = pp.telegram_id
+            WHERE pp.status = 'pending'
+            ORDER BY pp.created_at DESC LIMIT 20
+        """)
+        # recent ledger entries (join through users to get names)
+        recent = await conn.fetch("""
+            SELECT el.amount, el.currency, el.kind, el.ref_type, el.created_at,
+                   u.telegram_id, gp.username, gp.first_name
+            FROM economy_ledger el
+            JOIN users u ON u.id = el.user_id
+            LEFT JOIN game_players gp ON gp.telegram_id = u.telegram_id
+            ORDER BY el.created_at DESC LIMIT 15
+        """)
+    return {
+        "flows": [
+            {
+                "currency": r["currency"],
+                "reason": r["kind"],
+                "total_in": float(r["total_in"] or 0),
+                "total_out": float(r["total_out"] or 0),
+                "tx_count": r["tx_count"],
+            }
+            for r in flows
+        ],
+        "pending_payouts": [
+            {
+                "id": r["id"],
+                "telegram_id": r["telegram_id"],
+                "name": r["username"] or r["first_name"] or str(r["telegram_id"]),
+                "amount": float(r["amount"]),
+                "currency": r["reward_type"],
+                "status": r["status"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in payouts
+        ],
+        "recent_transactions": [
+            {
+                "user": r["username"] or r["first_name"] or str(r.get("telegram_id", "?")),
+                "amount": float(r["amount"]),
+                "currency": r["currency"],
+                "reason": r["kind"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in recent
         ],
     }
 
@@ -443,6 +685,318 @@ async def admin_list_activity_stats(
     """Статистика по пользователям: всего сообщений, реакций, по типам реакций, последняя активность."""
     _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
     return await admin_get_activity_stats(project_id=project_id, user_id=user_id)
+
+
+
+
+# ——— Game Config CRUD ———
+
+@router.get("/game-config")
+async def admin_game_config_get(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Return all game settings grouped by category, with defaults."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    settings = await get_all_settings()
+    defaults = get_settings_defaults()
+    # Group by category (part before first dot)
+    grouped: Dict[str, list] = {}
+    all_keys = set(list(settings.keys()) + list(defaults.keys()))
+    for key in sorted(all_keys):
+        cat = key.split(".")[0] if "." in key else "general"
+        grouped.setdefault(cat, [])
+        grouped[cat].append({
+            "key": key,
+            "value": settings.get(key, defaults.get(key)),
+            "default": defaults.get(key),
+        })
+    return {"settings": grouped, "flat": settings, "defaults": defaults}
+
+
+@router.put("/game-config")
+async def admin_game_config_put(
+    body: Dict[str, Any],
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Update game settings. Body: {key: value, ...}"""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    updates = body.get("settings") or body  # accept {settings: {k: v}} or flat {k: v}
+    if not isinstance(updates, dict):
+        raise HTTPException(status_code=400, detail="settings must be a dict")
+    updated = []
+    for key, value in updates.items():
+        if key in ("settings",):
+            continue
+        await set_setting(key, value)
+        updated.append(key)
+    return {"ok": True, "updated": updated}
+
+
+@router.get("/meta")
+async def admin_meta(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Return available reward types, currencies, buildings list, task types, channel types, etc."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    reward_types = [
+        {"value": "COINS", "label": "Монеты (COINS)"},
+        {"value": "GEMS", "label": "Гемы (GEMS)"},
+        {"value": "STARS", "label": "Звёзды (STARS)"},
+        {"value": "PHXPW", "label": "Токен проекта (PHXPW)"},
+        {"value": "PHOEX", "label": "PHOEX"},
+        {"value": "WOOD", "label": "Дерево (WOOD)"},
+        {"value": "STONE", "label": "Камень (STONE)"},
+        {"value": "ATTEMPTS", "label": "Попытки шахты"},
+        {"value": "POINTS", "label": "Очки (POINTS)"},
+        {"value": "EGG", "label": "Яйцо (EGG)"},
+        {"value": "RELIC", "label": "Реликвия"},
+    ]
+    currencies = ["COINS", "GEMS", "STARS", "PHXPW", "PHOEX", "WOOD", "STONE", "POINTS"]
+    task_types = [
+        {"value": "subscribe_channel", "label": "Подписка на канал/чат"},
+        {"value": "subscribe_tg", "label": "Подписка на Telegram"},
+        {"value": "visit_url", "label": "Посетить ссылку"},
+        {"value": "connect_wallet", "label": "Привязать кошелёк"},
+        {"value": "buy_nft", "label": "Купить NFT"},
+        {"value": "checkin_streak", "label": "Стрик чекинов"},
+        {"value": "mine_count", "label": "Копать N раз"},
+        {"value": "invite_friend", "label": "Пригласить друга"},
+        {"value": "custom", "label": "Своё условие"},
+    ]
+    channel_types = [
+        {"value": "channel", "label": "Канал"},
+        {"value": "group", "label": "Группа"},
+        {"value": "supergroup", "label": "Супергруппа"},
+    ]
+    condition_types = [
+        {"value": "subscribe_channel", "label": "Подписка на канал"},
+        {"value": "hold_nft", "label": "Держать NFT"},
+        {"value": "min_balance", "label": "Мин. баланс"},
+        {"value": "min_level", "label": "Мин. уровень"},
+        {"value": "invite_friends", "label": "Пригласить друзей"},
+        {"value": "custom", "label": "Своё условие"},
+    ]
+    buildings = await get_buildings_def()
+    channels = []
+    try:
+        channels = await admin_get_channels()
+    except Exception:
+        pass
+    return {
+        "reward_types": reward_types,
+        "currencies": currencies,
+        "task_types": task_types,
+        "channel_types": channel_types,
+        "condition_types": condition_types,
+        "buildings": buildings,
+        "channels": channels,
+    }
+
+
+# ——— Bot Chats (auto-detect) ———
+
+@router.get("/bot-chats")
+async def admin_bot_chats(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Auto-detect chats/channels where bot is a member (cached 5 min)."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    chats = await get_bot_chats()
+    return {"chats": chats}
+
+
+# ——— NFT Holders ———
+
+@router.get("/nft-holders")
+async def admin_nft_holders(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Return full list of NFT holders with analytics and TG links."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    holders = await get_all_holder_snapshots()
+    # Add TG link for each linked user
+    for h in holders:
+        tg_id = h.get("linked_telegram_id")
+        username = h.get("linked_username")
+        if username:
+            h["tg_link"] = f"https://t.me/{username}"
+        elif tg_id:
+            h["tg_link"] = f"tg://user?id={tg_id}"
+        else:
+            h["tg_link"] = None
+    return {"holders": holders, "count": len(holders)}
+
+
+@router.post("/nft-holders/sync")
+async def admin_nft_holders_sync(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Trigger manual NFT holders sync."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    from infrastructure.nft_sync import sync_nft_holders
+    stats = await sync_nft_holders()
+    return {"ok": True, **stats}
+
+
+# ——— Участники (для выбора в переводах/штрафах) ———
+
+@router.get("/participants")
+async def admin_participants(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Список участников игры для выбора: user_id, telegram_id, username."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT u.id AS user_id, u.telegram_id, gp.username
+            FROM users u
+            JOIN game_players gp ON gp.telegram_id = u.telegram_id
+            ORDER BY gp.updated_at DESC NULLS LAST
+            LIMIT 500
+        """)
+    return {
+        "participants": [
+            {"user_id": r["user_id"], "telegram_id": str(r["telegram_id"]), "username": r["username"] or ""}
+            for r in rows
+        ],
+    }
+
+
+@router.get("/transfer/currencies")
+async def admin_transfer_currencies(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Доступные валюты для перевода и ограничения (если есть)."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    return {
+        "currencies": [{"value": "PHXPW", "label": "PHXPW"}, {"value": "TON", "label": "TON"}],
+        "limits_note": "Лимиты и комиссии задаются в iCryptoCheck.",
+        "penalty_note": "Штраф удерживается при следующем выводе средств пользователем.",
+    }
+
+
+@router.post("/transfer")
+async def admin_transfer(
+    body: Dict[str, Any],
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Перевод пользователю через iCryptoCheck (награда). body: telegram_id, amount, currency, description."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    from config import ICRYPTOCHECK_API_KEY, ICRYPTOCHECK_API_URL
+    import httpx
+    telegram_id_raw = body.get("telegram_id")
+    if telegram_id_raw is None:
+        raise HTTPException(status_code=400, detail="telegram_id required")
+    try:
+        telegram_id = str(int(telegram_id_raw))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="telegram_id must be number")
+    amount = body.get("amount")
+    if amount is None:
+        raise HTTPException(status_code=400, detail="amount required")
+    try:
+        amount_val = float(amount)
+        if amount_val <= 0:
+            raise ValueError("must be positive")
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="amount must be positive number")
+    currency = (body.get("currency") or "PHXPW").strip().upper() or "PHXPW"
+    description = (body.get("description") or "").strip() or "награда"
+    if not ICRYPTOCHECK_API_KEY:
+        raise HTTPException(status_code=503, detail="iCryptoCheck not configured (ICRYPTOCHECK_API_KEY)")
+    payload = {
+        "tgUserId": telegram_id,
+        "currency": currency,
+        "amount": str(int(amount_val)) if amount_val == int(amount_val) else str(amount_val),
+        "description": description,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.post(
+                f"{ICRYPTOCHECK_API_URL}/app/transfer",
+                headers={"iCryptoCheck-Key": ICRYPTOCHECK_API_KEY, "Content-Type": "application/json"},
+                json=payload,
+            )
+    except Exception as e:
+        logger.exception("admin transfer request failed: %s", e)
+        raise HTTPException(status_code=502, detail=str(e))
+    if r.status_code not in (200, 201):
+        try:
+            err = r.json()
+            raise HTTPException(status_code=502, detail=err.get("message", r.text[:200]))
+        except Exception:
+            raise HTTPException(status_code=502, detail=r.text[:200] or "transfer failed")
+    data = r.json()
+    if not data.get("success"):
+        raise HTTPException(status_code=502, detail=data.get("message", "transfer failed"))
+    return {"ok": True, "data": data.get("data"), "message": "Перевод отправлен"}
+
+
+@router.post("/penalty")
+async def admin_penalty(
+    body: Dict[str, Any],
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Наложить штраф на вывод. body: telegram_id, amount, currency, comment, notify_user (bool). Штраф сработает при выводе."""
+    admin_tg_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    _require_admin(admin_tg_id)
+    telegram_id_raw = body.get("telegram_id")
+    if telegram_id_raw is None:
+        raise HTTPException(status_code=400, detail="telegram_id required")
+    try:
+        telegram_id = int(telegram_id_raw)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="telegram_id must be number")
+    amount = body.get("amount")
+    if amount is None:
+        raise HTTPException(status_code=400, detail="amount required")
+    try:
+        amount_val = float(amount)
+        if amount_val <= 0:
+            raise ValueError("must be positive")
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="amount must be positive number")
+    currency = (body.get("currency") or "PHXPW").strip().upper() or "PHXPW"
+    comment = (body.get("comment") or "").strip()
+    notify_user = bool(body.get("notify_user"))
+    user_id = await ensure_user(telegram_id)
+    penalty_id = await add_withdraw_penalty(
+        user_id=user_id,
+        amount=amount_val,
+        currency=currency,
+        reason=comment or None,
+        notify_user=notify_user,
+        created_by_telegram_id=admin_tg_id,
+    )
+    if notify_user:
+        sent = await notify_user_penalty(telegram_id, amount_val, currency, comment or None)
+        if sent:
+            await mark_penalty_notified(penalty_id)
+    return {"ok": True, "penalty_id": penalty_id, "message": "Штраф наложен. Будет удержан при выводе."}
+
+
+@router.get("/penalties/{telegram_id}")
+async def admin_penalties_for_user(
+    telegram_id: int,
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Список штрафов по пользователю (telegram_id)."""
+    _require_admin(_get_telegram_id(x_telegram_user_id, x_user_id))
+    user_id = await ensure_user(telegram_id)
+    penalties = await get_penalties_for_user(user_id)
+    return {"penalties": penalties}
 
 
 # ——— Начисление админу и тест выплаты (iCryptoCheck) ———
