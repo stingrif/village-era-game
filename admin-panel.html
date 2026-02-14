@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Админ-панель — Village Era</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:0;background:#111827;color:#e5e7eb;min-height:100vh}
+.wrap{max-width:820px;margin:0 auto;padding:16px}
+h1{color:#f59e0b;font-size:1.5rem;margin:0 0 4px}
+h2{color:#f59e0b;font-size:1.1rem;margin:20px 0 10px}
+h3{color:#d97706;font-size:.95rem;margin:14px 0 8px}
+a{color:#60a5fa}
+.subtitle{font-size:13px;opacity:.7;margin-bottom:16px}
+
+/* Nav */
+.nav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;background:rgba(0,0,0,.3);padding:8px;border-radius:10px}
+.nav button{padding:7px 12px;border-radius:8px;border:1px solid rgba(245,158,11,.25);background:transparent;color:#d1d5db;font-size:13px;cursor:pointer;white-space:nowrap}
+.nav button:hover{background:rgba(245,158,11,.15)}
+.nav button.active{background:linear-gradient(135deg,#d97706,#f59e0b);color:#111827;font-weight:700;border-color:transparent}
+
+/* Cards */
+.card{background:rgba(255,255,255,.04);border:1px solid rgba(245,158,11,.2);border-radius:12px;padding:16px;margin-bottom:16px}
+.section{display:none}
+.section.active{display:block}
+
+/* Forms */
+input[type="text"],input[type="password"],input[type="number"],textarea,select{width:100%;padding:9px 12px;border:1px solid rgba(245,158,11,.35);border-radius:8px;background:rgba(0,0,0,.35);color:#fff;font-size:14px;margin-bottom:8px}
+input::placeholder,textarea::placeholder{color:rgba(255,255,255,.35)}
+textarea{min-height:60px;resize:vertical}
+label{display:block;font-size:12px;color:#9ca3af;margin-bottom:3px}
+
+/* Buttons */
+button,btn{cursor:pointer;font-size:14px}
+.btn{padding:8px 16px;border-radius:8px;border:none;font-weight:600}
+.btn-primary{background:linear-gradient(135deg,#d97706,#f59e0b);color:#111827}
+.btn-danger{background:linear-gradient(135deg,#b91c1c,#dc2626);color:#fff}
+.btn-success{background:linear-gradient(135deg,#047857,#10b981);color:#fff}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn:hover{opacity:.9}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* List items */
+.list-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(0,0,0,.2);border-radius:8px;margin-bottom:6px;font-size:13px}
+.list-item .label{color:#f59e0b;font-weight:600;margin-right:6px}
+.list-item .meta{opacity:.7;font-size:11px;word-break:break-all}
+.list-item .actions{display:flex;gap:4px;flex-shrink:0}
+
+/* Stats grid */
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:12px;text-align:center}
+.stat .val{font-size:1.5rem;font-weight:700;color:#f59e0b}
+.stat .lbl{font-size:11px;color:#9ca3af;margin-top:2px}
+
+/* Messages */
+.msg{font-size:13px;margin-top:8px;min-height:18px}
+.msg.err{color:#ef4444}
+.msg.ok{color:#10b981}
+
+/* Toggle */
+.toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px}
+.toggle input{width:16px;height:16px;accent-color:#f59e0b}
+
+/* Top list */
+.top-list{list-style:none;padding:0;margin:0}
+.top-list li{padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px;display:flex;justify-content:space-between}
+.top-list li:last-child{border-bottom:none}
+
+/* Login screens */
+.login-card{max-width:400px;margin:60px auto}
+.hidden{display:none!important}
+.logout{float:right;font-size:12px;padding:4px 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:8px}
+.row>*{flex:1;min-width:120px}
+.inline-form{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.inline-form>*:not(button){flex:1;min-width:100px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Village Era — Admin</h1>
+<p class="subtitle">Управление проектом</p>
+
+<!-- ===== Auth screens ===== -->
+<div id="setupBlock" class="login-card card hidden">
+<h2>Первый вход</h2>
+<label>Логин</label><input type="text" id="setupLogin" placeholder="admin">
+<label>Пароль</label><input type="password" id="setupPassword" placeholder="мин. 6 символов">
+<button class="btn btn-primary" id="btnSetup">Создать</button>
+<div id="setupMsg" class="msg"></div>
+</div>
+
+<div id="loginBlock" class="login-card card hidden">
+<h2>Вход</h2>
+<label>Логин</label><input type="text" id="loginLogin" placeholder="Логин">
+<label>Пароль</label><input type="password" id="loginPassword" placeholder="Пароль">
+<button class="btn btn-primary" id="btnLogin">Войти</button>
+<div id="loginMsg" class="msg"></div>
+</div>
+
+<!-- ===== Main panel ===== -->
+<div id="panelBlock" class="hidden">
+<p style="margin:0 0 12px;font-size:13px">
+  <span id="panelLogin" style="color:#f59e0b;font-weight:600"></span>
+  <button class="btn btn-sm btn-danger logout" id="btnLogout">Выйти</button>
+</p>
+
+<div class="nav" id="mainNav">
+  <button data-s="dashboard" class="active">Dashboard</button>
+  <button data-s="tasks">Задания</button>
+  <button data-s="channels">Каналы</button>
+  <button data-s="texts">Тексты</button>
+  <button data-s="tokens">Токены</button>
+  <button data-s="contracts">Стейкинг</button>
+  <button data-s="nft">NFT</button>
+  <button data-s="activity">Активность</button>
+  <button data-s="settings">Настройки</button>
+</div>
+
+<!-- ── Dashboard ── -->
+<div id="sec-dashboard" class="section active">
+<div class="stats" id="dashStats"></div>
+<div class="card">
+<h3>Top-5 игроков</h3>
+<ol class="top-list" id="dashTop5"></ol>
+</div>
+<div class="card">
+<h3>NFT каталог</h3>
+<div id="dashNft" style="font-size:13px;opacity:.8">Загрузка...</div>
+</div>
+</div>
+
+<!-- ── Tasks ── -->
+<div id="sec-tasks" class="section">
+<div class="card">
+<h3>Добавить задание</h3>
+<div class="row">
+  <div><label>Ключ</label><input type="text" id="taskKey" placeholder="subscribe_tg"></div>
+  <div><label>Название</label><input type="text" id="taskTitle" placeholder="Подписка на TG"></div>
+</div>
+<div class="row">
+  <div><label>Описание</label><input type="text" id="taskDesc" placeholder="Описание"></div>
+  <div><label>Тип награды</label><input type="text" id="taskRewardType" placeholder="COINS" value="COINS"></div>
+  <div><label>Сумма</label><input type="number" id="taskRewardVal" placeholder="100" value="100"></div>
+</div>
+<button class="btn btn-primary btn-sm" id="btnAddTask">Добавить</button>
+<div id="taskMsg" class="msg"></div>
+</div>
+<div id="tasksList"></div>
+</div>
+
+<!-- ── Channels ── -->
+<div id="sec-channels" class="section">
+<div class="card">
+<h3>Добавить канал / чат</h3>
+<div class="row">
+  <div><label>Chat ID</label><input type="text" id="chChatId" placeholder="-1001234567890"></div>
+  <div><label>Название</label><input type="text" id="chTitle" placeholder="Phoenix Paw"></div>
+  <div><label>Тип</label>
+    <select id="chType"><option value="channel">Канал</option><option value="group">Группа</option><option value="supergroup">Супергруппа</option></select>
+  </div>
+</div>
+<button class="btn btn-primary btn-sm" id="btnAddChannel">Добавить</button>
+<div id="chMsg" class="msg"></div>
+</div>
+<div id="channelsList"></div>
+</div>
+
+<!-- ── Page Texts ── -->
+<div id="sec-texts" class="section">
+<div class="card">
+<h3>Редактирование текстов</h3>
+<p style="font-size:12px;opacity:.7">Введите page_id чтобы загрузить тексты, или создайте новый.</p>
+<div class="inline-form" style="margin-bottom:12px">
+  <input type="text" id="txtPageId" placeholder="page_id (напр. home, tasks)" style="max-width:220px">
+  <button class="btn btn-primary btn-sm" id="btnLoadTexts">Загрузить</button>
+</div>
+<div id="textsEditor"></div>
+<div id="txtMsg" class="msg"></div>
+</div>
+</div>
+
+<!-- ── Partner Tokens ── -->
+<div id="sec-tokens" class="section">
+<div class="card">
+<h3>Добавить партнёрский токен</h3>
+<div class="row">
+  <div><label>Адрес токена</label><input type="text" id="ptAddr" placeholder="EQ..."></div>
+  <div><label>Символ</label><input type="text" id="ptSymbol" placeholder="PHXPW"></div>
+</div>
+<div class="row">
+  <div><label>Название</label><input type="text" id="ptName" placeholder="Phoenix Paw Token"></div>
+  <div><label>Назначение</label><input type="text" id="ptUsage" placeholder="payment" value="payment"></div>
+</div>
+<button class="btn btn-primary btn-sm" id="btnAddToken">Добавить</button>
+<div id="ptMsg" class="msg"></div>
+</div>
+<div id="tokensList"></div>
+</div>
+
+<!-- ── Staking Contracts ── -->
+<div id="sec-contracts" class="section">
+<div class="card">
+<h3>Стейкинг-контракты</h3>
+<div class="inline-form" style="margin-bottom:12px">
+  <input type="text" id="scAddr" placeholder="Адрес контракта (TON)">
+  <input type="text" id="scLabel" placeholder="Подпись" style="max-width:160px">
+  <button class="btn btn-primary btn-sm" id="btnAddContract">Добавить</button>
+</div>
+<div id="scMsg" class="msg"></div>
+</div>
+<div id="contractsList"></div>
+</div>
+
+<!-- ── NFT ── -->
+<div id="sec-nft" class="section">
+<div class="card">
+<h3>NFT-коллекции разработчика</h3>
+<button class="btn btn-success btn-sm" id="btnNftSync" style="margin-bottom:12px">Синхронизировать NFT</button>
+<div id="nftSyncMsg" class="msg"></div>
+<div id="nftCollList"></div>
+</div>
+<div class="card">
+<h3>NFT предметы</h3>
+<div id="nftItemsList" style="max-height:400px;overflow-y:auto"></div>
+</div>
+</div>
+
+<!-- ── Activity ── -->
+<div id="sec-activity" class="section">
+<div class="card">
+<h3>Лог активности</h3>
+<div class="inline-form" style="margin-bottom:12px">
+  <input type="text" id="actTgId" placeholder="Telegram ID (опц.)" style="max-width:180px">
+  <button class="btn btn-primary btn-sm" id="btnLoadActivity">Загрузить</button>
+</div>
+<div id="actLog" style="max-height:400px;overflow-y:auto;font-size:12px"></div>
+</div>
+<div class="card">
+<h3>Статистика</h3>
+<div id="actStats" style="font-size:13px"></div>
+</div>
+</div>
+
+<!-- ── Settings ── -->
+<div id="sec-settings" class="section">
+<div class="card">
+<h3>Смена логина / пароля</h3>
+<label>Новый логин</label><input type="text" id="setLogin" placeholder="Оставьте пустым">
+<label>Текущий пароль</label><input type="password" id="setCurPwd" placeholder="Обязателен при смене пароля">
+<label>Новый пароль</label><input type="password" id="setNewPwd" placeholder="Мин. 6 символов">
+<button class="btn btn-primary btn-sm" id="btnSaveSettings">Сохранить</button>
+<div id="setMsg" class="msg"></div>
+</div>
+</div>
+
+</div><!-- panelBlock -->
+</div><!-- wrap -->
+
+<script>
+const API = (window.API_BASE || '').replace(/\/$/,'');
+const ADM = API + '/api/admin';
+const PANEL = API + '/api/admin-panel';
+const TK = 'admin_panel_token';
+const TG_KEY = 'admin_tg_id';
+
+function token(){ return localStorage.getItem(TK); }
+function setTk(t){ t?localStorage.setItem(TK,t):localStorage.removeItem(TK); }
+function tgId(){ return localStorage.getItem(TG_KEY)||'496560064'; }
+
+function $(id){ return document.getElementById(id); }
+function show(id){ $(id).classList.remove('hidden'); }
+function hide(id){ $(id).classList.add('hidden'); }
+function msg(id,t,err){ const e=$(id); e.textContent=t||''; e.className='msg'+(err?' err':' ok'); }
+
+async function api(url, opt={}){
+  const h={'Content-Type':'application/json',...(opt.headers||{})};
+  const tk=token(); if(tk) h['Authorization']='Bearer '+tk;
+  h['X-Telegram-User-Id']=tgId();
+  const r=await fetch(url,{...opt,headers:h});
+  if(!r.ok){ const d=await r.json().catch(()=>({})); throw new Error(d.detail||r.statusText); }
+  const ct=r.headers.get('content-type');
+  return ct&&ct.includes('json')?r.json():null;
+}
+
+// ——— Navigation ———
+$('mainNav').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-s]'); if(!b)return;
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+  const sec=$('sec-'+b.dataset.s); if(sec)sec.classList.add('active');
+  // auto-load
+  const s=b.dataset.s;
+  if(s==='dashboard') loadDashboard();
+  if(s==='tasks') loadTasks();
+  if(s==='channels') loadChannels();
+  if(s==='tokens') loadTokens();
+  if(s==='contracts') loadContracts();
+  if(s==='nft') loadNft();
+  if(s==='activity'){ loadActivityStats(); }
+});
+
+// ——— Auth ———
+async function init(){
+  const tk=token();
+  if(tk){
+    try{ const me=await api(PANEL+'/me'); $('panelLogin').textContent=me.login; show('panelBlock'); hide('setupBlock'); hide('loginBlock'); loadDashboard(); return; }
+    catch(_){ setTk(null); }
+  }
+  try{
+    const s=await api(PANEL+'/setup/status');
+    if(s.admin_exists){ show('loginBlock'); hide('setupBlock'); }
+    else{ show('setupBlock'); hide('loginBlock'); }
+    hide('panelBlock');
+  }catch(e){ document.body.insertAdjacentHTML('beforeend','<p style="color:#ef4444;padding:20px">API недоступно. Проверьте API_BASE.</p>'); }
+}
+
+$('btnSetup').onclick=async()=>{
+  msg('setupMsg');
+  try{
+    const d=await api(PANEL+'/setup',{method:'POST',body:JSON.stringify({login:$('setupLogin').value.trim(),password:$('setupPassword').value})});
+    setTk(d.token); $('panelLogin').textContent=d.login; show('panelBlock'); hide('setupBlock'); loadDashboard();
+  }catch(e){ msg('setupMsg',e.message,1); }
+};
+$('btnLogin').onclick=async()=>{
+  msg('loginMsg');
+  try{
+    const d=await api(PANEL+'/login',{method:'POST',body:JSON.stringify({login:$('loginLogin').value.trim(),password:$('loginPassword').value})});
+    setTk(d.token); $('panelLogin').textContent=d.login; show('panelBlock'); hide('loginBlock'); loadDashboard();
+  }catch(e){ msg('loginMsg',e.message,1); }
+};
+$('btnLogout').onclick=()=>{ setTk(null); init(); hide('panelBlock'); };
+
+// ——— Settings ———
+$('btnSaveSettings').onclick=async()=>{
+  msg('setMsg');
+  try{
+    await api(PANEL+'/settings',{method:'PUT',body:JSON.stringify({new_login:$('setLogin').value.trim()||undefined,current_password:$('setCurPwd').value,new_password:$('setNewPwd').value||undefined})});
+    msg('setMsg','Сохранено');
+    $('setLogin').value=''; $('setCurPwd').value=''; $('setNewPwd').value='';
+  }catch(e){ msg('setMsg',e.message,1); }
+};
+
+// ——— Dashboard ———
+async function loadDashboard(){
+  try{
+    const d=await api(ADM+'/dashboard');
+    const p=d.players||d; const nft=d.nft||{}; const eco=d.economy||{};
+    $('dashStats').innerHTML=[
+      s(p.total||d.total_players||0,'Игроков'),
+      s(Math.max(p.online_ws||0,p.online_recent||0)||d.online||0,'Онлайн'),
+      s(p.new_today||d.new_today||0,'Новых сегодня'),
+      s(p.new_week||d.new_week||0,'За неделю'),
+      s(d.checkins_today||0,'Чекинов сегодня'),
+      s(nft.collections||d.nft_collections||0,'NFT коллекций'),
+      s(nft.total_nfts||d.nft_total||0,'NFT всего'),
+      s(eco.pending_payouts||d.pending_payouts||0,'Ожид. выплат'),
+    ].join('');
+    const top=d.top5||[];
+    $('dashTop5').innerHTML=top.length?top.map((p,i)=>'<li><span>'+(i+1)+'. '+esc(p.name)+'</span><span style="color:#f59e0b">'+p.points+' pts</span></li>').join(''):'<li style="opacity:.6">Нет данных</li>';
+    const syncT=nft.last_synced_at||d.nft_last_sync;
+    $('dashNft').innerHTML=(nft.collections||d.nft_collections||0)+' коллекций, '+(nft.total_nfts||d.nft_total||0)+' NFT'+(syncT?' — синк: '+new Date(syncT).toLocaleString():'');
+  }catch(e){ $('dashStats').innerHTML='<p class="msg err">'+esc(e.message)+'</p>'; }
+}
+function s(v,l){ return '<div class="stat"><div class="val">'+v+'</div><div class="lbl">'+l+'</div></div>'; }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ——— Tasks ———
+async function loadTasks(){
+  try{
+    const list=await api(ADM+'/tasks');
+    $('tasksList').innerHTML=list.map(t=>`
+      <div class="list-item">
+        <div style="flex:1">
+          <div><span class="label">${esc(t.task_key)}</span> ${esc(t.title)}</div>
+          <div class="meta">${esc(t.description||'')} | ${t.reward_type||'?'}: ${t.reward_value||0} | ${t.is_active?'Активно':'Неактивно'}</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-sm ${t.is_active?'btn-danger':'btn-success'}" onclick="toggleTask(${t.id},${!t.is_active})">${t.is_active?'Выкл':'Вкл'}</button>
+          <button class="btn btn-sm btn-danger" onclick="delTask(${t.id})">X</button>
+        </div>
+      </div>`).join('')||'<p style="opacity:.6;font-size:13px">Нет заданий</p>';
+  }catch(e){ msg('taskMsg',e.message,1); }
+}
+$('btnAddTask').onclick=async()=>{
+  msg('taskMsg');
+  try{
+    await api(ADM+'/tasks',{method:'POST',body:JSON.stringify({task_key:$('taskKey').value.trim(),title:$('taskTitle').value.trim(),description:$('taskDesc').value.trim(),reward_type:$('taskRewardType').value.trim(),reward_value:parseInt($('taskRewardVal').value)||0})});
+    msg('taskMsg','Добавлено'); $('taskKey').value=''; $('taskTitle').value=''; $('taskDesc').value=''; loadTasks();
+  }catch(e){ msg('taskMsg',e.message,1); }
+};
+window.toggleTask=async(id,active)=>{ try{ await api(ADM+'/tasks/'+id,{method:'PUT',body:JSON.stringify({is_active:active})}); loadTasks(); }catch(e){ alert(e.message); }};
+window.delTask=async(id)=>{ if(!confirm('Удалить задание?'))return; try{ await api(ADM+'/tasks/'+id,{method:'DELETE'}); loadTasks(); }catch(e){ alert(e.message); }};
+
+// ——— Channels ———
+async function loadChannels(){
+  try{
+    const list=await api(ADM+'/channels');
+    $('channelsList').innerHTML=list.map(c=>`
+      <div class="list-item">
+        <div style="flex:1">
+          <span class="label">${esc(c.title||'#'+c.chat_id)}</span>
+          <span class="meta">ID: ${c.chat_id} | ${c.channel_type} | ${c.is_active?'Активен':'Неактивен'}</span>
+        </div>
+        <div class="actions">
+          <button class="btn btn-sm btn-danger" onclick="delChannel(${c.id})">X</button>
+        </div>
+      </div>`).join('')||'<p style="opacity:.6;font-size:13px">Нет каналов</p>';
+  }catch(e){ msg('chMsg',e.message,1); }
+}
+$('btnAddChannel').onclick=async()=>{
+  msg('chMsg');
+  try{
+    await api(ADM+'/channels',{method:'POST',body:JSON.stringify({chat_id:parseInt($('chChatId').value),title:$('chTitle').value.trim(),channel_type:$('chType').value})});
+    msg('chMsg','Добавлено'); $('chChatId').value=''; $('chTitle').value=''; loadChannels();
+  }catch(e){ msg('chMsg',e.message,1); }
+};
+window.delChannel=async(id)=>{ if(!confirm('Удалить канал?'))return; try{ await api(ADM+'/channels/'+id,{method:'DELETE'}); loadChannels(); }catch(e){ alert(e.message); }};
+
+// ——— Page Texts ———
+$('btnLoadTexts').onclick=async()=>{
+  const pid=$('txtPageId').value.trim(); if(!pid){msg('txtMsg','Введите page_id',1);return;}
+  msg('txtMsg');
+  try{
+    const data=await api(ADM+'/page-texts/'+encodeURIComponent(pid));
+    renderTextsEditor(pid,data);
+  }catch(e){ msg('txtMsg',e.message,1); }
+};
+function renderTextsEditor(pid,data){
+  const keys=Object.keys(data||{});
+  let h='<h3>Страница: '+esc(pid)+'</h3>';
+  if(!keys.length) h+='<p style="font-size:12px;opacity:.7">Нет текстов. Добавьте ниже.</p>';
+  keys.forEach(k=>{
+    h+=`<label>${esc(k)}</label><textarea data-key="${esc(k)}">${esc(data[k])}</textarea>`;
+  });
+  h+=`<div class="inline-form" style="margin-top:8px">
+    <input type="text" id="newTxtKey" placeholder="Новый ключ" style="max-width:180px">
+    <input type="text" id="newTxtVal" placeholder="Значение">
+    <button class="btn btn-sm btn-success" onclick="addTextKey()">+</button>
+  </div>`;
+  h+=`<button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="saveTexts('${esc(pid)}')">Сохранить</button>`;
+  $('textsEditor').innerHTML=h;
+}
+window.addTextKey=()=>{
+  const k=$('newTxtKey').value.trim(); const v=$('newTxtVal').value;
+  if(!k)return;
+  const ta=document.createElement('div');
+  ta.innerHTML=`<label>${esc(k)}</label><textarea data-key="${esc(k)}">${esc(v)}</textarea>`;
+  $('textsEditor').insertBefore(ta.firstElementChild,$('textsEditor').querySelector('.inline-form'));
+  $('textsEditor').insertBefore(ta.firstElementChild,$('textsEditor').querySelector('.inline-form'));
+  $('newTxtKey').value=''; $('newTxtVal').value='';
+};
+window.saveTexts=async(pid)=>{
+  msg('txtMsg');
+  const texts={};
+  $('textsEditor').querySelectorAll('textarea[data-key]').forEach(ta=>{ texts[ta.dataset.key]=ta.value; });
+  try{
+    await api(ADM+'/page-texts/'+encodeURIComponent(pid),{method:'PUT',body:JSON.stringify(texts)});
+    msg('txtMsg','Сохранено');
+  }catch(e){ msg('txtMsg',e.message,1); }
+};
+
+// ——— Partner Tokens ———
+async function loadTokens(){
+  try{
+    const list=await api(ADM+'/partner-tokens');
+    $('tokensList').innerHTML=list.map(t=>`
+      <div class="list-item">
+        <div style="flex:1">
+          <span class="label">${esc(t.symbol)}</span> ${esc(t.name||'')}
+          <div class="meta">${esc(t.token_address)} | ${t.usage} | ${t.is_active?'Активен':'Неактивен'}</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-sm btn-danger" onclick="delToken(${t.id})">X</button>
+        </div>
+      </div>`).join('')||'<p style="opacity:.6;font-size:13px">Нет токенов</p>';
+  }catch(e){ msg('ptMsg',e.message,1); }
+}
+$('btnAddToken').onclick=async()=>{
+  msg('ptMsg');
+  try{
+    await api(ADM+'/partner-tokens',{method:'POST',body:JSON.stringify({token_address:$('ptAddr').value.trim(),symbol:$('ptSymbol').value.trim(),name:$('ptName').value.trim(),usage:$('ptUsage').value.trim()})});
+    msg('ptMsg','Добавлено'); $('ptAddr').value=''; $('ptSymbol').value=''; $('ptName').value=''; loadTokens();
+  }catch(e){ msg('ptMsg',e.message,1); }
+};
+window.delToken=async(id)=>{ if(!confirm('Удалить токен?'))return; try{ await api(ADM+'/partner-tokens/'+id,{method:'DELETE'}); loadTokens(); }catch(e){ alert(e.message); }};
+
+// ——— Staking Contracts ———
+async function loadContracts(){
+  try{
+    const list=await api(PANEL+'/staking-contracts');
+    $('contractsList').innerHTML=list.map(c=>`
+      <div class="list-item">
+        <div style="flex:1">
+          <span class="label">${esc(c.label||'—')}</span>
+          <span class="meta">${esc(c.contract_address)}</span>
+        </div>
+        <div class="actions">
+          <button class="btn btn-sm btn-danger" onclick="delContract(${c.id})">X</button>
+        </div>
+      </div>`).join('')||'<p style="opacity:.6;font-size:13px">Нет контрактов</p>';
+  }catch(e){ msg('scMsg',e.message,1); }
+}
+$('btnAddContract').onclick=async()=>{
+  msg('scMsg');
+  try{
+    await api(PANEL+'/staking-contracts',{method:'POST',body:JSON.stringify({contract_address:$('scAddr').value.trim(),label:$('scLabel').value.trim()||undefined})});
+    msg('scMsg','Добавлено'); $('scAddr').value=''; $('scLabel').value=''; loadContracts();
+  }catch(e){ msg('scMsg',e.message,1); }
+};
+window.delContract=async(id)=>{ if(!confirm('Удалить контракт?'))return; try{ await api(PANEL+'/staking-contracts/'+id,{method:'DELETE'}); loadContracts(); }catch(e){ alert(e.message); }};
+
+// ——— NFT ———
+async function loadNft(){
+  try{
+    const colls=await api(ADM+'/nft/collections');
+    $('nftCollList').innerHTML=(Array.isArray(colls)?colls:[]).map(c=>`
+      <div class="list-item" style="cursor:pointer" onclick="loadNftItems('${esc(c.collection_address)}')">
+        <div style="display:flex;align-items:center;gap:10px;flex:1">
+          ${c.image?'<img src="'+esc(c.image)+'" style="width:36px;height:36px;border-radius:6px;object-fit:cover">':''}
+          <div>
+            <span class="label">${esc(c.name)}</span>
+            <div class="meta">${c.items_count} NFT | ${esc(c.collection_address).substring(0,16)}...</div>
+          </div>
+        </div>
+      </div>`).join('')||'<p style="opacity:.6;font-size:13px">Нет коллекций</p>';
+    // load all items
+    const items=await api(ADM+'/nft/items?limit=200');
+    renderNftItems(items);
+  }catch(e){ msg('nftSyncMsg',e.message,1); }
+}
+function renderNftItems(items){
+  $('nftItemsList').innerHTML=(items||[]).map(n=>`
+    <div class="list-item">
+      <div style="display:flex;align-items:center;gap:8px;flex:1">
+        ${n.image?'<img src="'+esc(n.image)+'" style="width:28px;height:28px;border-radius:4px;object-fit:cover">':''}
+        <div>
+          <span style="font-size:12px;font-weight:600">${esc(n.name)}</span>
+          <div class="meta">${esc(n.collection_name||'')} | owner: ${esc((n.owner_address||'').substring(0,16))}...</div>
+        </div>
+      </div>
+    </div>`).join('')||'<p style="opacity:.6;font-size:13px">Нет NFT</p>';
+}
+window.loadNftItems=async(addr)=>{
+  try{
+    const items=await api(ADM+'/nft/items?collection_address='+encodeURIComponent(addr)+'&limit=200');
+    renderNftItems(items);
+  }catch(e){ alert(e.message); }
+};
+$('btnNftSync').onclick=async()=>{
+  msg('nftSyncMsg','Синхронизация...');
+  $('btnNftSync').disabled=true;
+  try{
+    const r=await api(ADM+'/nft/sync',{method:'POST'});
+    msg('nftSyncMsg','Готово: '+(r.stats?.collections_synced||0)+' коллекций, '+(r.stats?.nfts_synced||0)+' NFT');
+    loadNft();
+  }catch(e){ msg('nftSyncMsg',e.message,1); }
+  $('btnNftSync').disabled=false;
+};
+
+// ——— Activity ———
+async function loadActivityStats(){
+  try{
+    const stats=await api(ADM+'/activity/stats');
+    $('actStats').innerHTML=(stats||[]).map(s=>`
+      <div class="list-item">
+        <div style="flex:1">
+          <span class="label">TG: ${s.telegram_id||s.user_id||'?'}</span>
+          <span class="meta">Сообщений: ${s.total_messages_sent||0} | Реакций: ${s.total_reactions_received||0}</span>
+        </div>
+      </div>`).join('')||'<p style="opacity:.6">Нет данных</p>';
+  }catch(_){}
+}
+$('btnLoadActivity').onclick=async()=>{
+  const tg=$('actTgId').value.trim();
+  try{
+    const url=ADM+'/activity/log?limit=100'+(tg?'&telegram_id='+tg:'');
+    const log=await api(url);
+    $('actLog').innerHTML=(log||[]).map(l=>`
+      <div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+        <span style="color:#f59e0b">${l.event_type||'?'}</span> TG:${l.telegram_id||'?'}
+        <span style="opacity:.5">${l.created_at?new Date(l.created_at).toLocaleString():''}</span>
+      </div>`).join('')||'<p style="opacity:.6">Нет записей</p>';
+  }catch(e){ $('actLog').innerHTML='<p class="msg err">'+esc(e.message)+'</p>'; }
+};
+
+init();
+</script>
+</body>
+</html>

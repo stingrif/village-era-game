@@ -1,52 +1,64 @@
-# Docker — сервисы бэкенда
+# Docker — раздача игры с ПК
 
-Postgres у вас уже есть. Остальное (Redis и при необходимости локальный Postgres) поднимается через Docker Compose **независимо**.
+Поднять всё одной командой: **сайт и API** в контейнерах, доступны на порту 80.
 
-Команды ниже — из каталога **бэкенд/docker** (здесь лежит `docker-compose.yml`). Из корня проекта:
+Команды — из каталога **бэкенд/docker**:
 ```bash
-cd бэкенд/docker
-```
-или: `cd /Users/Den/Downloads/Игра/бэкенд/docker`
-
-## Только Redis
-
-```bash
-cd бэкенд/docker
-docker compose up redis -d
+cd /Users/Den/Downloads/Игра/бэкенд/docker
 ```
 
-В `.env` укажите:
-```env
-REDIS_URL=redis://localhost:6379/0
-```
+## Запуск (сайт сразу доступен)
 
-Проверка: `python скрипты/check_db_connections.py`
+1. В **бэкенд/.env** задайте `DATABASE_URL` (ваш Postgres). Пример:
+   ```env
+   DATABASE_URL=postgresql://user:password@192.168.1.149:5432/village_era
+   ```
 
-Остановка: `docker compose stop redis`
+2. Запустите контейнеры:
+   ```bash
+   docker compose up -d
+   ```
 
-## Локальный Postgres (опционально)
+3. Сайт: **http://localhost** (с этого ПК) или по вашему домену, если роутер смотрит на этот ПК и DNS настроен (например https://stakingphxpw.com).
 
-Если нужен свой контейнер с БД для разработки (без внешнего Postgres):
+Внутри поднимаются:
+- **web** — nginx, раздаёт папку игры и проксирует `/api` на бэкенд (порт 80).
+- **app** — бэкенд (uvicorn на 8000).
+
+## Остановка
 
 ```bash
-cd бэкенд/docker
+docker compose down
+```
+
+## Локальный Postgres в Docker (по желанию)
+
+Если нужна своя БД в контейнере:
+
+```bash
 docker compose --profile db up -d
 ```
 
-В `.env`:
+В **бэкенд/.env**:
 ```env
-DATABASE_URL=postgresql://village:village@127.0.0.1:5432/village_era
-REDIS_URL=redis://localhost:6379/0
+DATABASE_URL=postgresql://village:village@postgres:5432/village_era
 ```
+
+(Контейнер postgres при этом должен быть в той же сети — он поднимется с профилем `db`.)
+
+## Только Redis (без всего остального)
+
+```bash
+docker compose up redis -d
+```
+
+В `.env`: `REDIS_URL=redis://localhost:6379/0`
 
 ## Полезные команды
 
 | Действие | Команда |
 |--------|---------|
-| Поднять только Redis | `docker compose up redis -d` |
-| Поднять Redis + локальный Postgres | `docker compose --profile db up -d` |
-| Логи Redis | `docker compose logs -f redis` |
+| Поднять сайт + API | `docker compose up -d` |
+| Поднять с локальным Postgres | `docker compose --profile db up -d` |
+| Логи | `docker compose logs -f app` или `docker compose logs -f web` |
 | Остановить всё | `docker compose down` |
-| Остановить и удалить тома | `docker compose down -v` |
-
-Данные Redis и Postgres хранятся в именованных томах и сохраняются между перезапусками.

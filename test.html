@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Village Era — тестовый запуск</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#1a0000 0%,#0a0a0a 50%,#1a0600 100%);min-height:100vh;color:#fff;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:linear-gradient(135deg,rgba(20,20,20,.95),rgba(40,20,0,.95));border-radius:16px;padding:28px;max-width:420px;width:100%;border:2px solid rgba(255,69,0,.4);box-shadow:0 0 30px rgba(255,69,0,.2)}
+h1{font-size:20px;margin-bottom:8px;color:#ffa500;text-shadow:0 0 10px rgba(255,140,0,.4)}
+.sub{font-size:13px;opacity:.85;margin-bottom:20px}
+label{display:block;font-size:13px;margin-bottom:6px;color:#ddd}
+input{width:100%;padding:12px 14px;border-radius:10px;border:2px solid rgba(255,69,0,.35);background:rgba(0,0,0,.5);color:#fff;font-size:16px;margin-bottom:16px}
+input:focus{outline:none;border-color:#ff4500;box-shadow:0 0 12px rgba(255,69,0,.3)}
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#ff4500,#ff8c00);color:#fff;font-size:16px;font-weight:700;cursor:pointer;transition:all .25s;margin-top:8px;text-decoration:none;text-align:center}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,69,0,.5)}
+.btn.secondary{background:linear-gradient(135deg,#444,#333);margin-top:10px}
+.note{font-size:12px;opacity:.75;margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,69,0,.2)}
+.api{font-size:11px;margin-top:8px;color:#ff8c00}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Эра Племени — тест в браузере</h1>
+  <p class="sub">Укажите тестовый Telegram ID. Все запросы к API пойдут с заголовком X-Telegram-User-Id.</p>
+  <label for="tid">Тестовый Telegram ID (число):</label>
+  <input type="number" id="tid" value="999888" placeholder="999888" min="1" max="999999999">
+  <button type="button" class="btn" onclick="openGame()">Открыть игру</button>
+  <a href="#" class="btn secondary" id="randomBtn">Случайный ID и открыть</a>
+  <p class="note">Бэкенд должен быть запущен на <span class="api">http://localhost:8000</span>. Игра откроется в этой вкладке с выбранным ID; при обновлении страницы ID сохранится по URL.</p>
+</div>
+<script>
+function openGame(){
+  var id = document.getElementById('tid').value.trim() || '999888';
+  id = parseInt(id, 10) || 999888;
+  window.location.href = 'village-era-game-final.html?tg=' + id;
+}
+document.getElementById('randomBtn').onclick = function(){
+  var id = Math.floor(100000 + Math.random() * 899999);
+  document.getElementById('tid').value = id;
+  openGame();
+};
+</script>
+</body>
+</html>

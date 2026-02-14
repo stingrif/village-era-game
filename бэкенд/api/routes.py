@@ -1,6 +1,7 @@
 import logging
+import random
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
@@ -10,12 +11,15 @@ from config import (
     get_mine_config,
     MIN_ACCOUNT_AGE_DAYS_FOR_PHOENIX_QUEST,
     MIN_BURN_COUNT_FOR_PHOENIX_QUEST,
+    PHOEX_TOKEN_ADDRESS,
     PHOENIX_QUEST_REWARD_AMOUNT,
     PHOENIX_QUEST_SUBMIT_RATE_LIMIT_SEC,
+    PROJECT_WALLET_ADDRESS,
 )
 from core.checkin_mine import do_checkin, do_mine_create, do_mine_dig
-from core.craft import craft_merge, craft_reroll, craft_upgrade
+from core.craft import craft_merge, craft_reroll, craft_upgrade, craft_furnace_upgrade
 from core.game_engine import (
+    RUS_ALPHABET,
     apply_burn,
     apply_buy_diamonds_points,
     apply_collect,
@@ -27,6 +31,7 @@ from core.game_engine import (
 from infrastructure.cache import cache_get, cache_set
 from infrastructure.database import (
     accept_trade_offer as db_accept_trade_offer,
+    add_letter_to_user,
     add_pending_payout,
     admin_get_page_texts,
     admin_get_partner_tokens,
@@ -43,16 +48,36 @@ from infrastructure.database import (
     get_buildings_def,
     get_building_slots,
     get_checkin_state,
+    get_items_catalog,
+    get_item_stats,
+    get_shop_offers,
+    purchase_shop_offer,
     get_market_orders_open,
     get_mine_session,
+    get_phoenix_quest_state,
     get_player_critical,
     get_player_field,
+    get_user_id_by_telegram_id,
+    get_visit_log,
+    perform_attack,
+    do_furnace_hatch,
     get_state,
     get_user_balances,
     get_user_inventory,
+    get_user_letter_items,
     get_withdraw_eligibility,
     get_leaderboards,
     get_staking_sessions,
+    get_pnl_wallet_state,
+    list_user_wallet_bindings,
+    add_user_wallet_binding,
+    delete_user_wallet_binding,
+    get_user_wallet_binding_by_code,
+    set_wallet_binding_verified,
+    update_wallet_binding_address,
+    delete_pending_wallet_bindings_by_code,
+    MAX_WALLETS_PER_USER,
+    phoenix_submit_word,
     set_state,
     demolish_building,
     donate_to_profile,
@@ -60,8 +85,16 @@ from infrastructure.database import (
     record_ad_view,
     unequip_relic,
     upgrade_building,
+    get_dev_collections,
+    get_dev_nfts_for_user,
+    get_dev_profile_stats,
+    get_all_dev_nfts,
 )
+from infrastructure.price import get_rates
 from infrastructure.telegram_notify import notify_admin_phoenix_quest
+from infrastructure.nft_check import check_user_has_project_nft
+from infrastructure.ton_address import raw_to_friendly
+from infrastructure.ton_verify import find_verification_tx
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/game", tags=["game"])
@@ -133,6 +166,11 @@ async def game_action(
         state = apply_collect(state)
     elif action == "burn":
         state = apply_burn(state, params.get("relic_idx", -1))
+        try:
+            user_id = await ensure_user(telegram_id)
+            await add_letter_to_user(user_id, random.choice(RUS_ALPHABET))
+        except Exception as e:
+            logger.warning("add_letter_to_user on burn: %s", e)
     elif action == "phoenix_quest_submit":
         # Валидация только на сервере: последовательность букв + условия награды
         letters_sequence = params.get("letters_sequence")
@@ -227,13 +265,16 @@ async def api_checkin_state(
     x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
 ):
-    """Состояние чекина: next_checkin_at, streak."""
+    """Состояние чекина: next_checkin_at, streak, attempts (баланс попыток копания)."""
     telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
     user_id = await ensure_user(telegram_id)
     state = await get_checkin_state(user_id)
+    attempts = await get_attempts(user_id)
     if state is None:
-        return {"next_checkin_at": None, "streak": 0}
-    return state
+        return {"next_checkin_at": None, "streak": 0, "attempts": attempts}
+    out = dict(state)
+    out["attempts"] = attempts
+    return out
 
 
 @router.get("/attempts")
@@ -279,6 +320,60 @@ async def api_inventory(
     telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
     user_id = await ensure_user(telegram_id)
     return await get_user_inventory(user_id)
+
+
+# ——— Квест ФЕНИКС: слово из букв инвентаря, 5 победителей, бейдж «Букварь» ———
+
+@router.get("/phoenix/word")
+async def api_phoenix_word():
+    """Текущее загаданное слово (подсказка: первая буква), счётчик сдач, макс 5."""
+    state = await get_phoenix_quest_state()
+    word = state.get("current_word", "ФЕНИКС")
+    hint = word[0] + "?" * (len(word) - 1) if word else ""
+    return {
+        "current_word_hint": hint,
+        "word_length": len(word),
+        "submissions_count": state.get("submissions_count", 0),
+        "max_submissions": state.get("max_submissions", 5),
+    }
+
+
+@router.get("/phoenix/letters")
+async def api_phoenix_letters(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Буквы в инвентаре пользователя (item_type=letter)."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    items = await get_user_letter_items(user_id)
+    return {"letters": items}
+
+
+@router.post("/phoenix/submit")
+async def api_phoenix_submit(
+    body: Dict[str, Any],
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Сдача слова: word (строка), letter_item_ids (список id user_items в порядке букв). Буквы списываются."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    word = body.get("word") or ""
+    letter_item_ids = body.get("letter_item_ids")
+    if not isinstance(letter_item_ids, list):
+        letter_item_ids = []
+    letter_item_ids = [int(x) for x in letter_item_ids if isinstance(x, (int, str)) and str(x).isdigit()]
+    result = await phoenix_submit_word(user_id, word, letter_item_ids)
+    if result.get("badge_granted"):
+        await add_pending_payout(telegram_id, "phoenix_quest", PHOENIX_QUEST_REWARD_AMOUNT)
+        await notify_admin_phoenix_quest(
+            telegram_id,
+            username=None,
+            first_name=None,
+            reward_amount=PHOENIX_QUEST_REWARD_AMOUNT,
+        )
+    return result
 
 
 @router.post("/mine/dig")
@@ -344,6 +439,19 @@ async def api_field(
     telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
     user_id = await ensure_user(telegram_id)
     return await get_player_field(user_id)
+
+
+@router.get("/field/{target_telegram_id}")
+async def api_field_public(
+    target_telegram_id: int,
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Поле другого игрока (для визита/атаки): только здания и уровни."""
+    target_user_id = await get_user_id_by_telegram_id(target_telegram_id)
+    if not target_user_id:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    return await get_player_field(target_user_id)
 
 
 @router.get("/buildings/def")
@@ -471,7 +579,45 @@ async def api_field_collect(
     return await collect_income(user_id)
 
 
+# ——— Печки и вылупление яиц ———
+
+@router.post("/furnace/hatch")
+async def api_furnace_hatch(
+    body: Dict[str, Any],
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Вылупление: 1 печка + 3 яйца одного цвета или 1 редкое яйцо. body: furnace_user_item_id, egg_ids [id1, id2, id3] или [id1]."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    furnace_user_item_id = int(body.get("furnace_user_item_id", 0))
+    egg_ids = [int(x) for x in (body.get("egg_ids") or [])]
+    result = await do_furnace_hatch(user_id, furnace_user_item_id, egg_ids)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("message", "hatch_failed"))
+    return result
+
+
 # ——— Фаза 3: крафт ———
+
+@router.post("/craft/furnace-upgrade")
+async def api_craft_furnace_upgrade(
+    body: Dict[str, Any],
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Апгрейд печки: 2 печки одного цвета + 1 любой предмет + просмотр рекламы. body: furnace_item_id_1, furnace_item_id_2, extra_item_id, ad_watched (true)."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    fid1 = int(body.get("furnace_item_id_1", 0))
+    fid2 = int(body.get("furnace_item_id_2", 0))
+    extra_id = int(body.get("extra_item_id", 0))
+    ad_watched = bool(body.get("ad_watched", False))
+    result = await craft_furnace_upgrade(user_id, fid1, fid2, extra_id, ad_watched=ad_watched)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "craft_failed"))
+    return result
+
 
 @router.post("/craft/merge")
 async def api_craft_merge(
@@ -525,6 +671,45 @@ async def api_craft_reroll(
     if not result.get("ok"):
         raise HTTPException(status_code=400, detail=result.get("error", "craft_failed"))
     return result
+
+
+# ——— Каталог предметов (О проекте, маркет) ———
+
+@router.get("/items-catalog")
+async def api_items_catalog():
+    """Каталог предметов из item_defs (id, key, name, item_type, subtype, rarity, effects)."""
+    return await get_items_catalog()
+
+
+@router.get("/items-stats")
+async def api_items_stats():
+    """Сводная статистика по предметам: у игроков (inventory/equipped/listed), дроп, сжигание, слияние, продажи."""
+    return await get_item_stats()
+
+
+# ——— Магазин из казны ———
+
+@router.get("/shop/offers")
+async def api_shop_offers():
+    """Список предложений магазина (покупка за COINS/STARS)."""
+    return await get_shop_offers()
+
+
+@router.post("/shop/purchase")
+async def api_shop_purchase(
+    body: Dict[str, Any],
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Купить предмет в магазине. body: offer_id, quantity (default 1)."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    offer_id = int(body.get("offer_id", 0))
+    quantity = int(body.get("quantity", 1))
+    err = await purchase_shop_offer(user_id, offer_id, quantity)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    return {"ok": True, "quantity": quantity}
 
 
 # ——— Фаза 4: рынок и P2P ———
@@ -719,6 +904,183 @@ async def api_staking_sessions(
     return await get_staking_sessions(user_id)
 
 
+@router.get("/pnl/wallet-state")
+async def api_pnl_wallet_state(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Состояние кошелька и стейкингов для экрана PnL: привязка, адреса, список контрактов стейкинга, есть ли активные стейки."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    return await get_pnl_wallet_state(user_id)
+
+
+@router.get("/rates")
+async def api_rates(force_refresh: bool = False):
+    """Курсы для отображения цен: phxpw_price_ton (цена 1 PHXPW в TON), опционально phxpw_price_usd. Публичный, без авторизации."""
+    return await get_rates(force_refresh=force_refresh)
+
+
+@router.get("/stats")
+async def api_game_stats():
+    """Публичная статистика: онлайн (WS), всего игроков."""
+    from api.main import get_online_count
+    from infrastructure.database import get_pool
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        total = await conn.fetchval("SELECT COUNT(*) FROM game_players")
+        recent = await conn.fetchval(
+            "SELECT COUNT(*) FROM game_players WHERE updated_at > NOW() - INTERVAL '5 minutes'"
+        )
+    ws_online = get_online_count()
+    return {
+        "total_players": total or 0,
+        "online": max(ws_online, recent or 0),
+    }
+
+
+@router.get("/wallets")
+async def api_wallets_list(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Список привязанных кошельков пользователя (до 10). Адреса конвертируются в friendly (UQ…)."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    rows = await list_user_wallet_bindings(user_id, telegram_id=telegram_id)
+    wallets = []
+    for w in rows:
+        addr = w.get("wallet_address")
+        if addr:
+            friendly = await raw_to_friendly(addr)
+            masked = friendly[:8] + "…" + friendly[-4:] if len(friendly) > 14 else friendly
+        else:
+            friendly = None
+            masked = "ожидает верификации"
+        wallets.append({
+            **w,
+            "wallet_address_friendly": friendly,
+            "wallet_address_masked": masked,
+        })
+    return {"wallets": wallets, "max_wallets": MAX_WALLETS_PER_USER}
+
+
+@router.post("/wallet")
+async def api_wallet_add(
+    body: Dict[str, Any],
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Добавить кошелёк: создаётся привязка с verify_comment (verify:telegram_id). Отправить 0.1 TON на project_wallet с этим комментарием, затем проверить привязку."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    verify_comment = f"verify:{telegram_id}"
+    out = await add_user_wallet_binding(user_id, verify_comment)
+    if out is None:
+        raise HTTPException(status_code=400, detail=f"max_wallets_reached ({MAX_WALLETS_PER_USER})")
+    return {
+        "ok": True,
+        "binding_id": out["id"],
+        "verify_code": out["verify_code"],
+        "verify_comment": verify_comment,
+        "project_wallet": PROJECT_WALLET_ADDRESS or "",
+        "jetton_master": PHOEX_TOKEN_ADDRESS or "",
+        "phxpw_amount": 4500,
+        "message": "Отправьте 0.1 TON или 4500 PHXPW с комментарием (verify_comment) на адрес проекта с кошелька, который привязываете",
+    }
+
+
+@router.post("/wallet/verify")
+async def api_wallet_verify(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Проверить привязку кошелька: ищет входящую tx 0.1 TON или 4500 PHXPW с комментарием verify:telegram_id."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    verify_comment = f"verify:{telegram_id}"
+    project_wallet = (PROJECT_WALLET_ADDRESS or "").strip()
+    if not project_wallet:
+        return {"ok": False, "reason": "project_wallet_not_configured"}
+    tx = await find_verification_tx(project_wallet, verify_comment)
+    if not tx:
+        return {"ok": False, "reason": "tx_not_found"}
+    binding = await get_user_wallet_binding_by_code(verify_comment)
+    if not binding:
+        return {"ok": False, "reason": "binding_not_found"}
+    wallet_address_raw = (tx.get("sender") or "").strip()
+    if not wallet_address_raw:
+        return {"ok": False, "reason": "sender_empty"}
+    # Конвертируем raw → friendly (UQ…) через Ton Center; при ошибке сохраняем raw
+    wallet_address = await raw_to_friendly(wallet_address_raw)
+    binding_id = binding["id"]
+    await update_wallet_binding_address(binding_id, wallet_address)
+    await set_wallet_binding_verified(binding_id)
+    await delete_pending_wallet_bindings_by_code(user_id, verify_comment)
+    return {
+        "ok": True,
+        "wallet_address": wallet_address,
+        "method": tx.get("method") or "ton",
+    }
+
+
+@router.get("/nft/check")
+async def api_nft_check(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Проверить и вернуть список NFT от проекта (сминчены с кошелька разработчика). По привязанным верифицированным кошелькам. items — массив с полями address, name, image, collection_name для отображения в PnL."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    rows = await list_user_wallet_bindings(user_id, telegram_id=telegram_id)
+    total_count = 0
+    has_any = False
+    wallets_checked = 0
+    all_items: List[Dict[str, Any]] = []
+    seen_addresses: set = set()
+    for w in rows:
+        if not w.get("verified_at") or not w.get("wallet_address"):
+            continue
+        addr = (w.get("wallet_address") or "").strip()
+        if not addr:
+            continue
+        try:
+            out = await check_user_has_project_nft(addr, return_items=True)
+        except Exception as e:
+            logger.warning("nft/check wallet %s: %s", addr[:16], e)
+            continue
+        wallets_checked += 1
+        if out.get("has_project_nft"):
+            has_any = True
+        total_count += out.get("count") or 0
+        for it in out.get("items") or []:
+            a = (it.get("address") or "").strip()
+            if a and a not in seen_addresses:
+                seen_addresses.add(a)
+                all_items.append(it)
+    return {
+        "has_project_nft": has_any,
+        "count": total_count,
+        "wallets_checked": wallets_checked,
+        "items": all_items,
+    }
+
+
+@router.delete("/wallet/{binding_id}")
+async def api_wallet_remove(
+    binding_id: int,
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Отвязать кошелёк."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    ok = await delete_user_wallet_binding(user_id, binding_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="wallet_not_found")
+    return {"ok": True}
+
+
 @router.post("/staking/create")
 async def api_staking_create(
     body: Dict[str, Any],
@@ -735,6 +1097,53 @@ async def api_staking_create(
 async def api_leaderboards(period: str = "weekly", period_key: Optional[str] = None):
     """Лидерборд: period=weekly|monthly|era, опционально period_key."""
     return await get_leaderboards(period, period_key)
+
+
+@router.get("/visit-log")
+async def api_visit_log(
+    role: str = "any",
+    limit: int = 50,
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Лог визитов/атак: role=visitor|target|any."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    return await get_visit_log(user_id, role=role, limit=min(limit, 100))
+
+
+@router.get("/history/logs")
+async def api_history_logs(
+    limit: int = 50,
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Полный лог визитов (для владельцев предмета «история игры» или свой лог). Пока отдаём свой visit_log."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    return await get_visit_log(user_id, role="any", limit=min(limit, 200))
+
+
+@router.post("/attack/{target_telegram_id}")
+async def api_attack(
+    target_telegram_id: int,
+    body: Optional[Dict[str, Any]] = None,
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Атака (ограбление до 2 зданий). body: building_slot_indexes [1..9], до 2 слотов. Cooldown 30 мин, на постройку 1ч."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    attacker_id = await ensure_user(telegram_id)
+    if target_telegram_id == telegram_id:
+        raise HTTPException(status_code=400, detail="cannot_attack_self")
+    target_user_id = await get_user_id_by_telegram_id(target_telegram_id)
+    if not target_user_id:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    slot_indexes = (body or {}).get("building_slot_indexes") or []
+    result = await perform_attack(attacker_id, target_user_id, slot_indexes)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("message", "attack_failed"))
+    return {"ok": True, "total_stolen": result["total_stolen"], "buildings_robbed": result["buildings_robbed"], "refresh": True}
 
 
 # ——— Публичное чтение данных админки (партнёрские токены, задания, тексты страниц) ———
@@ -755,3 +1164,120 @@ async def api_tasks():
 async def api_page_texts(page_id: str):
     """Тексты для страницы (косметика). page_id: village, mine, profile, about и т.д."""
     return await admin_get_page_texts(page_id=page_id)
+
+
+# ——— NFT-каталог разработчика ———
+
+@router.get("/nft/dev-profile")
+async def api_nft_dev_profile():
+    """Профиль разработчика: кошелёк, количество коллекций/NFT, список коллекций."""
+    from config import NFT_DEV_WALLET
+    stats = await get_dev_profile_stats()
+    collections = await get_dev_collections()
+    return {
+        "dev_wallet": NFT_DEV_WALLET or "",
+        "nickname": "Phoenix Paw",
+        **stats,
+        "collections": [
+            {
+                "address": c["collection_address"],
+                "name": c["name"],
+                "description": c["description"],
+                "image": c["image"],
+                "items_count": c["items_count"],
+            }
+            for c in collections
+        ],
+    }
+
+
+@router.get("/nft/user-nfts")
+async def api_nft_user_nfts(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """NFT из коллекций разработчика, принадлежащие текущему пользователю (по его привязанным кошелькам)."""
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    user_id = await ensure_user(telegram_id)
+    rows = await list_user_wallet_bindings(user_id, telegram_id=telegram_id)
+    wallet_addresses = []
+    for w in rows:
+        if not w.get("verified_at") or not w.get("wallet_address"):
+            continue
+        addr = (w["wallet_address"] or "").strip()
+        if addr:
+            friendly = await raw_to_friendly(addr)
+            wallet_addresses.append(friendly)
+    nfts = await get_dev_nfts_for_user(wallet_addresses)
+    items = []
+    for n in nfts:
+        attrs = n.get("attributes") or []
+        if isinstance(attrs, str):
+            import json as _json
+            try:
+                attrs = _json.loads(attrs)
+            except Exception:
+                attrs = []
+        items.append({
+            "nft_address": n["nft_address"],
+            "collection_address": n["collection_address"],
+            "collection_name": n.get("collection_name") or "",
+            "name": n["name"],
+            "description": n.get("description") or "",
+            "image": n["image"],
+            "attributes": attrs,
+            "nft_index": n.get("nft_index") or 0,
+        })
+    return {
+        "count": len(items),
+        "wallets_checked": len(wallet_addresses),
+        "items": items,
+    }
+
+
+@router.get("/nft/catalog")
+async def api_nft_catalog():
+    """Полный каталог NFT из коллекций разработчика (для общего просмотра)."""
+    nfts = await get_all_dev_nfts()
+    collections = await get_dev_collections()
+    coll_map = {c["collection_address"]: c["name"] for c in collections}
+    items = []
+    for n in nfts:
+        attrs = n.get("attributes") or []
+        if isinstance(attrs, str):
+            import json as _json
+            try:
+                attrs = _json.loads(attrs)
+            except Exception:
+                attrs = []
+        items.append({
+            "nft_address": n["nft_address"],
+            "collection_address": n["collection_address"],
+            "collection_name": n.get("collection_name") or coll_map.get(n["collection_address"], ""),
+            "name": n["name"],
+            "description": n.get("description") or "",
+            "image": n["image"],
+            "owner_address": n.get("owner_address") or "",
+            "attributes": attrs,
+            "nft_index": n.get("nft_index") or 0,
+        })
+    return {
+        "total": len(items),
+        "collections_count": len(collections),
+        "items": items,
+    }
+
+
+@router.post("/nft/sync")
+async def api_nft_sync_trigger(
+    x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Ручной запуск синхронизации NFT (только админ)."""
+    from config import GAME_ADMIN_TG_ID
+    telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
+    if telegram_id != GAME_ADMIN_TG_ID:
+        raise HTTPException(status_code=403, detail="admin_only")
+    from infrastructure.nft_sync import run_full_sync
+    stats = await run_full_sync()
+    return {"ok": True, **stats}

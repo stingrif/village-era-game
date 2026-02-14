@@ -69,6 +69,10 @@ TON_API_URL = _env("TON_API_URL", "https://tonapi.io/v2")
 TON_API_KEY = _env("TON_API_KEY", "")
 PHOEX_TOKEN_ADDRESS = _env("PHOEX_TOKEN_ADDRESS", "EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43")
 PROJECT_WALLET_ADDRESS = _env("PROJECT_WALLET_ADDRESS", "")
+# Кошелёк разработчика: все NFT проекта сминчены с него; по нему проверяем, есть ли у юзера NFT от проекта
+NFT_DEV_WALLET = _env("NFT_DEV_WALLET", "UQCFBaCdPYEnNVrk9BcplNWGzxXxd2JSOTKDFm4pU0PmxySD").strip()
+# Адреса коллекций Phoenix Paw (опционально): через запятую; если заданы, NFT из этих коллекций считаются «от проекта» без запроса owner по API
+NFT_DEV_COLLECTIONS = [a.strip() for a in _env("NFT_DEV_COLLECTIONS", "").strip().split(",") if a.strip()]
 GAME_ADMIN_TG_ID = int(_env("GAME_ADMIN_TG_ID", "496560064"))
 GAME_NOTIFY_BOT_TOKEN = _env("GAME_NOTIFY_BOT_TOKEN", "")
 PHOENIX_QUEST_REWARD_AMOUNT = int(_env("PHOENIX_QUEST_REWARD_AMOUNT", "100000"))
@@ -82,3 +86,10 @@ PHOENIX_QUEST_SUBMIT_RATE_LIMIT_SEC = int(_env("PHOENIX_QUEST_SUBMIT_RATE_LIMIT_
 BURN_DIMINISHING_AFTER = int(_env("BURN_DIMINISHING_AFTER", "50"))
 # Telegram bot (для проверки пользователя в чате/канале getChatMember)
 BOT_TOKEN = _env("BOT_TOKEN", "")
+
+# Админ-панель (отдельный вход по логину/паролю; соль для хеша пароля)
+ADMIN_PANEL_PASSWORD_SALT = _env("ADMIN_PANEL_PASSWORD_SALT", "village_era_admin_salt_change_me")
+
+# CORS: доп. origins через запятую (например https://web.telegram.org)
+_CORS_EXTRA = _env("CORS_ORIGINS", "").strip()
+CORS_ORIGINS_EXTRA = [o.strip() for o in _CORS_EXTRA.split(",") if o.strip()]

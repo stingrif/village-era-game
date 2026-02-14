@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<!-- build: 2025-02-07 | entry: village-era-game-final.html -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Эра Деревни - Village Era</title>
+<title>Эра Племени - Village Era</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="config.js"></script>
+<script>
+// Каталог предметов (fallback): всегда доступен как window.ITEMS_CATALOG, если не загрузился API/data/items-catalog.json
+window.ITEMS_CATALOG=window.ITEMS_CATALOG||[{"key":"fire_01","name":"Пламя Юга","slot_type":"relic_slot","type":"FIRE","rarity":"FIRE","effect":"+8% доход Домов"},{"key":"fire_02","name":"Пепел Богатства","slot_type":"relic_slot","type":"FIRE","rarity":"FIRE","effect":"+10% доход Фермы"},{"key":"fire_03","name":"Жар Урожая","slot_type":"relic_slot","type":"FIRE","rarity":"FIRE","effect":"+8% доход Рынка"},{"key":"fire_04","name":"Монетный Уголь","slot_type":"relic_slot","type":"FIRE","rarity":"FIRE","effect":"+10% wood/stone"},{"key":"fire_05","name":"Красный Факел","slot_type":"relic_slot","type":"FIRE","rarity":"FIRE","effect":"+8% цена продажи"},{"key":"fire_06","name":"Пламя Ремесла","slot_type":"relic_slot","type":"FIRE","rarity":"FIRE","effect":"−6% стоимость апгрейда"},{"key":"fire_07","name":"Сухой Жар","slot_type":"relic_slot","type":"FIRE","rarity":"FIRE","effect":"−6% время до чекина"},{"key":"fire_08","name":"Жар Камня","slot_type":"relic_slot","type":"FIRE","rarity":"FIRE","effect":"+10% лимит Склада/Казны"},{"key":"yin_01","name":"Тень Запада","slot_type":"relic_slot","type":"YIN","rarity":"YIN","effect":"−8% потерь в Падение неба"},{"key":"yin_02","name":"Туман Запада","slot_type":"relic_slot","type":"YIN","rarity":"YIN","effect":"−20% сила входящей порчи"},{"key":"yin_03","name":"Печать Спокойствия","slot_type":"relic_slot","type":"YIN","rarity":"YIN","effect":"1 раз/день: игнор 1 порчу"},{"key":"yin_04","name":"Лёд Баланса","slot_type":"relic_slot","type":"YIN","rarity":"YIN","effect":"−2% потерь от баланса"},{"key":"yin_05","name":"Страж Урожая","slot_type":"relic_slot","type":"YIN","rarity":"YIN","effect":"−10% урон порчи по Домам"},{"key":"yin_06","name":"Тихий Камень","slot_type":"relic_slot","type":"YIN","rarity":"YIN","effect":"−10% урон порчи по Ферме"},{"key":"yin_07","name":"Пелена Рынка","slot_type":"relic_slot","type":"YIN","rarity":"YIN","effect":"−1.5% налог продажи"},{"key":"yin_08","name":"Молитва Храма","slot_type":"relic_slot","type":"YIN","rarity":"YIN","effect":"−6% рост потерь"},{"key":"yan_01","name":"Солнце Востока","slot_type":"relic_slot","type":"YAN","rarity":"YAN","effect":"+12% сила порч"},{"key":"yan_02","name":"Луна Востока","slot_type":"relic_slot","type":"YAN","rarity":"YAN","effect":"+2ч длительность порчи"},{"key":"yan_03","name":"Затмение","slot_type":"relic_slot","type":"YAN","rarity":"YAN","effect":"Порча цели: −6% доход"},{"key":"yan_04","name":"Коготь Кузницы","slot_type":"relic_slot","type":"YAN","rarity":"YAN","effect":"Порча: +3% потери skyfall"},{"key":"yan_05","name":"Чернила Контракта","slot_type":"relic_slot","type":"YAN","rarity":"YAN","effect":"Порча: +1% налог"},{"key":"yan_06","name":"Крик Ветра","slot_type":"relic_slot","type":"YAN","rarity":"YAN","effect":"−10% resist цели"},{"key":"yan_07","name":"Сглаз Урожая","slot_type":"relic_slot","type":"YAN","rarity":"YAN","effect":"20% шанс: баф цели слабее"},{"key":"yan_08","name":"Клеймо Потерь","slot_type":"relic_slot","type":"YAN","rarity":"YAN","effect":"+5% очки в топе"},{"key":"tsy_01","name":"Изумруд Времени","slot_type":"relic_slot","type":"TSY","rarity":"TSY","effect":"заморозка/время"},{"key":"tsy_02","name":"Рубин Торга","slot_type":"relic_slot","type":"TSY","rarity":"TSY","effect":"торг/перераспределение"},{"key":"tsy_03","name":"Сапфир Стабилизации","slot_type":"relic_slot","type":"TSY","rarity":"TSY","effect":"стабилизация"},{"key":"tsy_04","name":"Янтарь Леса","slot_type":"relic_slot","type":"TSY","rarity":"TSY","effect":"тактика"},{"key":"tsy_05","name":"Обсидиан Камня","slot_type":"relic_slot","type":"TSY","rarity":"TSY","effect":"тактика"},{"key":"tsy_06","name":"Кварц Обмена","slot_type":"relic_slot","type":"TSY","rarity":"TSY","effect":"обмен"},{"key":"tsy_07","name":"Лазурь Сброса","slot_type":"relic_slot","type":"TSY","rarity":"TSY","effect":"сброс"},{"key":"tsy_08","name":"Турмалин Риска","slot_type":"relic_slot","type":"TSY","rarity":"TSY","effect":"риск/профит"},{"key":"magic_01","name":"Дракон Силы","slot_type":"relic_slot","type":"MAGIC","rarity":"MAGIC","effect":"комбинированный"},{"key":"magic_02","name":"Титан Мощи","slot_type":"relic_slot","type":"MAGIC","rarity":"MAGIC","effect":"усиление"},{"key":"magic_03","name":"Мудрость Веков","slot_type":"relic_slot","type":"MAGIC","rarity":"MAGIC","effect":"усиление"},{"key":"magic_04","name":"Вечность","slot_type":"relic_slot","type":"MAGIC","rarity":"MAGIC","effect":"усиление"},{"key":"magic_05","name":"Печать Мастера","slot_type":"relic_slot","type":"MAGIC","rarity":"MAGIC","effect":"усиление"},{"key":"magic_06","name":"Свет Сезона","slot_type":"relic_slot","type":"MAGIC","rarity":"MAGIC","effect":"усиление"},{"key":"epic_01","name":"Феникс Возрождения","slot_type":"relic_slot","type":"EPIC","rarity":"EPIC","effect":"уникальный (1 на игрока)"},{"key":"epic_02","name":"Сердце Пепла","slot_type":"relic_slot","type":"EPIC","rarity":"EPIC","effect":"уникальный"},{"key":"epic_03","name":"Печать Судьбы","slot_type":"relic_slot","type":"EPIC","rarity":"EPIC","effect":"уникальный"},{"key":"epic_04","name":"Клятва Храма","slot_type":"relic_slot","type":"EPIC","rarity":"EPIC","effect":"уникальный"},{"key":"ci_01","name":"Сдвиг времени I","slot_type":"buff","type":"CHECKIN","rarity":"common","effect":"слабый бонус чекина, 6ч"},{"key":"ci_02","name":"Сдвиг времени II","slot_type":"buff","type":"CHECKIN","rarity":"common","effect":"чекин, 6ч"},{"key":"ci_03","name":"Сдвиг времени III","slot_type":"buff","type":"CHECKIN","rarity":"common","effect":"чекин, 6ч"},{"key":"ci_04","name":"Доп. попытка I","slot_type":"buff","type":"CHECKIN","rarity":"common","effect":"+попытка шахты"},{"key":"ci_05","name":"Доп. попытка II","slot_type":"buff","type":"CHECKIN","rarity":"rare","effect":"+попытки, 12ч"},{"key":"ci_06","name":"Возврат попытки","slot_type":"buff","type":"CHECKIN","rarity":"common","effect":"возврат попытки"},{"key":"ci_07","name":"Бережный майнинг","slot_type":"buff","type":"CHECKIN","rarity":"common","effect":"защита шахты"},{"key":"ci_08","name":"Сканер lite","slot_type":"buff","type":"CHECKIN","rarity":"rare","effect":"подсказка шахты"},{"key":"ci_09","name":"Фокус","slot_type":"buff","type":"CHECKIN","rarity":"rare","effect":"фокус шахты"},{"key":"ci_10","name":"Мгновенный чекин","slot_type":"buff","type":"CHECKIN","rarity":"magic","effect":"чекин без CD, 24ч"},{"key":"df_01","name":"Щит тумана I","slot_type":"buff","type":"DEFENSE","rarity":"common","effect":"защита от порчи, 6ч"},{"key":"df_02","name":"Щит тумана II","slot_type":"buff","type":"DEFENSE","rarity":"rare","effect":"защита, 12ч"},{"key":"df_03","name":"Щит тумана III","slot_type":"buff","type":"DEFENSE","rarity":"magic","effect":"защита, 24ч"},{"key":"df_04","name":"Барьер I","slot_type":"buff","type":"DEFENSE","rarity":"common","effect":"барьер"},{"key":"df_05","name":"Барьер II","slot_type":"buff","type":"DEFENSE","rarity":"rare","effect":"барьер сильнее"},{"key":"df_06","name":"Крепость ветра","slot_type":"buff","type":"DEFENSE","rarity":"rare","effect":"защита"},{"key":"df_07","name":"Сейф баланса","slot_type":"buff","type":"DEFENSE","rarity":"rare","effect":"защита баланса"},{"key":"df_08","name":"Очищение","slot_type":"buff","type":"DEFENSE","rarity":"magic","effect":"очищение"},{"key":"df_09","name":"Стабилизация","slot_type":"buff","type":"DEFENSE","rarity":"rare","effect":"стабилизация"},{"key":"df_10","name":"Мягкий минимум","slot_type":"buff","type":"DEFENSE","rarity":"common","effect":"смягчение потерь"},{"key":"cs_01","name":"Порча дохода","slot_type":"curse","type":"CURSE","rarity":"common","effect":"+потери / −доход, 6ч"},{"key":"cs_02","name":"Порча домов","slot_type":"curse","type":"CURSE","rarity":"common","effect":"урон по Домам"},{"key":"cs_03","name":"Порча фермы","slot_type":"curse","type":"CURSE","rarity":"common","effect":"урон по Ферме"},{"key":"cs_04","name":"Клеймо Skyfall","slot_type":"curse","type":"CURSE","rarity":"rare","effect":"+потери в Падение неба"},{"key":"cs_05","name":"Налоговая метка","slot_type":"curse","type":"CURSE","rarity":"common","effect":"+налог"},{"key":"cs_06","name":"Срыв цены","slot_type":"curse","type":"CURSE","rarity":"rare","effect":"−цена продажи"},{"key":"cs_07","name":"Замедление","slot_type":"curse","type":"CURSE","rarity":"common","effect":"замедление"},{"key":"cs_08","name":"Помеха шахте","slot_type":"curse","type":"CURSE","rarity":"rare","effect":"−попытки шахты"},{"key":"cs_09","name":"Пробой","slot_type":"curse","type":"CURSE","rarity":"magic","effect":"сильная порча"},{"key":"cs_10","name":"Метка","slot_type":"curse","type":"CURSE","rarity":"common","effect":"метка цели"},{"key":"chrono_01","name":"Песок Минут","slot_type":"artifact_relic","type":"CHECKIN","rarity":"common","effect":"артефакт чекина"},{"key":"chrono_02","name":"Маятник Сдвига","slot_type":"artifact_relic","type":"CHECKIN","rarity":"common","effect":"артефакт чекина"},{"key":"chrono_03","name":"Малая Пружина","slot_type":"artifact_relic","type":"CHECKIN","rarity":"common","effect":"артефакт чекина"},{"key":"chrono_04","name":"Временной Узел","slot_type":"artifact_relic","type":"CHECKIN","rarity":"rare","effect":"артефакт чекина"},{"key":"chrono_05","name":"Ключ Чекина","slot_type":"artifact_relic","type":"CHECKIN","rarity":"rare","effect":"артефакт чекина"},{"key":"chrono_06","name":"Радар Удачи","slot_type":"artifact_relic","type":"CHECKIN","rarity":"rare","effect":"артефакт шахты"},{"key":"chrono_07","name":"Глаз Шахтёра","slot_type":"artifact_relic","type":"CHECKIN","rarity":"rare","effect":"артефакт шахты"},{"key":"chrono_08","name":"Мост Попыток","slot_type":"artifact_relic","type":"CHECKIN","rarity":"magic","effect":"артефакт попыток"},{"key":"chrono_09","name":"Метка Перезапуска","slot_type":"artifact_relic","type":"CHECKIN","rarity":"rare","effect":"артефакт"},{"key":"chrono_10","name":"Секунда Бога","slot_type":"artifact_relic","type":"CHECKIN","rarity":"magic","effect":"мгновенный чекин"},{"key":"ward_01","name":"Щит Тумана","slot_type":"artifact_relic","type":"DEFENSE","rarity":"common","effect":"cleanse порчи"},{"key":"ward_02","name":"Пластина Холода","slot_type":"artifact_relic","type":"DEFENSE","rarity":"common","effect":"защита"},{"key":"ward_03","name":"Сфера Баланса","slot_type":"artifact_relic","type":"DEFENSE","rarity":"rare","effect":"защита баланса"},{"key":"ward_04","name":"Руна Укрытия","slot_type":"artifact_relic","type":"DEFENSE","rarity":"rare","effect":"укрытие"},{"key":"ward_05","name":"Колокол Тишины","slot_type":"artifact_relic","type":"DEFENSE","rarity":"rare","effect":"защита"},{"key":"ward_06","name":"Зеркало Отражения","slot_type":"artifact_relic","type":"DEFENSE","rarity":"magic","effect":"отражение порчи"},{"key":"ward_07","name":"Камень Стойкости","slot_type":"artifact_relic","type":"DEFENSE","rarity":"rare","effect":"стойкость"},{"key":"ward_08","name":"Печать Удержания","slot_type":"artifact_relic","type":"DEFENSE","rarity":"rare","effect":"удержание"},{"key":"ward_09","name":"Капля Очищения","slot_type":"artifact_relic","type":"DEFENSE","rarity":"magic","effect":"очищение порчи"},{"key":"ward_10","name":"Купол Храма","slot_type":"artifact_relic","type":"DEFENSE","rarity":"magic","effect":"сильная защита"},{"key":"blight_01","name":"Метка Налога","slot_type":"artifact_relic","type":"CURSE","rarity":"common","effect":"порча налога"},{"key":"blight_02","name":"Проклятие Дохода","slot_type":"artifact_relic","type":"CURSE","rarity":"rare","effect":"порча дохода"},{"key":"blight_03","name":"Удар По Домам","slot_type":"artifact_relic","type":"CURSE","rarity":"rare","effect":"порча домов"},{"key":"blight_04","name":"Удар По Ферме","slot_type":"artifact_relic","type":"CURSE","rarity":"rare","effect":"порча фермы"},{"key":"blight_05","name":"Срыв Сделки","slot_type":"artifact_relic","type":"CURSE","rarity":"magic","effect":"порча продажи"},{"key":"blight_06","name":"Мороз Времени","slot_type":"artifact_relic","type":"CURSE","rarity":"rare","effect":"замедление"},{"key":"blight_07","name":"Трещина Шахты","slot_type":"artifact_relic","type":"CURSE","rarity":"rare","effect":"порча шахты"},{"key":"blight_08","name":"Клеймо Skyfall","slot_type":"artifact_relic","type":"CURSE","rarity":"magic","effect":"+потери skyfall"},{"key":"blight_09","name":"Игла Пробоя","slot_type":"artifact_relic","type":"CURSE","rarity":"magic","effect":"пробой защиты"},{"key":"blight_10","name":"Чёрный Приговор","slot_type":"artifact_relic","type":"CURSE","rarity":"magic","effect":"сильная порча"},{"key":"amu_01","name":"Иммунитет I","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"иммунитет к порче"},{"key":"amu_02","name":"Иммунитет II","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"иммунитет сильнее"},{"key":"amu_03","name":"Иммунитет III","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"полный иммунитет"},{"key":"amu_04","name":"Заморозка порчи","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"заморозка порчи"},{"key":"amu_05","name":"Очищение","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"очищение"},{"key":"amu_06","name":"Удача ×2","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"удвоение удачи"},{"key":"amu_07","name":"Доход ×3 (врем.)","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"тройной доход"},{"key":"amu_08","name":"Анти-Skyfall","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"снижение потерь неба"},{"key":"amu_09","name":"Сейф вывода","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"защита вывода"},{"key":"amu_10","name":"Рынок Премиум","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"бонусы маркета"},{"key":"amu_11","name":"Шахта Премиум","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"бонусы шахты"},{"key":"amu_12","name":"Храмовый Обет","slot_type":"amulet","type":"PREMIUM","rarity":"PREMIUM","effect":"особый обет"},{"key":"egg_red","name":"Яйцо Красное","slot_type":"egg","type":"EGG","rarity":"common","effect":"яйцо (редкость: common)"},{"key":"egg_blue","name":"Яйцо Синее","slot_type":"egg","type":"EGG","rarity":"common","effect":"яйцо"},{"key":"egg_green","name":"Яйцо Зелёное","slot_type":"egg","type":"EGG","rarity":"common","effect":"яйцо"},{"key":"egg_yellow","name":"Яйцо Жёлтое","slot_type":"egg","type":"EGG","rarity":"common","effect":"яйцо"},{"key":"egg_purple","name":"Яйцо Фиолетовое","slot_type":"egg","type":"EGG","rarity":"rare","effect":"яйцо"},{"key":"egg_white","name":"Яйцо Белое","slot_type":"egg","type":"EGG","rarity":"rare","effect":"яйцо"},{"key":"egg_black","name":"Яйцо Чёрное","slot_type":"egg","type":"EGG","rarity":"rare","effect":"яйцо"}];
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linear-gradient(135deg,#1a0000 0%,#0a0a0a 50%,#1a0600 100%);min-height:100vh;color:#fff;overflow-x:hidden}
@@ -54,6 +59,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 .btn-small{padding:6px 12px;font-size:12px}
 .btn-big{padding:15px 40px;font-size:18px;font-weight:900;box-shadow:0 6px 25px rgba(255,69,0,.6)}
 .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,.95);backdrop-filter:blur(10px);display:grid;grid-template-columns:repeat(5,1fr);padding:8px 0;z-index:1000;max-width:600px;margin:0 auto;border-top:2px solid #ff4500;box-shadow:0 -5px 20px rgba(255,69,0,.3)}
+.nav-six{grid-template-columns:repeat(6,1fr)}
 .ni{text-align:center;padding:6px;cursor:pointer;transition:all .3s;border-radius:8px;margin:0 3px}
 .ni.active{background:linear-gradient(135deg,rgba(255,69,0,.4),rgba(255,140,0,.4));box-shadow:0 0 15px rgba(255,69,0,.5)}
 .ni:hover{background:rgba(255,69,0,.2)}
@@ -90,6 +96,41 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 .inv-item{background:linear-gradient(135deg,rgba(30,30,30,.9),rgba(50,25,0,.9));border-radius:12px;padding:15px;text-align:center;border:2px solid rgba(255,69,0,.3);box-shadow:0 4px 15px rgba(0,0,0,.5);transition:all .3s}
 .inv-item:hover{transform:translateY(-3px);box-shadow:0 0 25px rgba(255,69,0,.6)}
 .inv-qty{font-size:14px;font-weight:700;color:#ff8c00;margin-top:8px}
+.inv-relics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:12px 0}
+.inv-relic-card{position:relative;background:linear-gradient(180deg,rgba(28,28,28,.98),rgba(40,22,0,.95));border-radius:14px;border:1px solid rgba(255,140,0,.25);overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:transform .2s,box-shadow .2s}
+.inv-relic-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,69,0,.15)}
+.inv-relic-card .inv-relic-head{display:flex;align-items:center;gap:10px;padding:14px 14px 10px;border-bottom:1px solid rgba(255,140,0,.12)}
+.inv-relic-card .inv-relic-icon{font-size:36px;line-height:1;flex-shrink:0}
+.inv-relic-card .inv-relic-title{font-size:15px;font-weight:700;color:#ffa500;line-height:1.25;flex:1;min-width:0}
+.inv-relic-card .inv-relic-badge{font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:8px;flex-shrink:0}
+.inv-relic-card .inv-relic-body{padding:10px 14px;font-size:12px;color:rgba(255,255,255,.88);line-height:1.4}
+.inv-relic-card .inv-relic-price{padding:8px 14px;font-size:12px;color:rgba(255,200,100,.9);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;border-top:1px solid rgba(255,140,0,.1)}
+.inv-relic-card .inv-relic-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px;background:rgba(0,0,0,.2)}
+.inv-relic-card .inv-relic-actions .btn{width:100%;padding:10px 8px;font-size:12px;font-weight:700;border-radius:10px;border:none;cursor:pointer;transition:opacity .2s,transform .15s}
+.inv-relic-card .inv-relic-actions .btn:active{transform:scale(0.98)}
+.inv-relic-card .inv-relic-actions .btn-sell{background:linear-gradient(135deg,#2d8a2d,#3cb043);color:#fff}
+.inv-relic-card .inv-relic-actions .btn-merge{background:linear-gradient(135deg,#5a4a8a,#7b68b8);color:#fff}
+.inv-relic-card .inv-relic-qty{position:absolute;top:8px;right:8px;background:rgba(255,69,0,.9);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+.inv-content-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:12px 0}
+.inv-action-card{position:relative;background:linear-gradient(180deg,rgba(28,28,28,.98),rgba(40,22,0,.95));border-radius:14px;border:1px solid rgba(255,140,0,.25);overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:transform .2s,box-shadow .2s}
+.inv-action-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,69,0,.15)}
+.inv-action-card .inv-card-head{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid rgba(255,140,0,.12)}
+.inv-action-card .inv-card-icon{font-size:36px;line-height:1;flex-shrink:0}
+.inv-action-card .inv-card-title{font-size:15px;font-weight:700;color:#ffa500;line-height:1.25;flex:1;min-width:0}
+.inv-action-card .inv-card-body{padding:10px 14px;font-size:12px;color:rgba(255,255,255,.88);line-height:1.4}
+.inv-action-card .inv-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px;background:rgba(0,0,0,.2)}
+.inv-action-card .inv-card-actions .btn{width:100%;padding:10px 8px;font-size:12px;font-weight:700;border-radius:10px;border:none;cursor:pointer;transition:opacity .2s,transform .15s}
+.inv-action-card .inv-card-actions .btn:active{transform:scale(0.98)}
+.inv-action-card .inv-card-actions .btn-act{background:linear-gradient(135deg,#2d8a2d,#3cb043);color:#fff}
+.inv-action-card .inv-card-actions .btn-burn{background:linear-gradient(135deg,#8b2a2a,#b33);color:#fff}
+.inv-action-card .inv-card-qty{position:absolute;top:8px;right:8px;background:rgba(255,69,0,.9);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+#itemCardContent .btn{padding:10px 12px;font-size:13px;font-weight:700;border-radius:10px;border:none;cursor:pointer;transition:opacity .2s,transform .15s}
+#itemCardContent .btn:active{transform:scale(0.98)}
+#itemCardContent .btn-act{background:linear-gradient(135deg,#2d8a2d,#3cb043);color:#fff}
+#itemCardContent .btn-burn{background:linear-gradient(135deg,#8b2a2a,#b33);color:#fff}
+#itemCardContent .btn-sell{background:linear-gradient(135deg,#2d8a2d,#3cb043);color:#fff}
+#itemCardContent .btn-merge{background:linear-gradient(135deg,#5a4a8a,#7b68b8);color:#fff}
+.inv-card-clickable:hover{box-shadow:0 8px 24px rgba(255,69,0,.2)}
 .tx-input{width:100%;padding:10px;border-radius:10px;background:rgba(30,30,30,.9);border:2px solid rgba(255,69,0,.5);color:#ffa500;font-size:14px;margin:10px 0;box-shadow:inset 0 2px 10px rgba(0,0,0,.5)}
 .tx-input:focus{outline:none;border-color:#ff8c00;box-shadow:inset 0 2px 10px rgba(0,0,0,.5),0 0 15px rgba(255,140,0,.5)}
 .help-section{margin:14px 0;padding:12px;background:rgba(30,30,30,.6);border-radius:10px;border-left:4px solid #ff4500}
@@ -103,18 +144,24 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 <div class="app">
 <div class="header">
 <div class="res">
-<div class="online-badge"><div class="online-dot"></div><span id="onlineCount">152</span> онлайн</div>
+<div class="online-badge"><div class="online-dot"></div><span id="onlineCount">0</span> онлайн</div>
 <div class="r">💎 <span id="gems">0</span></div>
 <div class="r">🪙 <span id="coins">1000</span></div>
 <div class="r">⭐ <span id="points">0</span></div>
 <div class="r">🪵 <span id="wood">100</span></div>
 <div class="r">🪨 <span id="stone">100</span></div>
 </div>
-<div style="font-size:12px;display:flex;align-items:center;gap:8px">
+<div style="font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+<button type="button" class="btn btn-small" style="padding:4px 8px;font-size:14px" onclick="G.openSettings()" title="Настройки">⚙️</button>
 <div class="online-dot" style="width:6px;height:6px"></div>
-<span id="playerName">Игрок</span>
-<button type="button" class="btn btn-small" style="padding:4px 10px;font-size:16px" onclick="G.openHelp()" title="Обучение">📖</button>
-<button type="button" class="btn btn-small" style="padding:4px 10px;font-size:16px" onclick="G.openAboutProject()" title="О проекте">ℹ️</button>
+<span id="playerName">Игрок</span><span id="testModeBadge" style="display:none;margin-left:6px;font-size:10px;opacity:.8;background:rgba(255,200,0,.3);padding:2px 6px;border-radius:6px">Тест</span>
+<button type="button" class="btn btn-small" style="padding:4px 8px;font-size:14px" onclick="G.openProfileContribution()" title="Вклад и уровень доверия">💝</button>
+<button type="button" class="btn btn-small" style="padding:4px 8px;font-size:14px" onclick="G.showScreen('rating')" title="Рейтинг">📊</button>
+<button type="button" class="btn btn-small" style="padding:4px 8px;font-size:14px" onclick="G.showScreen('tasks')" title="Награды">🎁</button>
+<button type="button" class="btn btn-small" style="padding:4px 8px;font-size:14px" onclick="G.openAboutProject()" title="О проекте: инфо, каталог 121 предмет, ссылки">ℹ️</button>
+<button type="button" class="btn btn-small" style="padding:4px 8px;font-size:14px" onclick="G.openSupport()" title="Поддержка">📩</button>
+<button type="button" class="btn btn-small" style="padding:4px 8px;font-size:14px" onclick="G.openNotifications()" title="Уведомления">🔔</button>
+<button type="button" class="btn btn-small" style="padding:4px 8px;font-size:14px" onclick="G.openHelp()" title="Обучение">📖</button>
 </div>
 </div>
 
@@ -122,20 +169,36 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 <h3>⚠️ ПАДЕНИЕ НЕБА ⚠️</h3>
 <p>Все постройки несут убытки!</p>
 <p>Убыток: <span id="lossMultiplier">1.0x</span></p>
+<div id="skyFallArmyBlock" class="info" style="margin-top:12px;display:none">
+<div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:6px">⚔ Армия и припасы</div>
+<div class="ir"><span>Армия:</span><span id="skyFallArmy">0</span></div>
+<div class="ir"><span>Припасы:</span><span id="skyFallSupplies">0</span></div>
+<p style="font-size:12px;opacity:.9;margin:8px 0">Увеличивайте армию за припасы; при нехватке производят здания. Армейские здания: каждый уровень ×2 прирост войск. Можно атаковать других, забирая припасы, и накладывать порчу на здание или армию.</p>
+<button type="button" class="btn btn-small" onclick="G.openSkyFallArmy()">Увеличить армию</button>
+<button type="button" class="btn btn-small btn-danger" onclick="G.openSkyFallAttack()">Атаковать (забрать припасы)</button>
+<button type="button" class="btn btn-small" onclick="G.openSkyFallCurse()">Наложить порчу</button>
+</div>
 </div>
 
 <div class="era-info">
 <div style="display:flex;justify-content:space-between">
 <div><strong>Эра <span id="currentEra">1</span>/4</strong><div style="font-size:12px;opacity:.8">До конца: <span id="eraTimer">7д 0ч</span></div></div>
-<div style="text-align:right"><div>Деревня: Ур.<span id="villageLevel">1</span></div></div>
+<div style="text-align:right"><div>Племя: Ур.<span id="villageLevel">1</span></div></div>
 </div>
 </div>
 
 <div id="villageScreen" class="screen active">
-<h2 style="text-align:center;margin-bottom:15px;color:#ffa500;text-shadow:0 0 15px rgba(255,140,0,.5)">🏘️ Моя Деревня</h2>
+<h2 style="text-align:center;margin-bottom:15px;color:#ffa500;text-shadow:0 0 15px rgba(255,140,0,.5)">🏘️ Моё Племя</h2>
 <div class="info">
 <div class="ir"><span>Доход в час:</span><span style="color:#ff8c00" id="totalIncome">+0 🪙</span></div>
 <div class="ir"><span>Расходы в час:</span><span style="color:#ff0000" id="totalExpenses">-0 🪙</span></div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0">
+<button class="btn btn-small" onclick="G.openBuildingsCatalog()">📋 Постройки</button>
+<button class="btn btn-small" onclick="G.openUpgradeBuilding()">⬆️ Улучшить</button>
+<button class="btn btn-small" onclick="G.openRelicsInBuildings()">✨ Реликвии в здания</button>
+<button class="btn btn-small btn-danger" onclick="G.openDemolish()">🗑️ Снести</button>
+<button class="btn btn-small" onclick="G.openVillageSummary()">📊 Сводка</button>
 </div>
 <div class="grid" id="villageGrid"></div>
 <div style="text-align:center;margin-top:15px">
@@ -161,28 +224,96 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 <button class="btn" onclick="G.newMine()">🔄 Новая Шахта</button>
 </div>
 <div class="info" style="margin-top:15px">
-<div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:10px">💎 За кристаллы</div>
-<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
-<button class="btn btn-small" onclick="G.buyDigsForGems()">+3 попыток (10💎)</button>
-<button class="btn btn-small" onclick="G.reduceCheckinForGems()">Чекин сейчас (15💎)</button>
-<button class="btn btn-small" onclick="G.buyMineHint()">Подсказка 1 ячейки (5💎)</button>
-<button class="btn btn-small" onclick="G.buyFullScan()">Полное сканирование (15💎)</button>
-<button class="btn btn-small" onclick="G.buyPhoenixEye()">Феникс Глаз — призы (25💎)</button>
-<button class="btn btn-small" onclick="G.buyExpForGems()">+100 опыта (20💎)</button>
-</div>
+<div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:10px">📜 История (последние копки)</div>
+<div id="mineHistoryList" style="max-height:180px;overflow-y:auto;font-size:12px"></div>
+<button class="btn btn-small" onclick="G.refreshMineHistory()" style="margin-top:8px">Обновить</button>
 </div>
 </div>
 
 <div id="marketScreen" class="screen">
 <h2 style="text-align:center;margin-bottom:15px;color:#ffa500;text-shadow:0 0 15px rgba(255,140,0,.5)">🏪 Маркет</h2>
-<div style="text-align:center;margin:15px 0">
+<div style="display:flex;justify-content:center;gap:10px;margin-bottom:15px">
 <button class="btn" id="tabRelics" onclick="G.switchTab('relics')">✨ Реликвии</button>
 <button class="btn" id="tabAmulets" onclick="G.switchTab('amulets')">🔮 Амулеты</button>
 <button class="btn" id="tabDiamonds" onclick="G.switchTab('diamonds')">💎 Алмазы</button>
 </div>
-<div id="marketRelics"><div id="marketRelicsList"></div></div>
+<div id="marketRelics">
+<div class="help-section" style="margin-bottom:12px"><h4>🏦 Покупка из казны</h4><p style="font-size:12px;opacity:.85;margin-bottom:8px">Стандартные предметы за монеты или звёзды.</p><div id="marketShopOffers"><span style="opacity:.8">Загрузка…</span></div><div class="info" style="margin-top:12px;font-size:11px;opacity:.85;border-left:3px solid #ffa500;padding:8px 10px"><strong>Как устроены призы:</strong> Призовой фонд — 10% от профита казны. Награды в звёздах и PHXPW формируются только из взносов игроков: кто платил звёздами или токеном проекта, тот и получает шанс на такие награды в шахте и кейсах. Халявы нет — кто-то всегда платит; инвестируя, вы получаете реальный шанс.</div></div>
+<div class="help-section" style="margin-bottom:12px"><h4>🛒 Доступные для покупки</h4><p style="font-size:12px;opacity:.85;margin-bottom:8px">Ордера от других игроков: здесь появятся реликвии, когда кто-то выставит их на продажу. Ниже — ваши реликвии для продажи.</p><div id="marketOrdersAvailable"><span style="opacity:.8">Загрузка…</span></div></div>
+<div class="help-section"><h4>✨ Ваши реликвии</h4><p style="font-size:12px;opacity:.8;margin-bottom:10px">Продать за монеты или объединить в слиянии.</p><div id="marketRelicsList"></div></div>
+</div>
 <div id="marketAmulets" style="display:none"><div id="marketAmuletsList"></div></div>
 <div id="marketDiamonds" style="display:none"><div id="marketDiamondsList"></div></div>
+</div>
+
+<div id="pnlScreen" class="screen">
+<h2 style="text-align:center;margin-bottom:15px;color:#ffa500;text-shadow:0 0 15px rgba(255,140,0,.5)">📊 PnL</h2>
+<p style="text-align:center;font-size:13px;opacity:.9;margin-bottom:12px">Стейкинг, покупка токена и NFT от проекта</p>
+
+<!-- Developer Profile -->
+<div id="pnlDevProfile" class="info" style="margin:0 auto 20px;max-width:500px;border:2px solid rgba(255,165,0,.35);background:linear-gradient(135deg,rgba(255,140,0,.12),rgba(255,100,0,.05));border-radius:14px;padding:16px;display:none">
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#ffa500,#ff6b00);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🔥</div>
+<div style="flex:1">
+<div style="font-size:16px;font-weight:700;color:#ffa500" id="devProfileNick">Phoenix Paw</div>
+<div style="font-size:11px;opacity:.7;margin-top:2px" id="devProfileWallet"></div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+<div style="text-align:center;background:rgba(0,0,0,.2);border-radius:10px;padding:8px 4px">
+<div style="font-size:18px;font-weight:700;color:#ffa500" id="devCollCount">-</div>
+<div style="font-size:10px;opacity:.7">Коллекций</div>
+</div>
+<div style="text-align:center;background:rgba(0,0,0,.2);border-radius:10px;padding:8px 4px">
+<div style="font-size:18px;font-weight:700;color:#ffa500" id="devNftCount">-</div>
+<div style="font-size:10px;opacity:.7">NFT</div>
+</div>
+<div style="text-align:center;background:rgba(0,0,0,.2);border-radius:10px;padding:8px 4px">
+<div style="font-size:18px;font-weight:700;color:#ffa500" id="devLastSync">-</div>
+<div style="font-size:10px;opacity:.7">Обновлено</div>
+</div>
+</div>
+<div id="devCollectionsList" style="font-size:12px;opacity:.85"></div>
+</div>
+
+<!-- User's NFT from dev collections -->
+<div id="pnlNftBlock" class="info" style="margin:0 auto 20px;max-width:500px;border:2px solid rgba(255,165,0,.35);background:rgba(255,140,0,.08);border-radius:12px;padding:14px">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+<div style="font-size:15px;font-weight:700;color:#ffa500">🖼️ Ваши NFT от проекта</div>
+<div id="pnlNftCount" style="font-size:12px;opacity:.8"></div>
+</div>
+<div id="pnlNftList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;min-height:28px">Загрузка…</div>
+</div>
+
+<!-- Wallet state -->
+<div id="pnlWalletState" class="info" style="margin:0 auto 20px;max-width:400px">
+<div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:8px">💼 Состояние кошельков</div>
+<div id="pnlWalletBound" style="font-size:13px;opacity:.9">Загрузка…</div>
+<div id="pnlWalletList" style="font-size:12px;opacity:.85;margin-top:8px"></div>
+<div id="pnlStakingStatus" style="font-size:12px;opacity:.9;margin-top:8px"></div>
+<div id="pnlStakingContracts" style="font-size:11px;opacity:.8;margin-top:6px"></div>
+<div id="pnlNftSummary" style="font-size:12px;opacity:.9;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,140,0,.2)">🖼️ NFT от проекта: загрузка…</div>
+</div>
+<div class="inv-grid" style="max-width:400px;margin:0 auto">
+<div class="inv-item" style="cursor:pointer" onclick="G.openPnlStaking()">
+<div style="font-size:48px;margin-bottom:10px">🔒</div>
+<div style="font-weight:700;margin-bottom:5px">Стейкинг</div>
+<div style="font-size:12px;opacity:.9">Заблокировать PHOEX и получать награды</div>
+</div>
+<div class="inv-item" style="cursor:pointer" onclick="G.openPnlBuy()">
+<div style="font-size:48px;margin-bottom:10px">💱</div>
+<div style="font-weight:700;margin-bottom:5px">Покупка</div>
+<div style="font-size:12px;opacity:.9">Купить токен PHOEX (Swap)</div>
+</div>
+</div>
+</div>
+
+<!-- NFT Detail Modal -->
+<div id="nftDetailModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);overflow-y:auto;padding:20px" onclick="if(event.target===this)this.style.display='none'">
+<div style="max-width:400px;margin:40px auto;background:#1a1a2e;border:2px solid rgba(255,165,0,.4);border-radius:16px;padding:20px;position:relative">
+<button onclick="document.getElementById('nftDetailModal').style.display='none'" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;opacity:.7">&times;</button>
+<div id="nftDetailContent"></div>
+</div>
 </div>
 
 <div id="profileScreen" class="screen">
@@ -191,62 +322,71 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 <div style="text-align:center;margin-bottom:15px">
 <div style="font-size:60px;margin-bottom:10px">🔥</div>
 <div style="font-size:20px;font-weight:700;color:#ffa500" id="profileName">Игрок</div>
-<div style="font-size:14px;opacity:.8">Уровень деревни: <span id="profileLevel">1</span></div>
+<div style="font-size:14px;opacity:.8">Уровень племени: <span id="profileLevel">1</span></div>
 </div>
 <div class="ir"><span>Всего монет:</span><span id="profileCoins">0</span></div>
 <div class="ir"><span>Всего алмазов:</span><span id="profileGems">0</span></div>
 <div class="ir"><span>Найдено реликвий:</span><span id="profileRelics">0</span></div>
 <div class="ir"><span>Эра:</span><span id="profileEra">1</span></div>
 <div class="ir"><span>Поинты:</span><span id="profilePoints">0</span></div>
+<div class="ir"><span>Место в рейтинге:</span><span id="profileRank">-</span></div>
 </div>
-<div style="text-align:center;margin-top:15px">
-<button class="btn btn-warning" onclick="G.openWithdraw()">📤 Withdraw (weekly batch)</button>
+<div id="profileWalletBlock" style="margin:12px 0">
+<div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:8px">💼 Кошельки</div>
+<div id="profileWalletsList" class="info" style="margin-bottom:8px"></div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+<button class="btn btn-small btn-success" id="profileWalletBindBtn" onclick="G.openWalletBindFromProfile()">Авторизоваться</button>
+<button class="btn btn-small" id="profileWalletAddBtn" style="display:none" onclick="G.openAddWallet()">➕ Добавить кошелёк</button>
+</div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0">
+<button class="btn btn-warning" onclick="G.openWithdraw()">📤 Вывод PHXPW</button>
+<button class="btn btn-small" onclick="G.toggleAds()" id="profileAdsBtn">Реклама вкл/выкл</button>
+<button class="btn btn-small" onclick="G.watchAd()">Смотреть рекламу</button>
 </div>
 <div class="info" style="margin-top:15px">
 <div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:8px">🏅 Медали эр (нашивки)</div>
 <div id="profileEraMedals" style="min-height:24px;opacity:.9"></div>
 <div id="profileBurnMedal" style="margin-top:8px;font-size:13px;opacity:.9"></div>
+<div id="profilePhoenixBadge"></div>
 <div style="margin-top:10px;font-size:12px;opacity:.8">За каждую эру участникам выдаётся медаль. Вывод на кошелёк (SBT) — кнопка ниже.</div>
 <button class="btn btn-small" style="margin-top:8px" onclick="G.exportSBT()">Вывод медалей на кошелёк (SBT)</button>
 </div>
 
 <h3 style="margin:20px 0;color:#ffa500">📦 Инвентарь</h3>
-<div class="inv-grid">
-<div class="inv-item">
-<div style="font-size:40px;margin-bottom:8px">✨</div>
-<div style="font-weight:700;margin-bottom:5px">Реликвии</div>
-<div style="font-size:20px;color:#ff8c00" id="invRelics">0</div>
-<button class="btn btn-small btn-success" onclick="G.showInvRelics()" style="margin-top:10px">Открыть</button>
+<div class="info" style="margin-bottom:10px">
+<div style="font-size:13px;opacity:.95">Реликвии: <span id="invRelics">0</span> · Амулеты: <span id="invAmulets">0</span> · Бафы: <span id="invBuffs">0</span> · Порчи: <span id="invCurses">0</span> · Яйца: <span id="invEggs">0</span> · Буквы: <span id="invLetters">0</span></div>
 </div>
-<div class="inv-item">
-<div style="font-size:40px;margin-bottom:8px">🔮</div>
-<div style="font-weight:700;margin-bottom:5px">Амулеты</div>
-<div style="font-size:20px;color:#ff8c00" id="invAmulets">0</div>
-<button class="btn btn-small btn-success" onclick="G.showInvAmulets()" style="margin-top:10px">Открыть</button>
+<button class="btn btn-success" onclick="G.showScreen('inventory')">Открыть инвентарь</button>
 </div>
-<div class="inv-item">
-<div style="font-size:40px;margin-bottom:8px">🔤</div>
-<div style="font-weight:700;margin-bottom:5px">Буквы</div>
-<div style="font-size:20px;color:#ff8c00" id="invLetters">0</div>
-<button class="btn btn-small btn-success" onclick="G.showInvLetters()" style="margin-top:10px">Открыть</button>
+
+<div id="inventoryScreen" class="screen">
+<h2 style="text-align:center;margin-bottom:15px;color:#ffa500;text-shadow:0 0 15px rgba(255,140,0,.5)">🎒 Инвентарь</h2>
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:center;margin:12px 0">
+<label style="font-size:13px;opacity:.9">Показать:</label>
+<select id="invFilterSelect" class="btn btn-small" style="min-width:200px;cursor:pointer" onchange="G.applyInvFilter()">
+<option value="all">Без сортировки (полотно)</option>
+<option value="relics">✨ Реликвии</option>
+<option value="amulets">🔮 Амулеты</option>
+<option value="buffs">⚡ Бафы</option>
+<option value="curses">🕯 Порчи</option>
+<option value="eggs">🥚 Яйца</option>
+<option value="letters">🔤 Буквы</option>
+</select>
 </div>
-<div class="inv-item">
-<div style="font-size:40px;margin-bottom:8px">⚡</div>
-<div style="font-weight:700;margin-bottom:5px">Бафы</div>
-<div style="font-size:20px;color:#ff8c00" id="invBuffs">0</div>
-<button class="btn btn-small" onclick="G.showInvBuffs()" style="margin-top:10px">Смотреть</button>
+<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;margin:10px 0">
+<button type="button" class="btn btn-small" onclick="G.invPutInBuilding()" title="Поставить в здание">🏠</button>
+<button type="button" class="btn btn-small" onclick="G.invSell()" title="Продать">🏪</button>
+<button type="button" class="btn btn-small" onclick="G.invMerge()" title="Слияние">🔀</button>
+<button type="button" class="btn btn-small" onclick="G.invPlaceOrder()" title="Разместить ордер">📋</button>
+<button type="button" class="btn btn-small btn-success" onclick="G.showInvLetters()" title="Квест Феникс (буквы)">🔤</button>
 </div>
-<div class="inv-item">
-<div style="font-size:40px;margin-bottom:8px">🏆</div>
-<div style="font-weight:700;margin-bottom:5px">Позиция</div>
-<div style="font-size:20px;color:#ff8c00" id="invRank">-</div>
-<button class="btn btn-small" onclick="G.showScreen('rating')" style="margin-top:10px">Рейтинг</button>
-</div>
-</div>
+<p style="font-size:11px;opacity:.6;text-align:center;margin-top:4px">Выберите предмет в списке — откроется карточка с действиями</p>
+<div id="inventoryTabContent" class="inv-grid" style="margin-top:15px"></div>
 </div>
 
 <div id="tasksScreen" class="screen">
-<h2 style="text-align:center;margin-bottom:15px;color:#ffa500;text-shadow:0 0 15px rgba(255,140,0,.5)">📋 Задания</h2>
+<h2 style="text-align:center;margin-bottom:15px;color:#ffa500;text-shadow:0 0 15px rgba(255,140,0,.5)">📋 Задания / Награды</h2>
 
 <div class="checkin-card">
 <div style="font-size:20px;font-weight:700;color:#ffa500;margin-bottom:15px">⏰ Ежедневный Чекин</div>
@@ -256,7 +396,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 <div style="background:rgba(0,0,0,.3);padding:15px;border-radius:10px;margin:15px 0">
 <div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:10px">📊 Ваша позиция</div>
 <div style="font-size:24px;font-weight:900;color:#ff8c00;margin:10px 0">Место: <span id="myRank">-</span></div>
-<div style="font-size:12px;opacity:.8">из <span id="totalPlayers">152</span> игроков</div>
+<div style="font-size:12px;opacity:.8">из <span id="totalPlayers">0</span> игроков</div>
 </div>
 <button class="checkin-btn" id="checkinBtn" onclick="G.doCheckin()">✅ ПОЛУЧИТЬ ПОПЫТКИ</button>
 </div>
@@ -268,55 +408,67 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0a;background:linea
 </div>
 
 <div class="checkin-card" style="margin-top:20px">
-<div style="font-size:18px;font-weight:700;color:#ffa500;margin-bottom:12px">🔗 Привязка кошелька TON Keeper</div>
-<div style="font-size:12px;opacity:.8;margin-bottom:10px">Отправьте 0.1 TON с комментарием для подтверждения вашего кошелька</div>
+<div style="font-size:18px;font-weight:700;color:#ffa500;margin-bottom:12px">🔗 Привязка кошелька TON</div>
+<div style="font-size:12px;opacity:.8;margin-bottom:10px">Авторизация: 0.1 TON или 4500 PHXPW с комментарием на адрес проекта. Нажмите «Авторизоваться», выберите способ и «Проверить привязку» после перевода.</div>
 <div id="walletBindStatus" style="margin:10px 0;font-weight:700"></div>
-<button class="btn btn-warning" id="walletBindBtn" onclick="G.openWalletBind()">📤 Перейти в TON Keeper (0.1 TON + комментарий)</button>
+<button class="btn btn-warning" id="walletBindBtn" onclick="G.openAuthModal()">Авторизоваться</button>
 <div style="margin-top:10px"><button class="btn btn-small" onclick="G.verifyWalletBind()">Проверить привязку</button></div>
 </div>
 </div>
 
 <div id="ratingScreen" class="screen">
-<h2 style="text-align:center;margin-bottom:15px;color:#ffa500;text-shadow:0 0 15px rgba(255,140,0,.5)">🏆 Рейтинг Эры</h2>
-<div class="info"><div class="ir"><span>Призовой фонд (weekly cap):</span><span style="color:#ffa500;font-weight:700" id="prizePool">0 TON</span></div></div>
+<h2 style="text-align:center;margin-bottom:15px;color:#ffa500;text-shadow:0 0 15px rgba(255,140,0,.5)">🏆 Рейтинг</h2>
+<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0">
+<button class="btn btn-small btn-success" id="ratingTabEra" onclick="G.switchRatingPeriod('era')">Эра</button>
+<button class="btn btn-small" id="ratingTabWeek" onclick="G.switchRatingPeriod('week')">Неделя</button>
+<button class="btn btn-small" id="ratingTabMonth" onclick="G.switchRatingPeriod('month')">Месяц</button>
+</div>
+<div class="info"><div class="ir"><span>Призовой фонд (10% от профита казны, weekly cap):</span><span style="color:#ffa500;font-weight:700" id="prizePool">0 PHXPW</span></div></div>
 <div style="text-align:center;margin:15px 0">
 <button class="btn btn-success" onclick="G.showFullLeaderboard()">📋 Полный Лидерборд</button>
 </div>
 <div id="leaderboard"></div>
 </div>
 
-<div class="nav">
-<div class="ni active" onclick="G.showScreen('village')"><div class="nic">🏘️</div><div class="nil">Деревня</div></div>
-<div class="ni" onclick="G.showScreen('mine')"><div class="nic">⛏️</div><div class="nil">Шахта</div></div>
-<div class="ni" onclick="G.showScreen('market')"><div class="nic">🏪</div><div class="nil">Маркет</div></div>
-<div class="ni" onclick="G.showScreen('tasks')"><div class="nic">📋</div><div class="nil">Задания</div></div>
-<div class="ni" onclick="G.showScreen('profile')"><div class="nic">👤</div><div class="nil">Профиль</div></div>
+<div class="nav nav-six">
+<div class="ni active" data-screen="village" onclick="G.showScreen('village')"><div class="nic">🏘️</div><div class="nil">Племя</div></div>
+<div class="ni" data-screen="mine" onclick="G.showScreen('mine')"><div class="nic">⛏️</div><div class="nil">Шахта</div></div>
+<div class="ni" data-screen="inventory" onclick="G.showScreen('inventory')"><div class="nic">🎒</div><div class="nil">Инвентарь</div></div>
+<div class="ni" data-screen="market" onclick="G.showScreen('market')"><div class="nic">🏪</div><div class="nil">Маркет</div></div>
+<div class="ni" data-screen="profile" onclick="G.showScreen('profile')"><div class="nic">👤</div><div class="nil">Профиль</div></div>
+<div class="ni" data-screen="pnl" onclick="G.showScreen('pnl')"><div class="nic">📊</div><div class="nil">PnL</div></div>
 </div>
 </div>
 
-<div id="buildingModal" class="modal"><div class="mc"><button class="mcl" onclick="G.closeM('buildingModal')">×</button><div class="mt" id="bmt">Постройка</div><div id="bmc"></div></div></div>
+<div id="buildingModal" class="modal"><div class="mc"><button class="mcl" onclick="G.closeBuildingModal()">×</button><div class="mt" id="bmt">Постройка</div><div id="bmc"></div></div></div>
 <div id="mergeModal" class="modal"><div class="mc"><button class="mcl" onclick="G.closeM('mergeModal')">×</button><div class="mt">🔮 Слияние Реликвий</div><div id="mmc"></div></div></div>
 <div id="invModal" class="modal"><div class="mc"><button class="mcl" onclick="G.closeM('invModal')">×</button><div class="mt" id="invmt">Инвентарь</div><div id="invmc"></div></div></div>
+<div id="itemCardModal" class="modal"><div class="mc" style="max-width:380px"><button class="mcl" onclick="G.closeItemCard()">×</button><div class="mt" id="itemCardTitle">Предмет</div><div id="itemCardContent"></div></div></div>
 <div id="txModal" class="modal"><div class="mc"><button class="mcl" onclick="G.closeM('txModal')">×</button><div class="mt" id="txmt">Покупка</div><div id="txmc"></div></div></div>
 <div id="leaderboardModal" class="modal"><div class="mc"><button class="mcl" onclick="G.closeM('leaderboardModal')">×</button><div class="mt">🏆 Полный Лидерборд</div><div id="lbmc"></div></div></div>
 <div id="rewardModal" class="modal"><div class="mc"><button class="mcl" onclick="G.closeM('rewardModal')">×</button><div class="mt" id="rwmt">Награда!</div><div id="rwmc"></div></div></div>
 <div id="helpModal" class="modal"><div class="mc" style="max-width:520px"><button class="mcl" onclick="G.closeM('helpModal')">×</button><div class="mt">📖 Обучение</div><div id="helpmc"></div></div></div>
-<div id="aboutModal" class="modal"><div class="mc" style="max-width:560px"><button class="mcl" onclick="G.closeM('aboutModal')">×</button><div class="mt">ℹ️ О проекте</div><div id="aboutmc" style="max-height:70vh;overflow-y:auto;padding:8px 0"></div></div></div>
+<div id="aboutModal" class="modal"><div class="mc" style="max-width:560px"><button class="mcl" onclick="G.closeM('aboutModal')">×</button><div class="mt">ℹ️ О проекте</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="aboutTabs"></div><div id="aboutmc" style="max-height:70vh;overflow-y:auto;padding:8px 0"></div></div></div>
+<div id="authModal" class="modal"><div class="mc" style="max-width:420px"><button class="mcl" onclick="G.closeM('authModal')">×</button><div class="mt">Авторизация</div><div id="authModalBody" style="padding:8px 0"><div style="font-size:13px;opacity:.95;margin-bottom:12px">Привязка кошелька: отправьте <strong>0.1 TON</strong> или <strong>4500 PHXPW</strong> с комментарием на адрес проекта. После перевода нажмите «Проверить привязку».</div><div style="display:flex;flex-direction:column;gap:10px"><button class="btn btn-warning" id="authModalOpenTon" onclick="G.openTonkeeperFromAuthModal('ton')">📤 0.1 TON</button><button class="btn btn-success" id="authModalOpenPhxpw" onclick="G.openTonkeeperFromAuthModal('phxpw')">📤 4500 PHXPW</button><a href="#" style="font-size:12px;opacity:.85" onclick="G.openTonkeeperFallback(false); return false;">Не открылось? 0.1 TON в браузере</a> <a href="#" style="font-size:12px;opacity:.85" onclick="G.openTonkeeperFallback(true); return false;">4500 PHXPW в браузере</a><button class="btn btn-small" onclick="G.verifyWalletBind()">Проверить привязку</button></div></div></div></div>
 
 <div id="notif" class="notif"></div>
 
 <script>
 const G={
 d:{
-gems:0,coins:1000,wood:100,stone:100,era:1,eraStart:Date.now(),vLevel:1,skyFall:false,skyStart:null,lossMult:1,buildings:[],mineBlocks:[],relicsFound:0,relics:[],amulets:[],buffs:[],digsLeft:3,lastCheckin:null,
+gems:0,coins:1000,wood:100,stone:100,era:1,eraStart:Date.now(),vLevel:1,skyFall:false,skyStart:null,lossMult:1,buildings:[],mineBlocks:[],relicsFound:0,relics:[],amulets:[],buffs:[],digsLeft:3,lastCheckin:null,nextCheckinAt:null,
 exp:0,level:0,createdAt:Date.now(),actions:0,weekId:null,weeklyScore:0,withdrawsThisWeek:0,lock:{active:false,amount:0,until:0},kyc:{verified:false},sellDay:null,sellsToday:0,
 walletBound:false,walletVerifyCode:null,subscribedChannels:{phxpw:false,ludoman:false,kriptobratv:false},points:0,eraMedals:[],mineHintIndices:[],mineScanActive:false,phoenixEyeActive:false,
-burnedCount:0,letters:[],phoenixQuestCompleted:false
+burnedCount:0,letters:[],phoenixQuestCompleted:false,mineHistory:[],army:0,supplies:0
 },
 PHOENIX_WORD:'ФЕНИКС',
 RUS_ALPHABET:'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ',
 tonWallet:'UQD6RieTjAKQckERVNlCtSlGOgdfsmCAgLI2abAVz_tl3nuz',
+nftDevWallet:'UQCFBaCdPYEnNVrk9BcplNWGzxXxd2JSOTKDFm4pU0PmxySD',
 walletBindAmountTON:0.1,
+PHXPW_PRICE_TON:0.00002412,
+tonPriceUsd:1.47,
+PHOEX_JETTON_MASTER:'EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43',
 subsChannels:[
 {id:'phoenix_channel',name:'Phoenix PHOEX — канал',url:'https://t.me/PHXPW',reward:{gems:5,points:50}},
 {id:'phoenix_chat',name:'Phoenix — чат',url:'https://t.me/phxpwchat',reward:{gems:5,points:50}},
@@ -333,6 +485,8 @@ pointsPerCoin:10,
 myPlayerId:null,
 API_BASE:(typeof window.GAME_API_BASE!=='undefined'?window.GAME_API_BASE:''),
 allPlayers:[],
+_wsOnline:null,
+_wsReconnectDelay:1000,
 
 raritySystem:{
 epic:{name:'Эпический',color:'#9b59b6',chance:0.001,dropWeight:1,items:[]},
@@ -344,16 +498,38 @@ fire:{name:'Алый Огонь',color:'#ff4500',chance:0.50,dropWeight:50,items
 },
 
 buildingTypes:{
-townhall:{n:'Ратуша',i:'🏛️',inc:0,c:{wood:50,stone:50,coins:100}},
-house:{n:'Дом',i:'🏠',inc:5,c:{wood:20,stone:10,coins:50}},
-farm:{n:'Ферма',i:'🌾',inc:3,c:{wood:30,stone:15,coins:75}},
-lumbermill:{n:'Лесопилка',i:'🪵',inc:2,c:{wood:25,stone:20,coins:100}},
-quarry:{n:'Каменоломня',i:'🪨',inc:2,c:{wood:20,stone:25,coins:100}},
-market:{n:'Рынок',i:'🏪',inc:10,c:{wood:40,stone:30,coins:200}},
-temple:{n:'Храм',i:'⛪',inc:0,c:{wood:50,stone:50,coins:300}},
-barracks:{n:'Казармы',i:'⚔️',inc:0,c:{wood:60,stone:40,coins:250}},
-workshop:{n:'Мастерская',i:'🔨',inc:8,c:{wood:35,stone:35,coins:150}},
-tavern:{n:'Таверна',i:'🍺',inc:12,c:{wood:30,stone:20,coins:180}}
+townhall:{n:'Ратуша',i:'🏛️',inc:4,c:{wood:50,stone:50,coins:100},d:'Центр управления деревней. Открывает новые возможности с каждым уровнем.',b:'Доход монет, разблокировка функций'},
+houses:{n:'Дома',i:'🏠',inc:8,c:{wood:20,stone:10,coins:50},d:'Жилые дома для жителей. Чем больше жителей — тем выше доход.',b:'Высокий пассивный доход монет'},
+farm:{n:'Ферма',i:'🌾',inc:10,c:{wood:30,stone:15,coins:75},d:'Лучший источник дохода. Производит еду и приносит стабильный заработок.',b:'Максимальный пассивный доход'},
+market:{n:'Рынок',i:'🏪',inc:6,c:{wood:40,stone:30,coins:200},d:'Торговая площадь. Позволяет покупать и продавать предметы между игроками.',b:'Доход + торговля предметами'},
+warehouse:{n:'Склад',i:'📦',inc:0,c:{wood:25,stone:25,coins:80},d:'Увеличивает максимальный запас ресурсов. Защищает часть ресурсов от ограбления.',b:'Защита ресурсов от кражи'},
+lumbermill:{n:'Лесопилка',i:'🪵',inc:6,c:{wood:25,stone:20,coins:100},d:'Перерабатывает древесину. Приносит стабильный доход и бонус к добыче дерева.',b:'Доход + бонус к добыче дерева'},
+quarry:{n:'Каменоломня',i:'🪨',inc:4,c:{wood:20,stone:25,coins:100},d:'Добывает камень из недр. Приносит доход и бонус к добыче камня.',b:'Доход + бонус к добыче камня'},
+mine_office:{n:'Шахтный офис',i:'⛏️',inc:1,c:{wood:30,stone:30,coins:120},d:'Управляет шахтами. Увеличивает награды за копание и шанс редких находок.',b:'Бонус к шахте, шанс редких находок'},
+forge:{n:'Кузница',i:'⚒️',inc:2,c:{wood:40,stone:40,coins:150},d:'Создаёт и улучшает оружие, инструменты. Открывает крафт реликвий.',b:'Крафт, улучшение реликвий'},
+temple:{n:'Храм',i:'⛪',inc:1,c:{wood:50,stone:50,coins:300},d:'Духовный центр. Даёт бонус к опыту и усиливает все магические эффекты.',b:'Бонус к опыту, усиление магии'},
+guard_post:{n:'Страж-пост',i:'🛡️',inc:0,c:{wood:35,stone:35,coins:100},d:'Охраняет деревню. Снижает потери при ограблении и отпугивает воров.',b:'Защита от ограблений'},
+watchtower:{n:'Башня наблюдения',i:'🗼',inc:0,c:{wood:40,stone:30,coins:120},d:'Обзорная башня. Предупреждает о нападениях и даёт бонус к разведке.',b:'Раннее предупреждение, разведка'},
+infirmary:{n:'Лазарет',i:'🏥',inc:0,c:{wood:30,stone:40,coins:110},d:'Лечит раненых. Ускоряет восстановление после атак и снижает потери.',b:'Восстановление после атак'},
+academy:{n:'Академия',i:'📚',inc:2,c:{wood:35,stone:35,coins:140},d:'Центр обучения. Увеличивает получаемый опыт и открывает исследования.',b:'Бонус к опыту, исследования'},
+workshop:{n:'Мастерская',i:'🔨',inc:1,c:{wood:35,stone:35,coins:150},d:'Производит инструменты и улучшает здания. Снижает стоимость строительства.',b:'Скидка на строительство'},
+alchemy:{n:'Алхимическая',i:'⚗️',inc:1,c:{wood:40,stone:30,coins:130},d:'Лаборатория зелий. Создаёт бафы и усиления для экспедиций.',b:'Создание зелий и бафов'},
+post_office:{n:'Почта',i:'📮',inc:0,c:{wood:25,stone:25,coins:90},d:'Почтовая служба. Открывает обмен письмами и подарками между игроками.',b:'Обмен подарками'},
+portal:{n:'Портал',i:'🌀',inc:0,c:{wood:50,stone:50,coins:200},d:'Магический портал. Открывает доступ к особым мирам и эвентам.',b:'Доступ к спецсобытиям'},
+treasury:{n:'Казна',i:'🏦',inc:1,c:{wood:35,stone:35,coins:120},d:'Хранилище богатств. Начисляет процент на накопленные монеты.',b:'Процент на монеты'},
+firebrigade:{n:'Пожарная',i:'🚒',inc:0,c:{wood:40,stone:30,coins:110},d:'Защищает от пожаров и стихийных бедствий. Снижает урон от катастроф.',b:'Защита от стихийных бедствий'},
+well:{n:'Колодец',i:'🪣',inc:0,c:{wood:20,stone:30,coins:80},d:'Источник воды. Ускоряет рост зданий и снижает время перезарядок.',b:'Ускорение кулдаунов'},
+trade_guild:{n:'Торговая гильдия',i:'🤝',inc:2,c:{wood:40,stone:30,coins:160},d:'Объединение торговцев. Снижает комиссию при торговле и улучшает цены.',b:'Снижение комиссии, лучшие цены'},
+auction_house:{n:'Аукционный дом',i:'🔨',inc:2,c:{wood:45,stone:35,coins:180},d:'Аукцион редких предметов. Открывает доступ к эксклюзивным лотам.',b:'Доступ к редким лотам'},
+caravan:{n:'Караван-сарай',i:'🐪',inc:1,c:{wood:35,stone:25,coins:130},d:'Торговый караван. Приносит случайные ресурсы и бонусы из путешествий.',b:'Случайные ресурсы и бонусы'},
+arena:{n:'Арена',i:'⚔️',inc:2,c:{wood:50,stone:40,coins:200},d:'Боевая арена. Открывает PvP-сражения и турниры с наградами.',b:'PvP-бои, турниры'},
+contracts_board:{n:'Доска контрактов',i:'📋',inc:1,c:{wood:30,stone:30,coins:120},d:'Доска заказов. Открывает ежедневные задания с наградами.',b:'Ежедневные задания'},
+egg_shrine:{n:'Святилище яиц',i:'🥚',inc:0,c:{wood:35,stone:35,coins:100},d:'Мистическое святилище. Увеличивает шанс найти яйца Феникса.',b:'Шанс яиц Феникса'},
+incubator:{n:'Инкубатор',i:'🐣',inc:0,c:{wood:30,stone:30,coins:110},d:'Высиживает питомцев из яиц. Открывает систему петов-помощников.',b:'Разведение питомцев'},
+ad_totem:{n:'Рекламный тотем',i:'📢',inc:0,c:{wood:25,stone:25,coins:90},d:'Рекламный столб. Даёт бонусные монеты за просмотр рекламы.',b:'Бонус за рекламу'},
+era_monument:{n:'Памятник эры',i:'🗽',inc:1,c:{wood:40,stone:40,coins:170},d:'Монумент текущей эры. Даёт бонус к очкам эры и медалям.',b:'Бонус к очкам эры'},
+silence_chapel:{n:'Часовня тишины',i:'⛪',inc:0,c:{wood:35,stone:35,coins:100},d:'Тихое место медитации. Снижает время кулдаунов и восстанавливает энергию.',b:'Снижение кулдаунов'},
+blacklist_office:{n:'Канцелярия запретов',i:'📜',inc:0,c:{wood:30,stone:30,coins:110},d:'Управление запретами. Позволяет блокировать нежелательных посетителей.',b:'Блокировка игроков'}
 },
 
 selectedMerge:[],
@@ -467,14 +643,98 @@ const amountNano=Math.floor(this.walletBindAmountTON*1e9);
 return `ton://transfer/${this.tonWallet}?amount=${amountNano}&text=${encodeURIComponent(code)}`;
 },
 
-openWalletBind(){
-const url=this.getWalletBindUrl();
-if(window.Telegram&&window.Telegram.WebApp&&window.Telegram.WebApp.openLink){
-window.Telegram.WebApp.openLink(url);
+openAuthModal(){
+this.notify('Открываю окно авторизации…');
+this.openM('authModal');
+if(this.API_BASE) this._fetchWalletBindData();
+},
+
+async _fetchWalletBindData(){
+try{
+const r=await fetch(this.API_BASE+'/api/game/wallet',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)},body:JSON.stringify({})});
+const data=r.ok?await r.json():{};
+const pw=(data.project_wallet||'').trim();
+const comment=data.verify_comment||data.verify_code||'';
+const jetton=data.jetton_master||this.PHOEX_JETTON_MASTER||'';
+const phxpwAmt=data.phxpw_amount!=null?data.phxpw_amount:4500;
+if(pw&&comment) this._authWalletData={project_wallet:pw,verify_comment:comment,jetton_master:jetton,phxpw_amount:phxpwAmt};
+}catch(e){}
+},
+
+async openTonkeeperFromAuthModal(method){
+method=method||'ton';
+const amountNano=100000000;
+const phxpwRaw=4500000000000;
+let url, httpsUrl; let addr, comment;
+if(this.API_BASE){
+if(!this._authWalletData) await this._fetchWalletBindData();
+const d=this._authWalletData;
+if(!d||!d.verify_comment){ this.notify('Подождите загрузки данных или попробуйте снова','error'); return; }
+addr=(d.project_wallet||'').trim();
+comment=d.verify_comment;
+if(!addr){ this.notify('На сервере не задан адрес кошелька (PROJECT_WALLET_ADDRESS). Используйте ссылку «Открыть в браузере».','error'); addr=this.tonWallet; }
+if(method==='phxpw'){
+const jetton=(d.jetton_master||this.PHOEX_JETTON_MASTER||'').trim();
+const amt=d.phxpw_amount!=null?Math.floor(Number(d.phxpw_amount)*1e9):phxpwRaw;
+url=jetton?`ton://transfer/${addr}?jetton=${encodeURIComponent(jetton)}&amount=${amt}&text=${encodeURIComponent(comment)}`:`ton://transfer/${addr}?amount=${amountNano}&text=${encodeURIComponent(comment)}`;
+httpsUrl=jetton?`https://app.tonkeeper.com/jetton/${encodeURIComponent(jetton)}/transfer?address=${encodeURIComponent(addr)}&amount=${amt}&comment=${encodeURIComponent(comment)}`:`https://app.tonkeeper.com/transfer/${addr}?amount=${amountNano}&text=${encodeURIComponent(comment)}`;
 }else{
-window.location.href=url;
+url=`ton://transfer/${addr}?amount=${amountNano}&text=${encodeURIComponent(comment)}`;
+httpsUrl=`https://app.tonkeeper.com/transfer/${addr}?amount=${amountNano}&text=${encodeURIComponent(comment)}`;
 }
-this.notify('Откройте TON Keeper, проверьте сумму 0.1 TON и комментарий, подтвердите перевод. Затем нажмите «Проверить привязку».');
+}else{
+url=this.getWalletBindUrl();
+addr=this.tonWallet;
+comment='VE_'+(this.myPlayerId||this.d.playerId||Date.now());
+httpsUrl='https://app.tonkeeper.com/transfer/'+addr+'?amount='+amountNano+'&text='+encodeURIComponent(comment);
+}
+try{
+if(window.Telegram&&window.Telegram.WebApp&&window.Telegram.WebApp.openLink){
+window.Telegram.WebApp.openLink(method==='phxpw'?httpsUrl:url);
+}else{
+window.open(method==='phxpw'?httpsUrl:url,'_blank');
+}
+}catch(e){ window.open(httpsUrl,'_blank'); }
+this.notify(method==='phxpw'?'Откройте кошелёк: 4500 PHXPW и комментарий подставлены. После перевода нажмите «Проверить привязку».':'Откройте кошелёк: 0.1 TON и комментарий подставлены. После перевода нажмите «Проверить привязку».');
+},
+
+openTonkeeperFallback(usePhxpw){
+const amountNano=100000000;
+const phxpwRaw=4500000000000;
+let addr, comment, url;
+if(this.API_BASE&&this._authWalletData){
+addr=this._authWalletData.project_wallet;
+comment=this._authWalletData.verify_comment;
+if(usePhxpw){
+const jetton=(this._authWalletData.jetton_master||this.PHOEX_JETTON_MASTER||'').trim();
+const amt=this._authWalletData.phxpw_amount!=null?Math.floor(Number(this._authWalletData.phxpw_amount)*1e9):phxpwRaw;
+url=jetton?`https://app.tonkeeper.com/jetton/${encodeURIComponent(jetton)}/transfer?address=${encodeURIComponent(addr)}&amount=${amt}&comment=${encodeURIComponent(comment)}`:`https://app.tonkeeper.com/transfer/${addr}?amount=${amountNano}&text=${encodeURIComponent(comment)}`;
+}else{
+url=`https://app.tonkeeper.com/transfer/${addr}?amount=${amountNano}&text=${encodeURIComponent(comment)}`;
+}
+}else{ addr=this.tonWallet; comment='VE_'+(this.myPlayerId||this.d.playerId||Date.now()); url=`https://app.tonkeeper.com/transfer/${addr}?amount=${amountNano}&text=${encodeURIComponent(comment)}`; }
+window.open(url,'_blank');
+this.notify(usePhxpw?'Открыто: перевод 4500 PHXPW. Если Tonkeeper установлен, откроется приложение.':'Открыто в браузере. Если Tonkeeper установлен, откроется приложение.');
+},
+
+openWalletBind(){
+this.openAuthModal();
+const btn=document.getElementById('authModalOpenTon');
+if(btn) btn.click();
+},
+
+copyWalletBindLink(){
+const amountNano=100000000;
+let url;
+if(this._authWalletData){
+url=`ton://transfer/${this._authWalletData.project_wallet}?amount=${amountNano}&text=${encodeURIComponent(this._authWalletData.verify_comment)}`;
+}else{ url=this.getWalletBindUrl(); }
+if(navigator.clipboard&&navigator.clipboard.writeText){
+navigator.clipboard.writeText(url).then(()=>this.notify('Ссылка скопирована')).catch(()=>this.notify(url));
+}else{
+const inp=document.createElement('input');inp.value=url;document.body.appendChild(inp);inp.select();document.execCommand('copy');document.body.removeChild(inp);
+this.notify('Ссылка скопирована');
+}
 },
 
 updateWalletBindUI(){
@@ -484,11 +744,29 @@ if(st) st.textContent=this.d.walletBound?'✅ Кошелёк привязан':'
 if(btn) btn.style.display=this.d.walletBound?'none':'block';
 },
 
-verifyWalletBind(){
-this.notify('Проверка транзакции привязки... (в разработке). Реальные проверки на сервере.');
+async verifyWalletBind(){
+if(!this.API_BASE){ this.notify('Проверка привязки доступна только при подключении к серверу.','error'); return; }
+this.notify('Проверка транзакции…');
+try{
+const r=await fetch(this.API_BASE+'/api/game/wallet/verify',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)}});
+const data=r.ok?await r.json():{};
+if(data.ok){
+this.d.walletBound=true;
+this.updateWalletBindUI();
+this.save();
+this.closeM('authModal');
+this.notify('Кошелёк привязан!');
+}else{
+const reason=data.reason||'tx_not_found';
+this.notify(reason==='tx_not_found'?'Транзакция не найдена. Подождите 1–2 минуты и нажмите «Проверить привязку» снова.':'Ошибка: '+reason,'error');
+}
+}catch(e){
+this.notify('Ошибка сети. Попробуйте позже.','error');
+}
 },
 
 init(){
+if(this.API_BASE) this._fetchRates();
 const done=()=>{
 this.initTG();
 this.initRaritySystem();
@@ -505,8 +783,45 @@ this.loadGame();
 done();
 }
 },
+async _fetchRates(){
+try{
+const r=await fetch(this.API_BASE+'/api/game/rates');
+if(r.ok){
+const d=await r.json();
+const num=parseFloat(d.phxpw_price_ton);
+if(num!=null&&!isNaN(num)&&num>0) this.PHXPW_PRICE_TON=num;
+const tonUsd=parseFloat(d.ton_price_usd);
+if(tonUsd!=null&&!isNaN(tonUsd)&&tonUsd>0) this.tonPriceUsd=tonUsd;
+}
+}catch(e){}
+},
+_phxpwFromTon(ton){
+const rate=this.PHXPW_PRICE_TON||0.00002412;
+if(!rate) return 0;
+const raw=Number(ton)/rate;
+return raw>=1e6?Math.round(raw/1e5)*1e5:raw>=1e3?Math.round(raw/100)*100:Math.round(raw);
+},
+_phxpwToUsd(phxpw){
+const rate=this.PHXPW_PRICE_TON||0.00002412;
+const tonUsd=this.tonPriceUsd||1.47;
+return (phxpw*rate*tonUsd)||0;
+},
+_starsToUsd(pts){
+return this._phxpwToUsd((pts||0)*2);
+},
 
 initTG(){
+const urlParams=new URLSearchParams(window.location.search);
+const testTg=urlParams.get('tg');
+if(testTg!==null&&testTg!==''){
+const id=parseInt(testTg,10)||Math.floor(Math.random()*1000000);
+this.myPlayerId=id;
+document.getElementById('playerName').textContent='Тест '+id;
+document.getElementById('profileName').textContent='Тест '+id;
+const badge=document.getElementById('testModeBadge');
+if(badge){ badge.style.display='inline'; badge.textContent='Тест ID: '+id; }
+return;
+}
 if(window.Telegram?.WebApp){
 const tg=window.Telegram.WebApp;
 tg.ready();tg.expand();
@@ -526,15 +841,15 @@ this.myPlayerId=Math.floor(Math.random()*1000000);
 
 initRaritySystem(){
 this.raritySystem.epic.items=[
-{id:'ruling_amulet',n:'Амулет Правления',i:'👑',type:'amulet',e:'immunity',ton:10},
-{id:'immortal_amulet',n:'Бессмертие',i:'💫',type:'amulet',e:'no_loss',ton:12},
+{id:'ruling_amulet',n:'Амулет Правления',i:'👑',type:'amulet',e:'immunity',pts:250},
+{id:'immortal_amulet',n:'Бессмертие',i:'💫',type:'amulet',e:'no_loss',pts:300},
 {id:'phoenix_relic',n:'Феникс Возрождения',i:'🔴',type:'relic',ev:500}
 ];
 
 this.raritySystem.magic.items=[
-{id:'freeze_amulet',n:'Остановка Времени',i:'⏸️',type:'amulet',e:'freeze',ton:8},
-{id:'prosperity_amulet',n:'Процветание',i:'💰',type:'amulet',e:'income_x3',ton:5},
-{id:'fortune_amulet',n:'Удача',i:'🍀',type:'amulet',e:'relic_x2',ton:4},
+{id:'freeze_amulet',n:'Остановка Времени',i:'⏸️',type:'amulet',e:'freeze',pts:200},
+{id:'prosperity_amulet',n:'Процветание',i:'💰',type:'amulet',e:'income_x3',pts:150},
+{id:'fortune_amulet',n:'Удача',i:'🍀',type:'amulet',e:'relic_x2',pts:100},
 {id:'dragon_relic',n:'Дракон Силы',i:'🟣',type:'relic',ev:300},
 {id:'titan_relic',n:'Титан Мощи',i:'🟣',type:'relic',ev:280},
 {id:'wisdom_relic',n:'Мудрость Веков',i:'🟣',type:'relic',ev:250},
@@ -563,35 +878,58 @@ this.raritySystem.fire.items.push({id:`fire${i}`,n:`${n} Юга`,i:'🔥',type:'
 },
 
 initPlayers(){
-const names=['Дракон','Феникс','Титан','Воин','Маг','Рыцарь','Охотник','Странник','Герой','Легенда'];
+// Real data only — no fake players. allPlayers used only as local fallback.
 this.allPlayers=[];
-for(let i=0;i<150;i++){
-this.allPlayers.push({
-id:1000+i,
-name:names[Math.floor(Math.random()*names.length)]+Math.floor(Math.random()*1000),
-score:Math.floor(Math.random()*10000)+500,
-relics:Math.floor(Math.random()*50),
-coins:Math.floor(Math.random()*50000)+1000,
-level:Math.floor(Math.random()*10)+1,
-online:Math.random()>.7
-});
-}
 this.ensureWeek();
 this.allPlayers.push({
 id:this.myPlayerId,
 name:document.getElementById('playerName').textContent,
 score:this.calcWeeklyScore(),
-relics:this.d.relicsFound,
+relics:this.d.relicsFound||0,
 coins:this.d.coins,
 level:this.d.vLevel,
 online:true
 });
-this.allPlayers.sort((a,b)=>b.score-a.score);
+// Fetch real stats from server
+if(this.API_BASE){
+fetch(this.API_BASE+'/api/game/stats').then(r=>r.ok?r.json():null).then(d=>{
+if(d){
+const oc=document.getElementById('onlineCount');if(oc)oc.textContent=d.online||0;
+const tp=document.getElementById('totalPlayers');if(tp)tp.textContent=d.total_players||0;
+}
+}).catch(()=>{});
+}
 },
 
 updateOnlineCount(){
-const online=this.allPlayers.filter(p=>p.online).length;
-document.getElementById('onlineCount').textContent=online;
+// Online count is updated via WebSocket — no-op here for compat
+},
+
+connectOnlineWS(){
+if(!this.API_BASE)return;
+const proto=this.API_BASE.startsWith('https')?'wss':'ws';
+const host=this.API_BASE.replace(/^https?:\/\//,'');
+const url=proto+'://'+host+'/ws/online';
+try{
+const ws=new WebSocket(url);
+this._wsOnline=ws;
+ws.onmessage=(e)=>{
+try{
+const d=JSON.parse(e.data);
+if(d.online!==undefined){
+const oc=document.getElementById('onlineCount');
+if(oc)oc.textContent=d.online;
+}
+}catch(_){}
+};
+ws.onclose=()=>{
+this._wsOnline=null;
+setTimeout(()=>this.connectOnlineWS(),this._wsReconnectDelay);
+this._wsReconnectDelay=Math.min(this._wsReconnectDelay*1.5,30000);
+};
+ws.onopen=()=>{this._wsReconnectDelay=1000;};
+ws.onerror=()=>{};
+}catch(_){}
 },
 
 renderVillage(){
@@ -647,6 +985,7 @@ h+=`<div style="text-align:center;margin-top:10px"><button class="btn btn-danger
 }
 document.getElementById('bmt').textContent=t.n;
 document.getElementById('bmc').innerHTML=h;
+this._buildingModalView='building';
 this.openM('buildingModal');
 },
 
@@ -656,11 +995,25 @@ const m=Math.pow(1.5,b.lv);
 return{wood:Math.floor(t.c.wood*m),stone:Math.floor(t.c.stone*m),coins:Math.floor(t.c.coins*m)};
 },
 
-upgBuild(idx){
-this.d.actions++;this.addExp(15);
+async upgBuild(idx){
 const b=this.d.buildings[idx];
+if(!b) return;
 const c=this.getUpgCost(b);
+if(this.API_BASE){
+try{
+const r=await fetch(this.API_BASE+'/api/game/field/upgrade',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)},body:JSON.stringify({building_key:b.t,cost:c.coins||50})});
+const data=await r.json().catch(()=>({}));
+if(!r.ok){ this.notify(data.detail||'Ошибка улучшения','error'); return; }
+this.d.actions++;this.addExp(15);
+this.d.wood-=c.wood;this.d.stone-=c.stone;this.d.coins-=c.coins;
+b.lv++;
+this.notify(`${this.buildingTypes[b.t].n} улучшена до ${b.lv}!`);
+this.closeM('buildingModal');this.renderVillage();this.updateUI();this.save();
+}catch(e){ this.notify(e.message||'Ошибка','error'); }
+return;
+}
 if(this.d.wood>=c.wood&&this.d.stone>=c.stone&&this.d.coins>=c.coins){
+this.d.actions++;this.addExp(15);
 this.d.wood-=c.wood;this.d.stone-=c.stone;this.d.coins-=c.coins;b.lv++;
 this.notify(`${this.buildingTypes[b.t].n} улучшена до ${b.lv}!`);
 this.closeM('buildingModal');this.renderVillage();this.updateUI();this.save();
@@ -678,24 +1031,86 @@ this.closeM('buildingModal');this.renderVillage();this.updateUI();this.save();
 }
 },
 
-showNew(){
-let h='<div style="max-height:400px;overflow-y:auto">';
+_buildingListScroll:0,
+_buildingModalView:'list',
+
+showNew(restoreScroll){
+let h='<div id="buildingListScroller" style="max-height:400px;overflow-y:auto">';
 Object.entries(this.buildingTypes).forEach(([k,t])=>{
 if(k==='townhall')return;
 const can=this.d.wood>=t.c.wood&&this.d.stone>=t.c.stone&&this.d.coins>=t.c.coins;
-h+=`<div class="info" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:15px;margin-bottom:10px"><div style="font-size:40px">${t.i}</div><div style="flex:1"><strong>${t.n}</strong><div style="font-size:12px;opacity:.8">+${t.inc}/ч</div></div></div><div style="font-size:12px;margin-bottom:8px">🪵 ${t.c.wood} | 🪨 ${t.c.stone} | 🪙 ${t.c.coins}</div><button class="btn btn-success btn-small" ${!can?'disabled':''} onclick="G.buildNew('${k}')">Построить</button></div>`;
+h+=`<div class="info" style="margin-bottom:10px;cursor:pointer" onclick="G.showBuildingInfo('${k}')"><div style="display:flex;align-items:center;gap:15px;margin-bottom:10px"><div style="font-size:40px">${t.i}</div><div style="flex:1"><strong>${t.n}</strong><div style="font-size:12px;opacity:.8">${t.inc>0?'+'+t.inc+'/ч':'—'} ${t.b?'· '+t.b:''}</div></div><div style="font-size:18px;opacity:.5">ℹ️</div></div><div style="font-size:12px;margin-bottom:8px">🪵 ${t.c.wood} | 🪨 ${t.c.stone} | 🪙 ${t.c.coins}</div><button class="btn btn-success btn-small" ${!can?'disabled':''} onclick="event.stopPropagation();G.buildNew('${k}')">Построить</button></div>`;
 });
 h+='</div>';
 document.getElementById('bmt').textContent='Новая постройка';
 document.getElementById('bmc').innerHTML=h;
+this._buildingModalView='list';
 this.openM('buildingModal');
+if(restoreScroll){
+const sc=document.getElementById('buildingListScroller');
+if(sc) requestAnimationFrame(()=>{ sc.scrollTop=this._buildingListScroll; });
+}
 },
 
-buildNew(t){
-this.d.actions++;this.addExp(20);
+showBuildingInfo(k){
+const scroller=document.getElementById('buildingListScroller');
+if(scroller) this._buildingListScroll=scroller.scrollTop;
+const t=this.buildingTypes[k];
+if(!t)return;
+this._buildingModalView='info';
+const can=this.d.wood>=t.c.wood&&this.d.stone>=t.c.stone&&this.d.coins>=t.c.coins;
+let h=`<div style="text-align:center;margin-bottom:15px"><div style="font-size:64px">${t.i}</div></div>`;
+h+=`<div class="info" style="margin-bottom:12px"><div style="margin-bottom:8px;font-size:13px;line-height:1.5">${t.d||''}</div>`;
+if(t.b) h+=`<div style="margin-bottom:8px"><span style="color:#ffa500;font-weight:600">Бонус:</span> ${t.b}</div>`;
+h+=`<div class="ir"><span>Базовый доход:</span><span style="color:#ff8c00">${t.inc>0?'+'+t.inc+' 🪙/ч':'Нет дохода'}</span></div>`;
+h+=`</div>`;
+h+=`<div class="info" style="margin-bottom:12px"><div style="font-weight:600;margin-bottom:8px">Потенциал по уровням</div><div style="font-size:12px;max-height:160px;overflow-y:auto">`;
+for(let lv=1;lv<=10;lv++){
+const m=Math.pow(1.5,lv-1);
+const upgW=Math.floor(t.c.wood*m);
+const upgS=Math.floor(t.c.stone*m);
+const upgC=Math.floor(t.c.coins*m);
+const inc=t.inc*lv;
+h+=`<div style="display:flex;justify-content:space-between;padding:4px 0;${lv%2===0?'background:rgba(255,255,255,0.03)':''}"><span style="font-weight:600;min-width:55px">Ур. ${lv}</span><span style="color:#ff8c00;min-width:60px">${inc>0?'+'+inc+' 🪙/ч':'—'}</span><span style="opacity:.7">🪵${upgW} 🪨${upgS} 🪙${upgC}</span></div>`;
+}
+h+=`</div></div>`;
+h+=`<div class="info" style="margin-bottom:12px"><div style="font-weight:600;margin-bottom:8px">Стоимость постройки</div><div style="display:flex;justify-content:space-around;text-align:center"><div>🪵<br><strong>${t.c.wood}</strong></div><div>🪨<br><strong>${t.c.stone}</strong></div><div>🪙<br><strong>${t.c.coins}</strong></div></div></div>`;
+h+=`<div style="display:flex;gap:10px;justify-content:center;margin-top:15px"><button class="btn btn-small" onclick="G.showNew(true)">← Назад</button><button class="btn btn-success" ${!can?'disabled':''} onclick="G.buildNew('${k}')">Построить ${t.n}</button></div>`;
+document.getElementById('bmt').textContent=t.n;
+document.getElementById('bmc').innerHTML=h;
+},
+
+closeBuildingModal(){
+if(this._buildingModalView==='info'){
+this.showNew(true);
+return;
+}
+this._buildingModalView='list';
+this._buildingListScroll=0;
+this.closeM('buildingModal');
+},
+
+async buildNew(t){
 const bt=this.buildingTypes[t];
+if(!bt) return;
 const c=bt.c;
+if(this.API_BASE){
+const slot=this.getFirstEmptySlot();
+if(!slot){ this.notify('Все 9 слотов заняты','error'); return; }
+try{
+const r=await fetch(this.API_BASE+'/api/game/field/place',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)},body:JSON.stringify({slot_index:slot,building_key:t,cost:c.coins||100})});
+const data=await r.json().catch(()=>({}));
+if(!r.ok){ this.notify(data.detail||'Ошибка постройки','error'); return; }
+this.d.actions++;this.addExp(20);
+this.d.wood-=c.wood;this.d.stone-=c.stone;this.d.coins-=c.coins;
+this.d.buildings.push({t:t,lv:1,last:Date.now(),_slotIndex:slot});
+this.notify(`${bt.n} построена!`);
+this.closeM('buildingModal');this.renderVillage();this.updateUI();this.save();
+}catch(e){ this.notify(e.message||'Ошибка','error'); }
+return;
+}
 if(this.d.wood>=c.wood&&this.d.stone>=c.stone&&this.d.coins>=c.coins){
+this.d.actions++;this.addExp(20);
 this.d.wood-=c.wood;this.d.stone-=c.stone;this.d.coins-=c.coins;
 this.d.buildings.push({t:t,lv:1,last:Date.now()});
 this.notify(`${bt.n} построена!`);
@@ -904,7 +1319,9 @@ return;
 this.d.digsLeft--;
 this.d.actions++;this.addExp(10);
 b.cl=true;
+if(!this.d.mineHistory)this.d.mineHistory=[];
 if(!b.hasPrize){
+this.d.mineHistory.push({t:'Копка',r:'Пусто'});
 this.notify('Пусто... 😔');
 this.renderMine();
 this.updateUI();
@@ -913,13 +1330,16 @@ return;
 }
 const rw=b.reward;
 if(rw.type==='amulet'){
+this.d.mineHistory.push({t:'Копка',r:rw.n||'Амулет'});
 this.d.amulets.push({...rw,obt:Date.now()});
 this.showReward(rw,b.rarity);
 }else if(rw.type==='relic'){
+this.d.mineHistory.push({t:'Копка',r:rw.n||'Реликвия'});
 this.d.relics.push({...rw,id:`ri${Date.now()}_${Math.random()}`});
 this.d.relicsFound++;
 this.showReward(rw,b.rarity);
 }else if(rw.type==='coins'){
+this.d.mineHistory.push({t:'Копка',r:'🪙 '+ (rw.amount||50)});
 this.d.coins+=rw.amount||50;
 this.notify(`💰 +${rw.amount||50} 🪙`);
 }
@@ -927,32 +1347,51 @@ this.renderMine();
 this.updateUI();this.save();
 },
 
+getEffectDescription(rw){
+const catalog=window.ITEMS_CATALOG||[];
+const byName=catalog.find(x=>x.name===rw.n);
+if(byName&&byName.effect) return byName.effect;
+if(rw.ev!=null) return `Бонус +${rw.ev}% к доходу, защите или продаже — смотри слот в инвентаре.`;
+return 'Бонус к зданиям или шахте — смотри в инвентаре.';
+},
 showReward(rw,rarity){
 const rd=this.raritySystem[rarity];
 document.getElementById('rwmt').textContent='🎉 Награда!';
 let h=`<div style="text-align:center"><div style="font-size:80px;margin-bottom:15px">${rw.i}</div><h2 style="color:${rd.color}">${rw.n}</h2><div style="background:${rd.color};color:#fff;padding:5px 15px;border-radius:20px;display:inline-block;margin:15px 0;font-weight:700">${rd.name}</div></div>`;
 if(rw.type==='amulet'){
-h+=`<div class="info"><p style="text-align:center">Амулет добавлен в инвентарь!</p></div>`;
+const effLabel={immunity:'Иммунитет к Падению неба',no_loss:'Здания не теряют монеты',freeze:'Заморозка времени зданий',income_x3:'Тройной доход 12ч',relic_x2:'Удвоение шанса реликвий'}[rw.e]||rw.e;
+h+=`<div class="info"><p style="text-align:center">Амулет добавлен в инвентарь!</p><p style="text-align:center;font-size:12px;opacity:.9;margin-top:6px">Что даёт: <strong>${effLabel}</strong></p></div>`;
 }else if(rw.type==='relic'){
-h+=`<div class="info"><p style="text-align:center">Реликвия добавлена в инвентарь!<br>Эффект: +${rw.ev}%</p></div>`;
+const effText=this.getEffectDescription(rw);
+h+=`<div class="info"><p style="text-align:center">Реликвия добавлена в инвентарь!</p><p style="text-align:center;font-size:12px;opacity:.9;margin-top:6px">Что даёт: <strong>${effText}</strong></p></div>`;
 }
 h+=`<div style="text-align:center;margin-top:20px"><button class="btn btn-success btn-big" onclick="G.closeM('rewardModal')">Отлично!</button></div>`;
 document.getElementById('rwmc').innerHTML=h;
 this.openM('rewardModal');
 },
 
-doCheckin(){
+async doCheckin(){
+if(this.API_BASE){
+try{
+const r=await fetch(this.API_BASE+'/api/game/checkin',{method:'POST',headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+const data=await r.json().catch(()=>({}));
+this.d.digsLeft=data.attempts_balance!==undefined?data.attempts_balance:this.d.digsLeft;
+if(data.next_checkin_at) this.d.nextCheckinAt=new Date(data.next_checkin_at.replace('Z','')).getTime();
+if(data.ok){
+this.notify('✅ Получено '+data.granted_attempts+' попыток копания!');
+this.renderMine();
+}else{
+this.notify(data.message==='cooldown'?'Подождите до следующего чекина (см. таймер)':'Чекин недоступен','error');
+}
+this.updateCheckinUI(); this.save(); return;
+}catch(e){ this.notify('Ошибка чекина','error'); return; }
+}
 const now=Date.now();
+if(this.d.nextCheckinAt!=null&&now<this.d.nextCheckinAt){ this.notify('Подождите до следующего чекина','error'); return; }
 if(this.d.lastCheckin){
 const elapsed=now-this.d.lastCheckin;
 const tenHours=10*60*60*1000;
-if(elapsed<tenHours){
-const left=tenHours-elapsed;
-const h=Math.floor(left/(60*60*1000));
-const m=Math.floor((left%(60*60*1000))/(60*1000));
-this.notify(`Подождите ${h}ч ${m}м до следующего чекина`,'error');
-return;
-}
+if(elapsed<tenHours){ const left=tenHours-elapsed; const h=Math.floor(left/(60*60*1000)); const m=Math.floor((left%(60*60*1000))/(60*1000)); this.notify(`Подождите ${h}ч ${m}м до следующего чекина`,'error'); return; }
 }
 this.d.actions++;this.addExp(10);
 this.d.digsLeft=3;
@@ -967,66 +1406,327 @@ updateCheckinUI(){
 const btn=document.getElementById('checkinBtn');
 const timer=document.getElementById('checkinTimer');
 document.getElementById('checkinDigs').textContent=this.d.digsLeft;
-if(!this.d.lastCheckin){
-btn.disabled=false;
-timer.textContent='Доступно сейчас!';
-return;
-}
 const now=Date.now();
-const elapsed=now-this.d.lastCheckin;
+let canCheckin=false;
+let leftMs=0;
+if(this.d.nextCheckinAt!=null&&this.d.nextCheckinAt!==undefined){
+canCheckin=now>=this.d.nextCheckinAt;
+if(!canCheckin) leftMs=Math.max(0,this.d.nextCheckinAt-now);
+}else if(this.d.lastCheckin){
 const tenHours=10*60*60*1000;
-if(elapsed>=tenHours){
-btn.disabled=false;
-timer.textContent='Доступно сейчас!';
+const elapsed=now-this.d.lastCheckin;
+canCheckin=elapsed>=tenHours;
+if(!canCheckin) leftMs=Math.max(0,tenHours-elapsed);
 }else{
-btn.disabled=true;
-const left=tenHours-elapsed;
-const h=Math.floor(left/(60*60*1000));
-const m=Math.floor((left%(60*60*1000))/(60*1000));
-const s=Math.floor((left%(60*1000))/1000);
+canCheckin=true;
+}
+if(canCheckin){
+if(btn) btn.disabled=false;
+if(timer) timer.textContent='Доступно сейчас!';
+}else{
+if(btn) btn.disabled=true;
+if(timer&&leftMs>0){
+const h=Math.floor(leftMs/(60*60*1000));
+const m=Math.floor((leftMs%(60*60*1000))/(60*1000));
+const s=Math.floor((leftMs%(60*1000))/1000);
 timer.textContent=`Следующий через: ${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
 }
-const myIdx=this.allPlayers.findIndex(p=>p.id===this.myPlayerId);
-document.getElementById('myRank').textContent=myIdx>=0?(myIdx+1):'-';
-document.getElementById('totalPlayers').textContent=this.allPlayers.length;
+}
+const listForRank=this.API_BASE?this.leaderboardList:this.allPlayers;
+const myIdx=listForRank&&listForRank.length?listForRank.findIndex(p=>p.id===this.myPlayerId):-1;
+const myRankEl=document.getElementById('myRank');
+const totalEl=document.getElementById('totalPlayers');
+if(myRankEl) myRankEl.textContent=myIdx>=0?(myIdx+1):'-';
+if(totalEl) totalEl.textContent=listForRank&&listForRank.length?listForRank.length:'0';
 },
 
 updateDigsTimer(){
-if(!this.d.lastCheckin){
-document.getElementById('digsTimer').textContent='Готово!';
-return;
-}
+const el=document.getElementById('digsTimer');
+if(!el)return;
 const now=Date.now();
-const elapsed=now-this.d.lastCheckin;
+let leftMs=0;
+if(this.d.nextCheckinAt!=null&&this.d.nextCheckinAt!==undefined){
+if(now>=this.d.nextCheckinAt){ el.textContent='Готово!'; return; }
+leftMs=this.d.nextCheckinAt-now;
+}else if(this.d.lastCheckin){
 const tenHours=10*60*60*1000;
-if(elapsed<tenHours){
-const left=tenHours-elapsed;
-const h=Math.floor(left/(60*60*1000));
-const m=Math.floor((left%(60*60*1000))/(60*1000));
-const s=Math.floor((left%(60*1000))/1000);
-document.getElementById('digsTimer').textContent=`${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-}else{
-document.getElementById('digsTimer').textContent='Готово!';
-}
+const elapsed=now-this.d.lastCheckin;
+if(elapsed>=tenHours){ el.textContent='Готово!'; return; }
+leftMs=tenHours-elapsed;
+}else{ el.textContent='Готово!'; return; }
+const h=Math.floor(leftMs/(60*60*1000));
+const m=Math.floor((leftMs%(60*60*1000))/(60*1000));
+const s=Math.floor((leftMs%(60*1000))/1000);
+el.textContent=`${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
 },
 
 switchTab(t){
 ['Relics','Amulets','Diamonds'].forEach(x=>{
-document.getElementById('market'+x).style.display='none';
-document.getElementById('tab'+x).className='btn';
+const el=document.getElementById('market'+x);
+if(el)el.style.display='none';
+const tab=document.getElementById('tab'+x);
+if(tab)tab.className='btn btn-small';
 });
-document.getElementById('market'+t.charAt(0).toUpperCase()+t.slice(1)).style.display='block';
-document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).className='btn btn-success';
+const showEl=document.getElementById('market'+t.charAt(0).toUpperCase()+t.slice(1));
+if(showEl)showEl.style.display='block';
+const showTab=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
+if(showTab)showTab.className='btn btn-small btn-success';
 if(t==='relics')this.renderMarketRelics();
-if(t==='amulets')this.renderMarketAmulets();
-if(t==='diamonds')this.renderMarketDiamonds();
+if(t==='amulets'){ this.renderMarketAmulets(); this._fetchRates().then(()=>this.renderMarketAmulets()); }
+if(t==='diamonds'){ this.renderMarketDiamonds(); this._fetchRates().then(()=>this.renderMarketDiamonds()); }
+},
+
+switchMarketTab(t){
+if(!document.getElementById('tabMarketSell')){ if(t==='sell')this.switchTab('relics'); return; }
+['marketSellBlock','marketP2PBlock','marketOrdersBlock','marketOffersBlock'].forEach(id=>{
+const e=document.getElementById(id);
+if(e)e.style.display='none';
+});
+['marketRelics','marketAmulets','marketDiamonds'].forEach(id=>{
+const e=document.getElementById(id);
+if(e)e.style.display='none';
+});
+['tabMarketSell','tabMarketP2P','tabMarketOrders','tabMarketOffers'].forEach(id=>{
+const el=document.getElementById(id);
+if(el)el.className='btn btn-small';
+});
+if(t==='sell'){
+const mr=document.getElementById('marketRelics');
+const ma=document.getElementById('marketAmulets');
+const md=document.getElementById('marketDiamonds');
+if(mr)mr.style.display='block';
+if(ma)ma.style.display='none';
+if(md)md.style.display='none';
+const tab=document.getElementById('tabMarketSell');
+if(tab)tab.className='btn btn-small btn-success';
+this.switchTab('relics');
+}else if(t==='p2p'){
+const e=document.getElementById('marketP2PBlock');
+if(e)e.style.display='block';
+document.getElementById('tabMarketP2P').className='btn btn-small btn-success';
+}else if(t==='orders'){
+const e=document.getElementById('marketOrdersBlock');
+if(e)e.style.display='block';
+document.getElementById('tabMarketOrders').className='btn btn-small btn-success';
+this.renderMarketOrders();
+}else if(t==='offers'){
+const e=document.getElementById('marketOffersBlock');
+if(e)e.style.display='block';
+document.getElementById('tabMarketOffers').className='btn btn-small btn-success';
+this.renderMarketOffers();
+}
+},
+
+invFilter:'all',
+applyInvFilter(){
+const sel=document.getElementById('invFilterSelect');
+this.invFilter=(sel&&sel.value)||'all';
+this.renderInventoryContent(this.invFilter);
+},
+renderInventoryContent(filter){
+const content=document.getElementById('inventoryTabContent');
+if(!content)return;
+const show=(f)=>!filter||filter==='all'||filter===f;
+content.innerHTML='';
+const frag=document.createDocumentFragment();
+const now=Date.now();
+this.d.buffs=this.d.buffs.filter(b=>b.exp>now);
+const relics=this.d.relics||[];
+const amulets=this.d.amulets||[];
+const buffs=this.d.buffs||[];
+const curses=this.d.curses||[];
+const eggs=this.d.eggs||[];
+const letters=this.d.letters||[];
+function addRelics(){
+if(!show('relics'))return;
+if(relics.length===0&&filter==='relics'){ const d=document.createElement('div'); d.className='info'; d.style.textAlign='center'; d.style.opacity='.7'; d.textContent='Реликвий нет'; content.appendChild(d); return; }
+if(filter==='all'){ const t=document.createElement('div'); t.className='help-section'; t.style.marginTop='16px'; t.innerHTML='<h4 style="margin-bottom:8px">✨ Реликвии</h4>'; content.appendChild(t); }
+const groups={};
+relics.forEach((r,idx)=>{ const key=`${r.n}|${r.ev}|${r.rarity||'fire'}`; if(!groups[key])groups[key]={r,indices:[]}; groups[key].indices.push(idx); });
+let h='<div class="inv-content-grid">';
+Object.keys(groups).forEach(key=>{
+const g=groups[key], r=g.r, firstIdx=g.indices[0], qty=g.indices.length;
+const effDesc=G.getEffectDescription(r);
+const rarityName=(G.raritySystem[r.rarity||'fire']||{}).name||r.rarity||'';
+const rarityColor=G.raritySystem[r.rarity||'fire']?.color||'#ff6600';
+h+=`<div class="inv-action-card inv-card-clickable" style="border-color:${rarityColor}40;cursor:pointer" onclick="G.showItemCard('relic',${firstIdx})" role="button" tabindex="0">`;
+if(qty>1) h+=`<span class="inv-card-qty">×${qty}</span>`;
+h+=`<div class="inv-card-head"><span class="inv-card-icon">${r.i||'✨'}</span><span class="inv-card-title">${r.n}</span><span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 6px;border-radius:6px;background:${rarityColor}33;color:${rarityColor}">${rarityName}</span></div>`;
+h+=`<div class="inv-card-body">${effDesc}</div>`;
+h+=`<div style="padding:10px 14px;font-size:11px;color:rgba(255,255,255,.5);text-align:center">Нажмите — карточка с действиями</div>`;
+h+='</div>';
+});
+h+='</div>';
+content.insertAdjacentHTML('beforeend',h);
+}
+function addAmulets(){
+if(!show('amulets'))return;
+if(amulets.length===0&&filter==='amulets'){ const d=document.createElement('div'); d.className='info'; d.style.textAlign='center'; d.style.opacity='.7'; d.textContent='Амулетов нет'; content.appendChild(d); return; }
+if(filter==='all'){ const t=document.createElement('div'); t.className='help-section'; t.style.marginTop='16px'; t.innerHTML='<h4 style="margin-bottom:8px">🔮 Амулеты</h4>'; content.appendChild(t); }
+const effLabels={immunity:'Иммунитет к Падению неба',no_loss:'Здания не теряют монеты',freeze:'Заморозка времени',income_x3:'Тройной доход 12ч',relic_x2:'Удвоение шанса реликвий'};
+const groups={};
+amulets.forEach((a,idx)=>{ const key=a.id||idx; if(!groups[key])groups[key]={a,indices:[]}; groups[key].indices.push(idx); });
+let h='<div class="inv-content-grid">';
+Object.keys(groups).forEach(key=>{
+const g=groups[key], a=g.a, firstIdx=g.indices[0], qty=g.indices.length;
+const effText=effLabels[a.e]||a.e||'';
+h+=`<div class="inv-action-card inv-card-clickable" style="cursor:pointer" onclick="G.showItemCard('amulet',${firstIdx})" role="button" tabindex="0">`;
+if(qty>1) h+=`<span class="inv-card-qty">×${qty}</span>`;
+h+=`<div class="inv-card-head"><span class="inv-card-icon">${a.i||'🔮'}</span><span class="inv-card-title">${a.n}</span></div>`;
+h+=`<div class="inv-card-body">${effText}</div>`;
+h+=`<div style="padding:10px 14px;font-size:11px;color:rgba(255,255,255,.5);text-align:center">Нажмите — карточка с действиями</div>`;
+h+='</div>';
+});
+h+='</div>';
+content.insertAdjacentHTML('beforeend',h);
+}
+function addBuffs(){
+if(!show('buffs'))return;
+if(buffs.length===0&&filter==='buffs'){ const d=document.createElement('div'); d.className='info'; d.style.textAlign='center'; d.style.opacity='.7'; d.textContent='Нет активных бафов'; content.appendChild(d); return; }
+if(filter==='all'){ const t=document.createElement('div'); t.className='help-section'; t.style.marginTop='16px'; t.innerHTML='<h4 style="margin-bottom:8px">⚡ Бафы</h4>'; content.appendChild(t); }
+let h='<div class="inv-content-grid">';
+buffs.forEach(b=>{
+const left=b.exp-now; const hrs=Math.floor(left/3600000); const mins=Math.floor((left%3600000)/60000);
+h+=`<div class="inv-action-card"><div class="inv-card-head"><span class="inv-card-icon">${b.r.i||'✨'}</span><span class="inv-card-title">${b.r.n}</span></div><div class="inv-card-body">Эффект: +${b.r.ev}%<br><span style="color:#ff8c00;font-size:11px">Осталось: ${hrs}ч ${mins}м</span></div></div>`;
+});
+h+='</div>';
+content.insertAdjacentHTML('beforeend',h);
+}
+function addCurses(){
+if(!show('curses'))return;
+if(filter!=='curses'&&curses.length===0)return;
+if(curses.length===0){ const d=document.createElement('div'); d.className='info'; d.style.textAlign='center'; d.style.opacity='.7'; d.textContent='Порчи — скоро.'; content.appendChild(d); return; }
+const d=document.createElement('div'); d.className='info'; d.style.opacity='.8'; d.textContent='Порчи: '+curses.length; content.appendChild(d);
+}
+function addEggs(){
+if(!show('eggs'))return;
+if(filter!=='eggs'&&eggs.length===0)return;
+if(eggs.length===0){ const d=document.createElement('div'); d.className='info'; d.style.textAlign='center'; d.style.opacity='.7'; d.textContent='Яйца — скоро.'; content.appendChild(d); return; }
+const d=document.createElement('div'); d.className='info'; d.style.opacity='.8'; d.textContent='Яйца: '+eggs.length; content.appendChild(d);
+}
+function addLetters(){
+if(!show('letters'))return;
+const d=document.createElement('div'); d.className='info'; d.style.marginBottom='10px';
+if(filter==='letters'&&letters.length===0){ d.style.textAlign='center'; d.style.opacity='.7'; d.textContent='Букв нет (получаются при сжигании реликвий)'; content.appendChild(d); return; }
+d.innerHTML='<div style="margin-bottom:8px"><strong style="color:#ffa500">🔤 Буквы</strong> <span style="opacity:.9">('+letters.length+')</span></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+(letters.map(l=>'<span class="btn btn-small" style="min-width:44px;font-size:18px">'+l+'</span>').join('')||'<span style="opacity:.7">—</span>')+'</div><button type="button" class="btn btn-small btn-success" onclick="G.showInvLetters()">Открыть квест Феникс</button>';
+content.appendChild(d);
+}
+addRelics(); addAmulets(); addBuffs(); addCurses(); addEggs(); addLetters();
+if(content.children.length===0){ const d=document.createElement('div'); d.className='info'; d.style.textAlign='center'; d.style.opacity='.7'; d.textContent='Инвентарь пуст'; content.appendChild(d); }
+},
+switchInvTab(t){
+const sel=document.getElementById('invFilterSelect');
+if(sel){ sel.value=t||'all'; this.invFilter=sel.value; }
+this.renderInventoryContent(this.invFilter||t||'all');
+},
+
+refreshMineHistory(){
+const list=document.getElementById('mineHistoryList');
+if(!list)return;
+const hist=this.d.mineHistory||[];
+if(hist.length===0){ list.innerHTML='<div style="opacity:.7">Пока нет копок</div>'; return; }
+list.innerHTML=hist.slice(-20).reverse().map(h=>`<div class="ir">${h.t||'Копка'}: ${h.r||'—'}</div>`).join('');
+},
+
+openBuildingsCatalog(){ this.showScreen('village'); this.showNew(); },
+openUpgradeBuilding(){ this.showScreen('village'); this.notify('Нажмите на здание на карте, затем «До уровня N».'); },
+openRelicsInBuildings(){ this.showScreen('village'); this.notify('Откройте здание на карте — в карточке здания будут слоты для реликвий (в разработке).'); },
+openDemolish(){ this.showScreen('village'); this.notify('Нажмите на здание на карте, в карточке нажмите «Снести».'); },
+openVillageSummary(){
+this.showScreen('village');
+let ti=0; this.d.buildings.forEach(b=>{ const t=this.buildingTypes[b.t]; if(t) ti+=t.inc*b.lv; });
+this.notify('Доход в час: '+ti+' 🪙. Всего построек: '+this.d.buildings.length+'/9.');
+},
+
+marketBuy(){ this.notify('Купить — выберите лот в списке (скоро).'); },
+marketCreateOrder(){ this.notify('Создать ордер — скоро.'); },
+marketCreateExchange(){ this.notify('Создать обмен P2P — скоро.'); },
+marketAcceptExchange(){ this.notify('Принять обмен — скоро.'); },
+marketCancel(){ this.notify('Отменить ордер/оффер — скоро.'); },
+renderMarketOrders(){ const el=document.getElementById('marketOrdersList'); if(el)el.innerHTML='<p class="info">Мои ордера — скоро.</p>'; },
+renderMarketOffers(){ const el=document.getElementById('marketOffersList'); if(el)el.innerHTML='<p class="info">Мои офферы — скоро.</p>'; },
+
+openWalletBindFromProfile(){ this.openAuthModal(); },
+toggleAds(){ this.notify('Реклама вкл/выкл — скоро.'); },
+watchAd(){ this.notify('Смотреть рекламу — скоро.'); },
+openProfileContribution(){ this.notify('Вклад в профиль (рейтинг «Самые сердечные») — скоро.'); },
+openSettings(){ this.notify('Настройки — скоро.'); },
+openSkyFallArmy(){ this.notify('Увеличить армию за припасы (здания производят при нехватке). Армейские здания: каждый уровень ×2 прирост. — в разработке.'); },
+openSkyFallAttack(){ this.notify('Атаковать игрока и забрать припасы для выживания. — в разработке.'); },
+openSkyFallCurse(){ this.notify('Наложить порчу на здание или армию любого игрока. — в разработке.'); },
+
+openRules(){ this.openHelp(); },
+openSupport(){ this.notify('Поддержка: @phoenix_support или ссылка из «О проекте».'); },
+openNotifications(){ this.notify('Уведомления — скоро.'); },
+
+invUse(){ this.notify('Выберите предмет в списке — откроется карточка с действиями.'); },
+invPutInBuilding(){ this.notify('Поставить в здание — выберите здание на карте (скоро).'); },
+invMerge(){ this.showMerge(); },
+invSell(){ this.showScreen('market'); this.switchTab('relics'); },
+invPlaceOrder(){ this.notify('Разместить ордер — выберите предмет и перейдите в Маркет (скоро).'); this.showScreen('market'); },
+
+showItemCard(type,index){
+const titleEl=document.getElementById('itemCardTitle');
+const contentEl=document.getElementById('itemCardContent');
+if(!titleEl||!contentEl)return;
+let h='', title='';
+if(type==='relic'){
+const r=this.d.relics[index];
+if(!r){ this.notify('Предмет не найден','error'); return; }
+const p=this.basePriceByRarity[r.rarity]||80;
+const pPts=Math.ceil(p/10);
+const phxEq=pPts*2;
+const effDesc=this.getEffectDescription(r);
+const rarityName=(this.raritySystem[r.rarity||'fire']||{}).name||r.rarity||'';
+const rarityColor=this.raritySystem[r.rarity||'fire']?.color||'#ff6600';
+title=r.n;
+h+=`<div style="text-align:center;margin-bottom:14px"><div style="font-size:56px">${r.i||'✨'}</div><div style="font-size:11px;font-weight:700;text-transform:uppercase;padding:4px 10px;border-radius:8px;display:inline-block;margin-top:8px;background:${rarityColor}33;color:${rarityColor}">${rarityName}</div></div>`;
+h+=`<div class="info" style="margin-bottom:12px"><div style="font-size:13px;line-height:1.45">${effDesc}</div></div>`;
+h+=`<div style="font-size:11px;color:rgba(255,255,255,.35);text-align:center;margin-bottom:14px">~${p} 🪙 · ${pPts} ⭐ · ${phxEq} PHXPW — номинал на рынке</div>`;
+h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`;
+h+=`<button type="button" class="btn btn-act" onclick="G.closeItemCard();G.actR(${index})">Активировать</button>`;
+h+=`<button type="button" class="btn btn-burn" onclick="G.closeItemCard();G.burnRelic(${index})">🔥 Сжечь</button>`;
+h+=`<button type="button" class="btn btn-sell" onclick="G.closeItemCard();G.sellR(${index})">🏪 Продать</button>`;
+h+=`<button type="button" class="btn btn-merge" onclick="G.closeItemCard();G.showMerge()">🔀 Слияние</button>`;
+h+=`</div>`;
+}else if(type==='amulet'){
+const a=this.d.amulets[index];
+if(!a){ this.notify('Предмет не найден','error'); return; }
+const effLabels={immunity:'Иммунитет к Падению неба',no_loss:'Здания не теряют монеты',freeze:'Заморозка времени',income_x3:'Тройной доход 12ч',relic_x2:'Удвоение шанса реликвий'};
+const effText=effLabels[a.e]||a.e||'';
+title=a.n;
+h+=`<div style="text-align:center;margin-bottom:14px"><div style="font-size:56px">${a.i||'🔮'}</div></div>`;
+h+=`<div class="info" style="margin-bottom:12px"><div style="font-size:13px;line-height:1.45">${effText}</div></div>`;
+h+=`<div style="font-size:11px;color:rgba(255,255,255,.35);text-align:center;margin-bottom:14px">Амулет — номинал уточняйте в маркете</div>`;
+h+=`<div style="display:grid;gap:8px">`;
+h+=`<button type="button" class="btn btn-act" onclick="G.closeItemCard();G.useAmu(${index})">Использовать</button>`;
+h+=`</div>`;
+}else{
+return;
+}
+this._itemCardData={type,index};
+titleEl.textContent=title;
+contentEl.innerHTML=h;
+this.openM('itemCardModal');
+},
+closeItemCard(){
+this._itemCardData=null;
+this.closeM('itemCardModal');
+if(document.getElementById('inventoryScreen')&&document.getElementById('inventoryScreen').classList.contains('active')) this.renderInventoryContent(this.invFilter||'all');
 },
 
 renderMarketRelics(){
+const shopEl=document.getElementById('marketShopOffers');
+if(shopEl) this.loadShopOffers(shopEl);
 const l=document.getElementById('marketRelicsList');
+const avail=document.getElementById('marketOrdersAvailable');
+if(avail){
+if(window.MarketModule) MarketModule.renderAvailableOrders(avail,this);
+else avail.innerHTML='<div class="info" style="text-align:center;opacity:.7">Загрузка списка ордеров…</div>';
+}
 l.innerHTML='';
 if(this.d.relics.length===0){
-l.innerHTML='<div class="info" style="text-align:center;opacity:.7">У вас нет реликвий для продажи</div>';
+l.innerHTML='<div class="info" style="text-align:center;opacity:.7;padding:24px">У вас нет реликвий для продажи</div>';
 return;
 }
 const groups={};
@@ -1035,6 +1735,7 @@ const key=`${r.n}|${r.ev}|${r.rarity||'fire'}`;
 if(!groups[key]) groups[key]={r,indices:[]};
 groups[key].indices.push(idx);
 });
+let html='<div class="inv-relics-grid">';
 Object.keys(groups).forEach(key=>{
 const g=groups[key];
 const r=g.r;
@@ -1042,61 +1743,157 @@ const firstIdx=g.indices[0];
 const qty=g.indices.length;
 const p=this.basePriceByRarity[r.rarity]||80;
 const pPts=Math.ceil(p/10);
-const tonEq=(p/this.COIN_TO_TON).toFixed(2);
-const c=document.createElement('div');
-c.className='rc';
-c.style.borderColor=this.raritySystem[r.rarity||'fire'].color;
-c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><span style="font-size:20px;margin-right:8px">${r.i}</span><span style="color:#ffa500;font-weight:700">${r.n}</span></div></div><div style="font-size:12px;opacity:.9;margin-bottom:6px">Эффект: +${r.ev}%</div>${qty>1?`<div class="inv-qty">× ${qty}</div>`:''}<div style="font-size:11px;opacity:.85;margin-bottom:4px">${p} 🪙 (${tonEq} TON) · ${pPts} ⭐</div><div style="display:flex;gap:5px;margin-top:8px"><button class="btn btn-small btn-success" onclick="G.sellR(${firstIdx})">Продать за ${p}🪙</button><button class="btn btn-small btn-warning" onclick="G.showMerge()">Слияние</button></div>`;
-l.appendChild(c);
+const phxEq=pPts*2;
+const effDesc=this.getEffectDescription(r);
+const rarityName=(this.raritySystem[r.rarity||'fire']||{}).name||r.rarity||'';
+const rarityColor=this.raritySystem[r.rarity||'fire']?.color||'#ff6600';
+html+=`<div class="inv-relic-card" style="border-color:${rarityColor}40">`;
+if(qty>1) html+=`<span class="inv-relic-qty">×${qty}</span>`;
+html+=`<div class="inv-relic-head"><span class="inv-relic-icon">${r.i||'✨'}</span><span class="inv-relic-title">${r.n}</span><span class="inv-relic-badge" style="background:${rarityColor}33;color:${rarityColor}">${rarityName}</span></div>`;
+html+=`<div class="inv-relic-body">${effDesc}</div>`;
+html+=`<div class="inv-relic-price"><span>${p} 🪙</span><span>${pPts} ⭐</span><span>${phxEq} PHXPW</span></div>`;
+html+=`<div class="inv-relic-actions"><button type="button" class="btn btn-sell" onclick="G.sellR(${firstIdx})">Продать ${p}🪙</button><button type="button" class="btn btn-merge" onclick="G.showMerge()">Слияние</button></div>`;
+html+='</div>';
 });
+html+='</div>';
+l.innerHTML=html;
+},
+_shopIcons:{furnace:'🔥',amulet:'🔮',artifact_relic:'⚔️',buff:'✨',special:'📜',relic_slot:'🧩',curse:'💀',egg:'🥚'},
+_rarityColors:{common:'#aaa',fire:'#ff6600',magic:'#a855f7',rare:'#3b82f6',epic:'#facc15',legendary:'#ef4444',PREMIUM:'#e879f9',EPIC:'#facc15',FIRE:'#ff6600',MAGIC:'#a855f7',TSY:'#14b8a6',YAN:'#f97316',YIN:'#60a5fa'},
+
+async loadShopOffers(container){
+if(!container) return;
+try{
+const r=await fetch(this.API_BASE+'/api/game/shop/offers',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+if(!r.ok){ container.innerHTML='<div class="info" style="opacity:.7">Не удалось загрузить магазин</div>'; return; }
+const offers=await r.json();
+if(!offers.length){ container.innerHTML='<div class="info" style="opacity:.7">Нет предложений</div>'; return; }
+const coinOffers=offers.filter(o=>o.pay_currency==='COINS');
+const starOffers=offers.filter(o=>o.pay_currency==='STARS');
+let h='';
+if(starOffers.length){
+h+='<div style="font-size:12px;font-weight:700;color:#facc15;margin-bottom:8px">За звёзды ⭐</div>';
+h+=this._renderShopGrid(starOffers);
+}
+if(coinOffers.length){
+h+='<div style="font-size:12px;font-weight:700;color:#ffa500;margin:12px 0 8px">За монеты 🪙</div>';
+h+=this._renderShopGrid(coinOffers);
+}
+container.innerHTML=h;
+}catch(e){ container.innerHTML='<div class="info" style="opacity:.7">Ошибка загрузки</div>'; }
+},
+_renderShopGrid(offers){
+let h='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
+offers.forEach(o=>{
+const cur=o.pay_currency==='STARS'?'⭐':'🪙';
+const icon=this._shopIcons[o.item_key?.split('_')[0]]||this._shopIcons[o.rarity]||'🎁';
+const rc=this._rarityColors[o.rarity]||'#aaa';
+const eff=o.effects?.effect||'';
+h+=`<div style="background:rgba(255,255,255,0.04);border:1px solid ${rc}33;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px">`;
+h+=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:24px">${icon}</span><span style="font-size:13px;font-weight:700;color:${rc}">${o.item_name||o.item_key}</span></div>`;
+if(eff) h+=`<div style="font-size:11px;opacity:.8;line-height:1.3">${eff}</div>`;
+const phxEq=o.pay_currency==='STARS'?o.pay_amount*2:Math.ceil(o.pay_amount/5);
+h+=`<div style="margin-top:auto;padding-top:6px"><div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px"><span style="font-size:13px;font-weight:700">${o.pay_amount} ${cur}</span><span style="font-size:10px;opacity:.6">или ${phxEq.toLocaleString('ru-RU')} PHXPW</span></div><button class="btn btn-small btn-success" style="padding:3px 10px;font-size:11px;width:100%" onclick="G.purchaseShopOffer(${o.id},1)">Купить</button></div>`;
+h+=`</div>`;
+});
+h+='</div>';
+return h;
+},
+async purchaseShopOffer(offerId,quantity){
+try{
+const r=await fetch(this.API_BASE+'/api/game/shop/purchase',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)},body:JSON.stringify({offer_id:offerId,quantity:quantity||1})});
+const data=await r.json().catch(()=>({}));
+if(!r.ok){ this.notify(data.detail||'Ошибка покупки'); return; }
+this.notify('Покупка выполнена'); this.load(); this.renderMarketRelics();
+}catch(e){ this.notify('Ошибка сети'); }
+},
+async fillMarketOrder(orderId){
+if(window.MarketModule) return MarketModule.fillMarketOrder(orderId,this);
+this.notify('Недоступно');
 },
 
 renderMarketAmulets(){
 const l=document.getElementById('marketAmuletsList');
 l.innerHTML='';
+const effectNames={immunity:'Иммунитет от Падения Неба',no_loss:'Здания не теряют монеты',freeze:'Заморозка времени зданий',income_x3:'Тройной доход 12ч',relic_x2:'Удвоение шанса реликвий'};
 const amulets=[];
 Object.values(this.raritySystem).forEach(r=>{
 r.items.forEach(item=>{
 if(item.type==='amulet')amulets.push(item);
 });
 });
-amulets.forEach((a)=>{
-const c=document.createElement('div');
-c.className='info';
-c.style.marginBottom='10px';
-c.innerHTML=`<div style="display:flex;align-items:center;gap:15px;margin-bottom:10px"><div style="font-size:50px">${a.i}</div><div style="flex:1"><strong style="color:#ffa500">${a.n}</strong><div style="font-size:12px;opacity:.8;margin-top:5px">Эффект: ${a.e}</div></div></div><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:18px;color:#ffa500;font-weight:700">${a.ton} TON</div><button class="btn btn-warning btn-small" onclick="G.buyAmulet('${a.id}')">Купить</button></div>`;
-l.appendChild(c);
+if(!amulets.length){ l.innerHTML='<div class="info" style="opacity:.7;text-align:center">Нет доступных амулетов</div>'; return; }
+let h='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">';
+amulets.forEach(a=>{
+const effLabel=effectNames[a.e]||a.e;
+const pts=a.pts||0;
+const phxpw=pts*2;
+const usd=this._starsToUsd(pts);
+h+=`<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,140,0,0.25);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px">`;
+h+=`<div style="text-align:center;font-size:36px">${a.i}</div>`;
+h+=`<div style="font-size:13px;font-weight:700;color:#ffa500;text-align:center">${a.n}</div>`;
+h+=`<div style="font-size:11px;opacity:.8;text-align:center;line-height:1.3">${effLabel}</div>`;
+h+=`<div style="margin-top:auto;padding-top:8px;text-align:center">`;
+h+=`<div style="font-size:13px;font-weight:700;margin-bottom:2px">${pts.toLocaleString('ru-RU')} ⭐ или ${phxpw.toLocaleString('ru-RU')} PHXPW</div>`;
+h+=`<div style="font-size:10px;opacity:.65;margin-bottom:6px">≈ $${usd.toFixed(2)}</div>`;
+h+=`<button class="btn btn-success btn-small" style="width:100%;font-size:11px" onclick="G.buyAmulet('${a.id}')">Купить</button></div></div>`;
 });
+h+='</div>';
+l.innerHTML=h;
 },
 
 renderMarketDiamonds(){
 const l=document.getElementById('marketDiamondsList');
 l.innerHTML='';
 const packs=[
-{gems:100,ton:10,bonus:0},
-{gems:500,ton:45,bonus:50},
-{gems:1000,ton:85,bonus:150},
-{gems:5000,ton:400,bonus:1000}
+{gems:100,pts:50,bonus:0},
+{gems:500,pts:200,bonus:50},
+{gems:1000,pts:400,bonus:150},
+{gems:5000,pts:2000,bonus:1000}
 ];
-const ptsPerTon=this.POINTS_PER_TON;
+let h='<div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:12px">💎 Купить алмазы</div>';
+h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px">';
 packs.forEach((pk,idx)=>{
-const pts=Math.ceil(pk.ton*ptsPerTon);
-const c=document.createElement('div');
-c.className='info';
-c.style.marginBottom='15px';
-c.innerHTML=`<div style="text-align:center"><div style="font-size:60px;margin-bottom:10px">💎</div><div style="font-size:24px;font-weight:700;color:#ffa500;margin-bottom:5px">${pk.gems} ${pk.bonus?'+'+pk.bonus:''} Алмазов</div>${pk.bonus?`<div style="font-size:12px;color:#ff8c00;margin-bottom:10px">🎁 Бонус: +${pk.bonus}</div>`:`<div style="margin-bottom:10px"></div>`}<div style="font-size:20px;color:#ffa500;font-weight:700;margin-bottom:8px">${pk.ton} TON</div><div style="font-size:14px;opacity:.9;margin-bottom:12px">или ${pts} ⭐ поинтов</div><button class="btn btn-warning" onclick="G.buyDiamonds(${idx})">Купить TON</button> <button class="btn btn-success" onclick="G.buyDiamondsForPoints(${idx})">Купить за поинты</button></div>`;
-l.appendChild(c);
+const total=pk.gems+(pk.bonus||0);
+const phxpw=pk.pts*2;
+const usd=this._starsToUsd(pk.pts);
+h+=`<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(250,204,21,0.25);border-radius:10px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:6px">`;
+h+=`<div style="font-size:32px">💎</div>`;
+h+=`<div style="font-size:18px;font-weight:700;color:#facc15">${pk.gems}${pk.bonus?' <span style="font-size:12px;color:#ff8c00">+'+pk.bonus+'</span>':''}</div>`;
+h+=`<div style="font-size:11px;opacity:.8">Итого: ${total} алмазов</div>`;
+h+=`<div style="margin-top:auto;padding-top:8px">`;
+h+=`<div style="font-size:14px;font-weight:700;margin-bottom:2px">${pk.pts.toLocaleString('ru-RU')} ⭐ или ${phxpw.toLocaleString('ru-RU')} PHXPW</div>`;
+h+=`<div style="font-size:10px;opacity:.65;margin-bottom:6px">≈ $${usd.toFixed(2)}</div>`;
+h+=`<div style="display:flex;gap:4px"><button class="btn btn-success btn-small" style="flex:1;font-size:11px;padding:5px 4px" onclick="G.buyDiamondsForPoints(${idx})">⭐ Купить</button>`;
+h+=`<button class="btn btn-warning btn-small" style="flex:1;font-size:11px;padding:5px 4px" onclick="G.buyDiamonds(${idx})">PHXPW</button></div>`;
+h+=`</div></div>`;
 });
+h+='</div>';
+h+='<div class="info" style="margin-top:0"><div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:10px">💎 Тратить алмазы</div>';
+h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">';
+const spends=[
+{label:'+3 попыток',cost:10,fn:'buyDigsForGems'},
+{label:'Чекин сейчас',cost:15,fn:'reduceCheckinForGems'},
+{label:'Подсказка ячейки',cost:5,fn:'buyMineHint'},
+{label:'Полное сканирование',cost:15,fn:'buyFullScan'},
+{label:'Феникс Глаз',cost:25,fn:'buyPhoenixEye'},
+{label:'+100 опыта',cost:20,fn:'buyExpForGems'}
+];
+spends.forEach(s=>{
+h+=`<button class="btn btn-small" style="display:flex;flex-direction:column;align-items:center;padding:10px 8px;font-size:11px;line-height:1.3" onclick="G.${s.fn}()"><span>${s.label}</span><span style="font-weight:700;color:#facc15">${s.cost} 💎</span></button>`;
+});
+h+='</div></div>';
+l.innerHTML=h;
 },
 
 buyDiamondsForPoints(idx){
-const packs=[{gems:100,ton:10,bonus:0},{gems:500,ton:45,bonus:50},{gems:1000,ton:85,bonus:150},{gems:5000,ton:400,bonus:1000}];
+const packs=[{gems:100,pts:50,bonus:0},{gems:500,pts:200,bonus:50},{gems:1000,pts:400,bonus:150},{gems:5000,pts:2000,bonus:1000}];
 const pk=packs[idx];
-const ptsNeed=Math.ceil(pk.ton*this.POINTS_PER_TON);
+const ptsNeed=pk.pts;
 if((this.d.points||0)<ptsNeed){ this.notify('Недостаточно поинтов','error'); return; }
 this.d.points-=ptsNeed;
 this.d.gems+=pk.gems+(pk.bonus||0);
-this.notify(`Куплено ${pk.gems}+${pk.bonus||0} 💎 за ${ptsNeed} поинтов!`);
+this.notify(`Куплено ${pk.gems}+${pk.bonus||0} 💎 за ${ptsNeed.toLocaleString('ru-RU')} поинтов!`);
 this.updateUI(); this.save();
 },
 
@@ -1108,35 +1905,88 @@ if(item.type==='amulet')amulets.push(item);
 });
 });
 const a=amulets.find(x=>x.id===id);
-this.showTxModal({type:'amulet',item:a,amount:a.ton});
+this.showTxModal({type:'amulet',item:a,amount_pts:a.pts});
 },
 
 buyDiamonds(idx){
 const packs=[
-{gems:100,ton:10,bonus:0},
-{gems:500,ton:45,bonus:50},
-{gems:1000,ton:85,bonus:150},
-{gems:5000,ton:400,bonus:1000}
+{gems:100,pts:50,bonus:0},
+{gems:500,pts:200,bonus:50},
+{gems:1000,pts:400,bonus:150},
+{gems:5000,pts:2000,bonus:1000}
 ];
 const pk=packs[idx];
-this.showTxModal({type:'diamonds',item:pk,amount:pk.ton});
+this.showTxModal({type:'diamonds',item:pk,amount_pts:pk.pts});
 },
 
 showTxModal(data){
 document.getElementById('txmt').textContent=data.type==='amulet'?'Купить Амулет':'Купить Алмазы';
 const txid=`${Date.now()}_${Math.random().toString(36).substr(2,9)}`;
+this._pendingTx={txid,data};
+const amountPts=data.amount_pts||0;
+const amountPHXPW=amountPts>0?amountPts*2:0;
+const usdStars=this._starsToUsd(amountPts);
+const usdPhxpw=this._phxpwToUsd(amountPHXPW);
 let h=`<div class="info"><div style="text-align:center;margin-bottom:15px">`;
 if(data.type==='amulet'){
 h+=`<div style="font-size:60px;margin-bottom:10px">${data.item.i}</div><div style="font-size:20px;font-weight:700;color:#ffa500;margin-bottom:10px">${data.item.n}</div>`;
 }else{
 h+=`<div style="font-size:60px;margin-bottom:10px">💎</div><div style="font-size:20px;font-weight:700;color:#ffa500;margin-bottom:10px">${data.item.gems}${data.item.bonus?' +'+data.item.bonus:''} Алмазов</div>`;
 }
-h+=`</div><div class="ir"><span>Стоимость:</span><span style="color:#ffa500;font-weight:700">${data.amount} TON</span></div></div>`;
-h+=`<div style="margin:20px 0"><div style="font-size:14px;font-weight:700;margin-bottom:10px;color:#ffa500">Адрес кошелька:</div><input type="text" class="tx-input" value="${this.tonWallet}" readonly onclick="this.select()"><div style="font-size:12px;opacity:.7;margin-top:5px">Нажмите для копирования</div></div>`;
-h+=`<div style="margin:20px 0"><div style="font-size:14px;font-weight:700;margin-bottom:10px;color:#ffa500">ID транзакции (в комментарий):</div><input type="text" class="tx-input" value="${txid}" readonly onclick="this.select()"><div style="font-size:12px;opacity:.7;margin-top:5px">Укажите этот ID в комментарии к переводу</div></div>`;
-h+=`<div style="text-align:center;margin-top:20px"><div style="font-size:12px;opacity:.8;margin-bottom:15px">После перевода нажмите "Проверить"</div><button class="btn btn-warning btn-big" onclick='G.checkTx("${txid}",${JSON.stringify(data).replace(/"/g,"&quot;")})'>Проверить транзакцию</button></div>`;
+h+=`</div><div class="ir"><span>Стоимость:</span><span style="color:#ffa500;font-weight:700">${amountPts.toLocaleString('ru-RU')} ⭐</span><span style="font-size:11px;opacity:.8"> ≈ $${usdStars.toFixed(2)}</span></div>`;
+h+=`<div class="ir"><span>Или:</span><span style="color:#ffa500;font-weight:700">${amountPHXPW.toLocaleString('ru-RU')} PHXPW</span><span style="font-size:11px;opacity:.8"> ≈ $${usdPhxpw.toFixed(2)}</span></div></div>`;
+h+=`<div style="margin:15px 0"><div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:8px">Выберите способ оплаты:</div>`;
+h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">`;
+h+=`<button class="btn btn-success btn-big" style="flex:1" onclick="G.buyForPoints()">⭐ Оплата ${amountPts.toLocaleString('ru-RU')} поинтов</button>`;
+if(amountPHXPW>0){
+h+=`<button class="btn btn-warning" style="flex:1" onclick="G.openTxTransfer('phxpw')">📤 Перевод ${amountPHXPW.toLocaleString('ru-RU')} PHXPW</button>`;
+}
+h+=`</div>`;
+if(amountPHXPW>0){
+h+=`<div style="font-size:12px;opacity:.8">Комментарий к переводу (уже в ссылке): <strong>${txid}</strong></div>`;
+h+=`<div style="margin:10px 0"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Адрес проекта:</div><input type="text" class="tx-input" value="${this.tonWallet}" readonly onclick="this.select()" style="font-size:11px"></div>`;
+h+=`<div style="text-align:center;margin-top:10px"><button class="btn btn-warning" onclick="G.checkTxFromPending()">Проверить транзакцию PHXPW</button></div>`;
+}
+h+=`</div>`;
 document.getElementById('txmc').innerHTML=h;
 this.openM('txModal');
+},
+
+buyForPoints(){
+if(!this._pendingTx){ this.notify('Нет ожидающей покупки','error'); return; }
+const data=this._pendingTx.data;
+const amountPts=data.amount_pts||0;
+if(amountPts<=0){ this.notify('Ошибка: цена не указана','error'); return; }
+if((this.d.points||0)<amountPts){ this.notify('Недостаточно поинтов! Нужно '+amountPts.toLocaleString('ru-RU')+' ⭐','error'); return; }
+this.d.points-=amountPts;
+if(data.type==='amulet'&&data.item){
+if(!this.d.amulets)this.d.amulets=[];
+this.d.amulets.push({id:data.item.id,n:data.item.n,i:data.item.i,e:data.item.e,active:false,bought:Date.now()});
+this.notify('Амулет «'+data.item.n+'» куплен за '+amountPts.toLocaleString('ru-RU')+' ⭐!');
+}else if(data.type==='diamonds'&&data.item){
+const total=data.item.gems+(data.item.bonus||0);
+this.d.gems=(this.d.gems||0)+total;
+this.notify('Куплено '+total+' 💎 за '+amountPts.toLocaleString('ru-RU')+' ⭐!');
+}
+this.closeM('txModal');
+this.updateUI(); this.save();
+},
+
+openTxTransfer(currency){
+if(!this._pendingTx)return;
+const txid=this._pendingTx.txid;
+const data=this._pendingTx.data;
+const amountPts=data.amount_pts||0;
+const amountPHXPW=amountPts>0?amountPts*2:0;
+const jettonAmountRaw=Math.ceil(amountPHXPW*1e9);
+const jettonUrl=`https://app.tonkeeper.com/jetton/${this.PHOEX_JETTON_MASTER}/transfer?address=${encodeURIComponent(this.tonWallet)}&amount=${jettonAmountRaw}&comment=${encodeURIComponent(txid)}`;
+try{ if(window.Telegram?.WebApp?.openLink) window.Telegram.WebApp.openLink(jettonUrl); else window.open(jettonUrl,'_blank'); }catch(e){ window.open(jettonUrl,'_blank'); }
+this.notify('Откройте кошелёк: отправьте '+amountPHXPW.toLocaleString('ru-RU')+' PHXPW с комментарием '+txid);
+},
+
+checkTxFromPending(){
+if(!this._pendingTx){ this.notify('Нет ожидающей транзакции','error'); return; }
+this.checkTx(this._pendingTx.txid,this._pendingTx.data);
 },
 
 checkTx(txid,data){
@@ -1159,8 +2009,9 @@ this.notify('Эта продажа превышает лимит по уровн
 }
 const tax=Math.floor(raw*sell.tax);
 const net=Math.max(0,raw-tax);
-const tonEq=(raw/this.COIN_TO_TON).toFixed(2);
-if(confirm(`Продать ${r.n} за ${raw} 🪙 (${tonEq} TON)? Налог: ${tax} 🪙, получите: ${net} 🪙`)){
+const ptsEq=Math.ceil(raw/10);
+const phxEq=ptsEq*2;
+if(confirm(`Продать ${r.n} за ${raw} 🪙 (${ptsEq} ⭐ / ${phxEq} PHXPW)? Налог: ${tax} 🪙, получите: ${net} 🪙`)){
 this.d.coins+=net;
 this.d.relics.splice(idx,1);
 this.d.sellsToday++;
@@ -1174,23 +2025,23 @@ this.updateUI();this.save();
 openWithdraw(){
 const lvl=this.d.level||0;
 if(lvl<3){ this.notify('Вывод доступен с уровня L3.','error'); return; }
-const max=this.economy.withdraw.perUserCapTON;
+const maxPHXPW=this.economy.withdraw.perUserCapTON*41650;
 const h=`<div class="info">
 <div class="ir"><span>Ваш уровень:</span><span>${this.economy.levels[lvl].name} (L${lvl})</span></div>
-<div class="ir"><span>Лимит/неделю:</span><span>${max} TON</span></div>
+<div class="ir"><span>Лимит/неделю:</span><span>${maxPHXPW.toLocaleString('ru-RU')} PHXPW</span></div>
 <div class="ir"><span>Выводов на неделе:</span><span>${this.d.withdrawsThisWeek||0}/1</span></div>
 </div>
 <div style="margin:15px 0">
-<div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:10px">Сумма (TON):</div>
-<input id="wdAmt" class="tx-input" type="number" min="0.5" step="0.1" value="0.5">
-<div style="font-size:12px;opacity:.9;margin-top:6px">Комиссия вывода 5%. К получению: <span id="wdNetTon">0.48</span> TON</div>
+<div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:10px">Сумма (PHXPW):</div>
+<input id="wdAmt" class="tx-input" type="number" min="1000" step="1000" value="1000">
+<div style="font-size:12px;opacity:.9;margin-top:6px">Комиссия вывода 5%. К получению: <span id="wdNetTon">950</span> PHXPW</div>
 <button class="btn btn-warning btn-big" onclick="G.requestWithdraw()">Отправить запрос</button>
 <div style="font-size:12px;opacity:.7;margin-top:10px">Выдача происходит weekly batch. В демо — без реальных выплат.</div>
 </div>`;
 document.getElementById('txmt').textContent='Withdraw (demo)';
 document.getElementById('txmc').innerHTML=h;
 const wdInput=document.getElementById('wdAmt');
-const updateWdNet=()=>{ const el=document.getElementById('wdNetTon'); if(el){ const a=parseFloat(wdInput.value||'0')||0; el.textContent=(a*0.95).toFixed(2); } };
+const updateWdNet=()=>{ const el=document.getElementById('wdNetTon'); if(el){ const a=parseFloat(wdInput.value||'0')||0; el.textContent=Math.floor(a*0.95).toLocaleString('ru-RU'); } };
 if(wdInput){ wdInput.oninput=updateWdNet; updateWdNet(); }
 this.openM('txModal');
 },
@@ -1203,12 +2054,12 @@ if(!res.ok){
 this.notify('Вывод отклонён: проверь условия.','error');
 return;
 }
-if(!confirm(`Запросить вывод ${amt} TON? Комиссия 5%, к получению: ${netTon} TON`)){
+if(!confirm(`Запросить вывод ${amt} PHXPW? Комиссия 5%, к получению: ${netTon} PHXPW`)){
 return;
 }
 if(!(this.d.lock&&this.d.lock.active)){
 this.startFirstLockIfNeeded();
-this.notify('Запрос принят. Активирован lock 10 TON на 14 дней (demo).','error');
+this.notify('Запрос принят. Активирован lock 416 500 PHXPW на 14 дней (demo).','error');
 }else{
 this.notify('Запрос принят в weekly batch (demo).');
 }
@@ -1318,69 +2169,92 @@ document.getElementById('invmc').innerHTML=h;
 this.openM('invModal');
 },
 
-showInvLetters(resetSequence){
-if(resetSequence!==false) this.phoenixNextIndex=0;
+phoenixSelectedIds:[],
+phoenixSelectedWord:'',
+phoenixLetterItems:[],
+phoenixWordHint:{},
+
+async showInvLetters(resetSequence){
+if(resetSequence!==false){ this.phoenixSelectedIds=[]; this.phoenixSelectedWord=''; }
 document.getElementById('invmt').textContent='🔤 Буквы (квест ФЕНИКС)';
-const letters=this.d.letters||[];
+const hasBadge=!!this.d.phoenixQuestCompleted;
 let h='';
-if(this.d.phoenixQuestCompleted){
-h='<div class="info" style="text-align:center"><div style="font-size:48px;margin-bottom:10px">🔥</div><strong style="color:#ffa500">Квест «ФЕНИКС» уже выполнен!</strong><div style="font-size:12px;opacity:.9;margin-top:8px">Награда: 100 000 Phoenix</div></div>';
+if(hasBadge){
+h='<div class="info" style="text-align:center"><div style="font-size:48px;margin-bottom:10px">📖</div><strong style="color:#ffa500">Бейдж «Букварь»</strong><div style="font-size:12px;opacity:.9;margin-top:8px">Вы в топ-5 по загаданному слову. Участвуете в ежемесячном призе.</div></div>';
 }else{
-h='<div class="info" style="margin-bottom:12px;font-size:13px">Кликните по буквам по очереди: <strong>Ф</strong> → <strong>Е</strong> → <strong>Н</strong> → <strong>И</strong> → <strong>К</strong> → <strong>С</strong>. Соберите слово — получите 100 000 Phoenix!</div>';
-h+='<div style="margin-bottom:10px;font-size:14px;color:#ff8c00">Следующая буква: <span id="phoenixNextLetter">Ф</span></div>';
-h+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px">';
-letters.forEach((ltr,i)=>{
-h+=`<button type="button" class="btn btn-small" style="min-width:44px;font-size:18px" onclick="G.letterClickForPhoenix('${ltr}',${i})">${ltr}</button>`;
+h='<div class="info" style="margin-bottom:10px;font-size:12px">Соберите слово из своих букв (получаются при сжигании реликвий). При верном слове — место в топ-5 и бейдж «Букварь». На каждое слово только 5 победителей; затем новое слово. Бейдж даёт право на ежемесячный приз.</div>';
+if(this.API_BASE){
+try{
+const [wordR,lettersR]=await Promise.all([
+fetch(this.API_BASE+'/api/game/phoenix/word').then(r=>r.ok?r.json():{}),
+fetch(this.API_BASE+'/api/game/phoenix/letters',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}}).then(r=>r.ok?r.json():{letters:[]})
+]);
+this.phoenixWordHint=wordR;
+this.phoenixLetterItems=lettersR.letters||[];
+}catch(e){ this.phoenixLetterItems=[]; this.phoenixWordHint={}; }
+h+='<div class="info" style="margin-bottom:8px">Подсказка: <span id="phoenixHint">'+ (this.phoenixWordHint.current_word_hint||'?') +'</span> · сдач: '+ (this.phoenixWordHint.submissions_count||0) +'/5</div>';
+h+='<div style="margin-bottom:8px">Слово: <span id="phoenixBuiltWord" style="font-size:18px;color:#ffa500"></span> <button type="button" class="btn btn-small" onclick="G.phoenixClearWord()">Сбросить</button></div>';
+h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
+(this.phoenixLetterItems||[]).forEach(l=>{
+h+=`<button type="button" class="btn btn-small" style="min-width:44px;font-size:18px" data-id="${l.id}" data-sym="${(l.symbol||'?').replace(/"/g,'&quot;')}" onclick="G.phoenixAddLetter(${l.id},'${(l.symbol||'?').replace(/'/g,"\\'")}')">${l.symbol||'?'}</button>`;
 });
 h+='</div>';
+h+='<button type="button" class="btn btn-success" onclick="G.phoenixSubmitWord()">Отправить слово</button>';
+}else{
+h+='<div class="info" style="opacity:.8">Буквы из инвентаря (при сжигании). Для квеста нужна связь с сервером.</div>';
+const letters=this.d.letters||[];
+h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
+letters.forEach((ltr,i)=>{ h+=`<span class="btn btn-small" style="min-width:44px;font-size:18px">${ltr}</span>`; });
+h+='</div>';
+}
 }
 document.getElementById('invmc').innerHTML=h;
+const pw=document.getElementById('phoenixBuiltWord');
+if(pw)pw.textContent=this.phoenixSelectedWord;
 this.openM('invModal');
 },
 
-letterClickForPhoenix(letter,letterIdx){
-if(this.d.phoenixQuestCompleted){ this.notify('Квест уже выполнен'); return; }
-const now=Date.now();
-if(this._lastLetterClickAt&&(now-this._lastLetterClickAt)<1500){ this.notify('Подождите секунду','error'); return; }
-this._lastLetterClickAt=now;
-const next=this.PHOENIX_WORD[this.phoenixNextIndex||0];
-if(letter!==next){
-this.phoenixNextIndex=0;
-this.notify('Не та буква. Начните с Ф.','error');
-const el=document.getElementById('phoenixNextLetter');
-if(el) el.textContent='Ф';
-return;
-}
-this.d.letters=this.d.letters||[];
-if(letterIdx>=0&&letterIdx<this.d.letters.length) this.d.letters.splice(letterIdx,1);
-this.phoenixNextIndex=(this.phoenixNextIndex||0)+1;
-const nextEl=document.getElementById('phoenixNextLetter');
-if(nextEl) nextEl.textContent=this.phoenixNextIndex<6?this.PHOENIX_WORD[this.phoenixNextIndex]:'✓';
-if(this.phoenixNextIndex>=6){
-this.completePhoenixQuest();
-return;
-}
-this.notify('Верно! Следующая: '+this.PHOENIX_WORD[this.phoenixNextIndex]);
-this.showInvLetters(false);
+phoenixAddLetter(itemId,symbol){
+this.phoenixSelectedIds=this.phoenixSelectedIds||[];
+this.phoenixSelectedWord=this.phoenixSelectedWord||'';
+this.phoenixSelectedIds.push(itemId);
+this.phoenixSelectedWord+=symbol;
+const el=document.getElementById('phoenixBuiltWord');
+if(el) el.textContent=this.phoenixSelectedWord;
 },
 
-async completePhoenixQuest(){
-this.phoenixNextIndex=0;
-if(this.API_BASE){
-try{
-const r=await fetch(this.API_BASE+'/api/game/action',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)},body:JSON.stringify({action:'phoenix_quest_submit',params:{letters_sequence:'ФЕНИКС',username:window.Telegram?.WebApp?.initDataUnsafe?.user?.username||'',first_name:window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name||''}})});
-if(r.ok){ const st=await r.json(); Object.keys(st).forEach(k=>{ if(st[k]!==undefined) this.d[k]=st[k]; }); this.d.phoenixQuestCompleted=true; this.notify('🎉 Квест ФЕНИКС выполнен! Заявка на награду создана. Админ уведомлён.'); }
-else if(r.status===403){ const j=await r.json().catch(()=>({})); this.notify(j.detail||'Нужно больше сжиганий и дней в игре','error'); return; }
-else if(r.status===429){ this.notify('Подождите несколько секунд','error'); return; }
-else{ this.notify('Ошибка сервера','error'); return; }
-}catch(e){ this.notify('Нет связи с сервером','error'); return; }
-}else{
-this.d.phoenixQuestCompleted=true;
-this.notify('🎉 Квест ФЕНИКС выполнен! Награда: 100 000 Phoenix.');
+phoenixClearWord(){
+this.phoenixSelectedIds=[]; this.phoenixSelectedWord='';
+const el=document.getElementById('phoenixBuiltWord');
+if(el) el.textContent='';
+},
+
+async phoenixSubmitWord(){
+if(!this.phoenixSelectedWord||!(this.phoenixSelectedIds||[]).length){
+this.notify('Соберите слово из букв (кликайте по буквам)','error');
+return;
 }
+if(!this.API_BASE){ this.notify('Нужна связь с сервером','error'); return; }
+try{
+const r=await fetch(this.API_BASE+'/api/game/phoenix/submit',{
+method:'POST',
+headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)},
+body:JSON.stringify({word:this.phoenixSelectedWord,letter_item_ids:this.phoenixSelectedIds})
+});
+const j=await r.json().catch(()=>({}));
+if(r.ok&&j.success){
+this.notify(j.message||'Слово принято');
+if(j.badge_granted) this.d.phoenixQuestCompleted=true;
+this.phoenixSelectedIds=[]; this.phoenixSelectedWord='';
 this.closeM('invModal');
-this.updateUI();
-this.save();
+this.updateUI(); this.save();
+this.showInvLetters(true);
+}else{
+this.notify(j.message||'Ошибка отправки','error');
+}
+}catch(e){
+this.notify('Нет связи с сервером','error');
+}
 },
 
 showInvBuffs(){
@@ -1419,12 +2293,17 @@ let expGain=10+Math.floor((r.ev||0)/2);
 this.d.burnedCount=(this.d.burnedCount||0)+1;
 if(this.d.burnedCount>50) expGain=Math.floor(expGain*0.5);
 this.addExp(expGain);
+if(!this.API_BASE){
 const letter=this.RUS_ALPHABET[Math.floor(Math.random()*this.RUS_ALPHABET.length)];
 this.d.letters=this.d.letters||[];
 this.d.letters.push(letter);
 this.notify(`Сожжено! +${expGain} опыта. Получена буква: ${letter}`);
+}else{
+this.notify(`Сожжено! +${expGain} опыта. Буква добавлена в инвентарь (квест ФЕНИКС).`);
+}
 this.closeM('invModal');
-this.showInvRelics();
+if(document.getElementById('inventoryScreen').classList.contains('active')) this.renderInventoryContent(this.invFilter||'all');
+else this.showInvRelics();
 this.updateUI();
 this.save();
 },
@@ -1445,35 +2324,89 @@ this.notify(`Активирован: ${a.n}!`);
 this.d.amulets.splice(idx,1);
 this.closeM('invModal');
 this.updateUI();this.save();
+if(document.getElementById('inventoryScreen').classList.contains('active')) this.renderInventoryContent(this.invFilter||'all');
 },
 
-initLeaderboard(){
-this.allPlayers.sort((a,b)=>b.score-a.score);
+ratingPeriod:'era',
+leaderboardList:[],
+
+switchRatingPeriod(p){
+this.ratingPeriod=p||'era';
+['ratingTabEra','ratingTabWeek','ratingTabMonth'].forEach(id=>{
+const el=document.getElementById(id);
+if(el)el.className='btn btn-small'+(el.getAttribute('onclick').includes("'"+p+"'")?' btn-success':'');
+});
+this.initLeaderboard();
+},
+
+async initLeaderboard(){
 const l=document.getElementById('leaderboard');
+if(!l)return;
+if(this.API_BASE){
+try{
+const periodMap={era:'era',week:'weekly',month:'monthly'};
+const period=periodMap[this.ratingPeriod]||'era';
+let periodKey='';
+if(this.ratingPeriod==='era') periodKey=String(this.d.era||1);
+else if(this.ratingPeriod==='week'){
+const d=new Date(); const one=new Date(d.getFullYear(),0,1); const weekNum=Math.ceil((((d-one)/86400000)+one.getDay()+1)/7); periodKey=d.getFullYear()+'-W'+String(weekNum).padStart(2,'0');
+}else if(this.ratingPeriod==='month'){
+const d=new Date(); periodKey=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+const url=this.API_BASE+'/api/game/leaderboards?period='+encodeURIComponent(period)+(periodKey?'&period_key='+encodeURIComponent(periodKey):'');
+const r=await fetch(url,{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+const data=r.ok?await r.json():[];
+this.leaderboardList=Array.isArray(data)?data:[];
+}catch(e){ this.leaderboardList=[]; }
+}else{
+this.leaderboardList=[];
+this.allPlayers.sort((a,b)=>b.score-a.score);
+this.leaderboardList=this.allPlayers.map(p=>({id:p.id,name:p.name,points:p.score,level:p.level}));
+}
 l.innerHTML='';
-const top=this.allPlayers.slice(0,10);
+const top=this.leaderboardList.slice(0,10);
 top.forEach((p,i)=>{
 const d=document.createElement('div');
 d.className='lb';
 if(p.id===this.myPlayerId)d.classList.add('me');
 let rc='';
 if(i===0)rc='gold';else if(i===1)rc='silver';else if(i===2)rc='bronze';
-d.innerHTML=`<div class="rank ${rc}">${i+1}</div>${p.online?'<div class="online-dot" style="width:8px;height:8px"></div>':''}<div style="flex:1"><div style="font-weight:700;color:#ffa500">${p.name}</div><div style="font-size:12px;opacity:.8">Ур.${p.level} • ${p.score} очков</div></div>`;
+const attackBtn=p.id!==this.myPlayerId?` <button type="button" class="btn btn-small btn-danger" onclick="G.attackPlayer(${p.id})" title="Украсть 1 клетку шахты с призом">⚔ Напасть</button>`:'';
+const pts=p.points!==undefined?p.points:p.score;
+const name=p.name||('Игрок '+p.id);
+const sub=p.level!=null?('Ур.'+p.level+' • '):'';
+d.innerHTML=`<div class="rank ${rc}">${i+1}</div><div style="flex:1"><div style="font-weight:700;color:#ffa500">${name}</div><div style="font-size:12px;opacity:.8">${sub}${pts} очков</div></div>${attackBtn}`;
 l.appendChild(d);
 });
+const myIdx=this.leaderboardList.findIndex(p=>p.id===this.myPlayerId);
+const totalEl=document.getElementById('totalPlayers');
+const myRankEl=document.getElementById('myRank');
+if(myRankEl) myRankEl.textContent=myIdx>=0?(myIdx+1):'-';
+if(totalEl) totalEl.textContent=this.leaderboardList.length;
+},
+async attackPlayer(targetPlayerId,buildingSlots){
+if(targetPlayerId===this.myPlayerId){ this.notify('Нельзя напасть на себя','error'); return; }
+if(!this.API_BASE){ this.notify('Атака доступна с сервером.'); return; }
+try{
+const r=await fetch(this.API_BASE+'/api/game/attack/'+targetPlayerId,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)},body:JSON.stringify({building_slot_indexes:buildingSlots||[]})});
+const data=await r.json().catch(()=>({}));
+if(!r.ok){ this.notify(data.detail||data.message||'Ошибка атаки','error'); return; }
+if(data.total_stolen>0) this.notify('Украдено монет: '+data.total_stolen);
+else this.notify('Визит засчитан. Ограбление до 2 построек (выберите слоты в гостях).');
+if(data.refresh) this.initLeaderboard();
+}catch(e){ this.notify('Ошибка атаки','error'); }
 },
 
 showFullLeaderboard(){
-const lb=this.allPlayers;
+const lb=this.leaderboardList&&this.leaderboardList.length?this.leaderboardList:this.allPlayers;
 let h='<div style="max-height:500px;overflow-y:auto">';
 lb.forEach((p,i)=>{
-const d=document.createElement('div');
-d.className='lb';
-if(p.id===this.myPlayerId)d.classList.add('me');
-let rc='';
-if(i===0)rc='gold';else if(i===1)rc='silver';else if(i===2)rc='bronze';
-d.innerHTML=`<div class="rank ${rc}">${i+1}</div>${p.online?'<div class="online-dot" style="width:6px;height:6px"></div>':''}<div style="flex:1"><div style="font-weight:700;color:#ffa500">${p.name}</div><div style="font-size:11px;opacity:.8">Реликвий: ${p.relics} | Монет: ${p.coins} | Ур: ${p.level}</div></div>`;
-h+=d.outerHTML;
+const name=p.name||('Игрок '+p.id);
+const pts=p.points!==undefined?p.points:p.score;
+const sub=p.level!=null?('Ур.'+p.level+' • '):'';
+const attackBtn=p.id!==this.myPlayerId?` <button type="button" class="btn btn-small btn-danger" onclick="G.attackPlayer(${p.id})">⚔ Напасть</button>`:'';
+let rc=''; if(i===0)rc='gold';else if(i===1)rc='silver';else if(i===2)rc='bronze';
+h+=`<div class="lb ${p.id===this.myPlayerId?'me':''}"><div class="rank ${rc}">${i+1}</div><div style="flex:1"><div style="font-weight:700;color:#ffa500">${name}</div><div style="font-size:11px;opacity:.8">${sub}${pts} очков</div></div>${attackBtn}</div>`;
 });
 h+='</div>';
 document.getElementById('lbmc').innerHTML=h;
@@ -1483,14 +2416,201 @@ this.openM('leaderboardModal');
 showScreen(s){
 document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
 document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));
-document.getElementById(s+'Screen').classList.add('active');
-event.currentTarget.classList.add('active');
+const screenEl=document.getElementById(s+'Screen');
+if(screenEl) screenEl.classList.add('active');
+const ni=document.querySelector('.ni[data-screen="'+s+'"]');
+if(ni) ni.classList.add('active');
 if(s==='village')this.renderVillage();
-if(s==='mine')this.renderMine();
+if(s==='mine'){
+this.syncCheckinState();
+if(!this.d.mineBlocks||this.d.mineBlocks.length!==36)this.newMine();
+this.renderMine();
+this.refreshMineHistory();
+}
 if(s==='market')this.switchTab('relics');
-if(s==='tasks'){ this.updateCheckinUI(); this.renderSubsTasks(); this.updateWalletBindUI(); }
+if(s==='inventory'){ const sel=document.getElementById('invFilterSelect'); if(sel)sel.value='all'; this.invFilter='all'; this.renderInventoryContent('all'); }
+if(s==='tasks'){ this.syncCheckinState(); this.initLeaderboard().then(()=>this.updateCheckinUI()); this.updateCheckinUI(); this.renderSubsTasks(); this.updateWalletBindUI(); }
 if(s==='profile')this.renderProfile();
-if(s==='rating')this.initLeaderboard();
+if(s==='pnl')this.refreshPnlWalletState().catch(e=>console.error('PnL refresh error',e));
+if(s==='rating'){ this.switchRatingPeriod(this.ratingPeriod); }
+},
+async refreshPnlWalletState(){
+const boundEl=document.getElementById('pnlWalletBound');
+const listEl=document.getElementById('pnlWalletList');
+const stakingEl=document.getElementById('pnlStakingStatus');
+const contractsEl=document.getElementById('pnlStakingContracts');
+if(!boundEl)return;
+if(this.API_BASE){
+try{
+const r=await fetch(this.API_BASE+'/api/game/pnl/wallet-state',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+const data=r.ok?await r.json():{};
+const wallets=data.wallets||[];
+boundEl.textContent=data.wallet_bound?('✅ Кошельков привязано: '+wallets.length):'Кошелёк не привязан';
+if(listEl){
+if(wallets.length===0){
+listEl.innerHTML='';
+}else{
+let html='';
+wallets.forEach((w,i)=>{
+const full=w.wallet_address_friendly||'';
+const masked=w.wallet_address_masked||full;
+const isPool=full&&full===this.tonWallet;
+const isDev=full&&this.nftDevWallet&&full===this.nftDevWallet;
+let tag='';
+if(isPool) tag=' <span style="font-size:10px;background:#ffa500;color:#000;padding:1px 6px;border-radius:8px;font-weight:700">Пул проекта</span>';
+else if(isDev) tag=' <span style="font-size:10px;background:#7b68b8;color:#fff;padding:1px 6px;border-radius:8px;font-weight:700">Кошелёк разработчика</span>';
+html+='<div style="margin-bottom:6px;word-break:break-all">'+(masked||'—')+tag+'</div>';
+});
+listEl.innerHTML=html;
+}
+}
+if(stakingEl)stakingEl.textContent=data.has_active_staking?('🔒 Активных стейкингов: '+data.active_staking_count):'Нет активных стейкингов';
+if(contractsEl){
+const list=data.staking_contracts||[];
+contractsEl.textContent=list.length?('Контракты стейкинга: '+list.map(c=>c.label||c.contract_address?.slice(0,8)+'…').join(', ')):'';
+}
+}catch(e){
+boundEl.textContent='Не удалось загрузить';
+if(listEl)listEl.innerHTML=''; if(stakingEl)stakingEl.textContent=''; if(contractsEl)contractsEl.textContent='';
+}
+}else{
+boundEl.textContent=this.d.walletBound?'✅ Кошелёк привязан':'Кошелёк не привязан';
+if(listEl)listEl.textContent=this.d.walletVerifyCode?'(локально)':'';
+if(stakingEl)stakingEl.textContent='Нет активных стейкингов';
+if(contractsEl)contractsEl.textContent='';
+}
+await this.refreshPnlNft();
+await this.loadDevProfile();
+},
+async loadDevProfile(){
+const el=document.getElementById('pnlDevProfile');
+if(!el||!this.API_BASE)return;
+try{
+const r=await fetch(this.API_BASE+'/api/game/nft/dev-profile',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+if(!r.ok)return;
+const d=await r.json();
+el.style.display='block';
+const nick=document.getElementById('devProfileNick');
+const wallet=document.getElementById('devProfileWallet');
+const collC=document.getElementById('devCollCount');
+const nftC=document.getElementById('devNftCount');
+const sync=document.getElementById('devLastSync');
+const collList=document.getElementById('devCollectionsList');
+if(nick)nick.textContent=d.nickname||'Phoenix Paw';
+if(wallet){const w=d.dev_wallet||'';wallet.textContent=w.length>20?w.slice(0,10)+'...'+w.slice(-6):w;}
+if(collC)collC.textContent=d.collections_count||0;
+if(nftC)nftC.textContent=d.nfts_total||0;
+if(sync){
+if(d.last_synced_at){const dt=new Date(d.last_synced_at);sync.textContent=dt.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});}
+else sync.textContent='-';
+}
+if(collList&&Array.isArray(d.collections)&&d.collections.length>0){
+let h='<div style="margin-top:8px;font-weight:600;font-size:12px;color:#ffa500;margin-bottom:6px">Коллекции:</div>';
+d.collections.forEach(c=>{
+const n=(c.name||'Коллекция').replace(/</g,'&lt;');
+const cnt=c.items_count||'?';
+const img=c.image?`<img src="${c.image.replace(/"/g,'&quot;')}" style="width:24px;height:24px;border-radius:6px;object-fit:cover;margin-right:8px" onerror="this.style.display='none'">`:
+'<span style="font-size:16px;margin-right:8px">🎨</span>';
+h+=`<div style="display:flex;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,140,0,.1)">${img}<span style="flex:1">${n}</span><span style="opacity:.6;font-size:11px">${cnt} шт.</span></div>`;
+});
+collList.innerHTML=h;
+}
+}catch(e){console.error('loadDevProfile',e);}
+},
+_escHtml(s){return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');},
+_nftCardHtml(nft,clickable){
+const imgUrl=String(nft.image||'').trim();
+const name=this._escHtml(nft.name||'NFT');
+const coll=this._escHtml(nft.collection_name||'');
+const click=clickable?'cursor:pointer':'';
+let h=`<div style="background:rgba(255,255,255,0.05);border-radius:12px;overflow:hidden;border:1px solid rgba(255,140,0,.2);display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px;transition:transform .15s;${click}" ${clickable?'onmouseenter="this.style.transform=\'scale(1.03)\'" onmouseleave="this.style.transform=\'scale(1)\'"':''}>`;
+if(imgUrl) h+=`<div style="width:100%;aspect-ratio:1;background:#1a1a1a;border-radius:8px;overflow:hidden;margin-bottom:8px"><img src="${imgUrl.replace(/"/g,'&quot;')}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<span style=font-size:24px>🖼️</span>'"></div>`;
+else h+=`<div style="width:100%;aspect-ratio:1;background:rgba(255,140,0,.15);border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;font-size:32px">🖼️</div>`;
+h+=`<div style="font-size:12px;font-weight:700;color:#ffa500;margin-bottom:2px;word-break:break-word">${name}</div>`;
+if(coll) h+=`<div style="font-size:10px;opacity:.7;margin-bottom:4px">${coll}</div>`;
+h+='</div>';
+return h;
+},
+showNftDetail(nft){
+const modal=document.getElementById('nftDetailModal');
+const content=document.getElementById('nftDetailContent');
+if(!modal||!content)return;
+const imgUrl=String(nft.image||'').trim();
+const name=this._escHtml(nft.name||'NFT');
+const coll=this._escHtml(nft.collection_name||'');
+const desc=this._escHtml(nft.description||'');
+const addr=String(nft.nft_address||nft.address||'').trim();
+const collAddr=String(nft.collection_address||'').trim();
+const attrs=Array.isArray(nft.attributes)?nft.attributes:[];
+let h='';
+if(imgUrl) h+=`<div style="width:100%;aspect-ratio:1;background:#1a1a1a;border-radius:12px;overflow:hidden;margin-bottom:14px"><img src="${imgUrl.replace(/"/g,'&quot;')}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<div style=display:flex;align-items:center;justify-content:center;height:100%;font-size:48px>🖼️</div>'"></div>`;
+h+=`<div style="font-size:18px;font-weight:700;color:#ffa500;margin-bottom:4px">${name}</div>`;
+if(coll) h+=`<div style="font-size:13px;opacity:.7;margin-bottom:8px">${coll}</div>`;
+if(desc) h+=`<div style="font-size:12px;opacity:.85;margin-bottom:12px;line-height:1.5">${desc}</div>`;
+if(attrs.length>0){
+h+='<div style="margin-bottom:12px">';
+attrs.forEach(a=>{
+const t=this._escHtml(a.trait_type||a.key||'');
+const v=this._escHtml(a.value||'');
+if(t||v) h+=`<div style="display:inline-block;background:rgba(255,140,0,.15);border:1px solid rgba(255,140,0,.25);border-radius:8px;padding:4px 10px;margin:3px 4px 3px 0;font-size:11px"><span style="opacity:.7">${t}:</span> <span style="color:#ffa500;font-weight:600">${v}</span></div>`;
+});
+h+='</div>';
+}
+const tvBase='https://tonviewer.com/';
+const gmBase='https://getgems.io/nft/';
+h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">';
+if(addr) h+=`<a href="${tvBase}${encodeURIComponent(addr)}" target="_blank" rel="noopener" style="font-size:12px;color:#ff8c00;text-decoration:none;padding:6px 12px;border:1px solid rgba(255,140,0,.3);border-radius:8px">TonViewer</a>`;
+if(addr) h+=`<a href="${gmBase}${encodeURIComponent(addr)}" target="_blank" rel="noopener" style="font-size:12px;color:#ff8c00;text-decoration:none;padding:6px 12px;border:1px solid rgba(255,140,0,.3);border-radius:8px">Getgems</a>`;
+h+='</div>';
+content.innerHTML=h;
+modal.style.display='block';
+},
+async refreshPnlNft(){
+const block=document.getElementById('pnlNftBlock');
+const list=document.getElementById('pnlNftList');
+const summary=document.getElementById('pnlNftSummary');
+const countEl=document.getElementById('pnlNftCount');
+function setSummary(t){ if(summary) summary.textContent=t; }
+if(!block||!list)return;
+list.innerHTML='<span style="opacity:.7">Загрузка…</span>';
+setSummary('🖼️ NFT от проекта: загрузка…');
+if(countEl)countEl.textContent='';
+if(!this.API_BASE){
+list.innerHTML='<div style="font-size:12px;opacity:.7;grid-column:1/-1">Привяжите кошелёк в Профиле — данные о NFT подгружаются с сервера.</div>';
+setSummary('🖼️ NFT от проекта: нужен сервер.');
+return;
+}
+try{
+const r=await fetch(this.API_BASE+'/api/game/nft/user-nfts',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+let data={};
+try{ data=r.ok?await r.json():{}; }catch(_){}
+const items=Array.isArray(data.items)?data.items:[];
+if(!r.ok){
+list.innerHTML='<div style="font-size:12px;opacity:.7;grid-column:1/-1">Не удалось загрузить NFT ('+r.status+')</div>';
+setSummary('🖼️ NFT от проекта: ошибка загрузки.');
+return;
+}
+if(items.length===0){
+list.innerHTML='<div style="font-size:12px;opacity:.7;grid-column:1/-1">Нет NFT от проекта на ваших кошельках. Все NFT проекта можно посмотреть в профиле разработчика выше.</div>';
+setSummary('🖼️ NFT от проекта: 0');
+if(countEl)countEl.textContent='0 шт.';
+return;
+}
+setSummary('🖼️ NFT от проекта: '+items.length+' шт.');
+if(countEl)countEl.textContent=items.length+' шт.';
+list.innerHTML='';
+const self=this;
+items.forEach((nft,i)=>{
+const wrapper=document.createElement('div');
+wrapper.innerHTML=self._nftCardHtml(nft,true);
+const card=wrapper.firstElementChild;
+card.addEventListener('click',()=>self.showNftDetail(nft));
+list.appendChild(card);
+});
+}catch(e){
+list.innerHTML='<div style="font-size:12px;opacity:.7;grid-column:1/-1">Ошибка загрузки NFT. Проверьте сеть.</div>';
+setSummary('🖼️ NFT от проекта: ошибка сети.');
+}
 },
 
 renderProfile(){
@@ -1508,8 +2628,12 @@ if(lettersEl) lettersEl.textContent=(this.d.letters||[]).length;
 const now=Date.now();
 this.d.buffs=this.d.buffs.filter(b=>b.exp>now);
 document.getElementById('invBuffs').textContent=this.d.buffs.length;
-const myIdx=this.allPlayers.findIndex(p=>p.id===this.myPlayerId);
-document.getElementById('invRank').textContent=myIdx>=0?(myIdx+1):'-';
+const cursesEl=document.getElementById('invCurses');
+if(cursesEl) cursesEl.textContent=(this.d.curses||[]).length;
+const eggsEl=document.getElementById('invEggs');
+if(eggsEl) eggsEl.textContent=(this.d.eggs||[]).length;
+const rankEl=document.getElementById('profileRank');
+if(rankEl){ const myIdx=this.allPlayers.findIndex(p=>p.id===this.myPlayerId); rankEl.textContent=myIdx>=0?(myIdx+1):'-'; }
 const medalsEl=document.getElementById('profileEraMedals');
 if(medalsEl){
 const arr=this.d.eraMedals||[];
@@ -1520,6 +2644,81 @@ if(burnMedalEl){
 const bc=this.d.burnedCount||0;
 burnMedalEl.innerHTML=bc>0?('🔥 <strong>Вечно в Пламени</strong>: '+bc+' сожжено'):'';
 }
+const badgeEl=document.getElementById('profilePhoenixBadge');
+if(badgeEl){
+badgeEl.innerHTML=this.d.phoenixQuestCompleted?'<div class="info" style="margin-top:8px">📖 <strong>Бейдж «Букварь»</strong> — участие в ежемесячном призе</div>':'';
+}
+this.refreshProfileWallets();
+},
+async refreshProfileWallets(){
+const listEl=document.getElementById('profileWalletsList');
+const bindBtn=document.getElementById('profileWalletBindBtn');
+const addBtn=document.getElementById('profileWalletAddBtn');
+if(!listEl)return;
+if(this.API_BASE){
+try{
+const r=await fetch(this.API_BASE+'/api/game/wallets',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+const data=r.ok?await r.json():{wallets:[],max_wallets:10};
+const wallets=data.wallets||[];
+const max=data.max_wallets||10;
+if(bindBtn) bindBtn.style.display=wallets.length===0?'inline-block':'none';
+if(bindBtn) bindBtn.textContent='Авторизоваться';
+if(addBtn){ addBtn.style.display=wallets.length>0&&wallets.length<max?'inline-block':'none'; addBtn.textContent='➕ Добавить кошелёк'; }
+listEl.innerHTML=wallets.length===0?'Нет привязанных кошельков. Общая статистика по всем кошелькам после привязки.':wallets.map(w=>{ const status=w.verified_at?' ✓':(w.wallet_address_masked&&w.wallet_address_masked!=='ожидает верификации'?' (ожидает)':''); const fullAddr=w.wallet_address_friendly||w.wallet_address||''; const isProject=fullAddr&&fullAddr===G.tonWallet; const tag=isProject?'<span style="font-size:10px;background:#ffa500;color:#000;padding:1px 6px;border-radius:8px;margin-left:6px;font-weight:700">Пул проекта</span>':''; const copyBtn=fullAddr?' <button type="button" class="btn btn-small" style="padding:2px 6px;font-size:11px" onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+fullAddr.replace(/'/g,"\\'")+'\').then(()=>G.notify(\'Скопировано\')).catch(()=>{})" title="Копировать адрес">📋</button>':''; return '<div class="ir" style="align-items:center;flex-wrap:wrap"><span style="font-size:12px;word-break:break-all">'+(w.wallet_address_masked||'ожидает верификации')+status+'</span>'+tag+copyBtn+'<button type="button" class="btn btn-small btn-danger" onclick="G.unbindWallet('+w.id+')">Отвязать</button></div>'; }).join('');
+}catch(e){ listEl.innerHTML='Не удалось загрузить список'; if(bindBtn)bindBtn.style.display='inline-block'; if(addBtn)addBtn.style.display='none'; }
+}else{
+const hasWallet=!!this.d.walletBound;
+if(bindBtn) bindBtn.style.display=hasWallet?'none':'inline-block';
+if(addBtn) addBtn.style.display=hasWallet?'inline-block':'none';
+listEl.innerHTML=hasWallet?'Кошелёк привязан (локально). Для нескольких кошельков нужен сервер.':'Привязка в разделе Задания.';
+}
+},
+async unbindWallet(id){
+if(!this.API_BASE){ this.notify('Отвязка только через сервер','error'); return; }
+try{
+await fetch(this.API_BASE+'/api/game/wallet/'+id,{method:'DELETE',headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+this.notify('Кошелёк отвязан');
+this.renderProfile();
+}catch(e){ this.notify('Ошибка отвязки','error'); }
+},
+async openAddWallet(){
+if(!this.API_BASE){ this.openAuthModal(); return; }
+try{
+const r=await fetch(this.API_BASE+'/api/game/wallet',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)},body:JSON.stringify({})});
+const data=await r.json();
+if(!data.verify_comment&&!data.verify_code){ this.notify(data.detail||'Лимит кошельков','error'); return; }
+const comment=data.verify_comment||data.verify_code;
+const pw=(data.project_wallet||'').trim();
+if(pw&&comment) this._authWalletData={project_wallet:pw,verify_comment:comment};
+this.d._addWalletCode=comment;
+this.d._addWalletBindingId=data.binding_id;
+this.openAuthModal();
+this.updateWalletBindUI();
+this.notify('Отправьте 0.1 TON с комментарием с нужного кошелька. Нажмите «Открыть Tonkeeper».');
+}catch(e){ this.notify(e.message||'Ошибка','error'); }
+},
+openProfileContribution(){
+const h='<div class="info"><div style="font-size:14px;font-weight:700;color:#ffa500;margin-bottom:8px">💝 Вклад в профиль</div><p style="font-size:13px;opacity:.9">Уровень доверия и вклад учитываются для рейтинга «Самые сердечные» и бонусов.</p><div class="ir"><span>Уровень доверия:</span><span id="contributionTrust">—</span></div><div class="ir"><span>Вклад (период):</span><span id="contributionValue">—</span></div><p style="font-size:12px;opacity:.8;margin-top:10px">Данные подгружаются с сервера.</p></div>';
+const wrap=document.createElement('div');
+wrap.innerHTML=h;
+const modal=document.getElementById('contributionModal');
+if(!modal){
+const m=document.createElement('div');
+m.id='contributionModal';
+m.className='modal';
+m.innerHTML='<div class="mc"><button class="mcl" onclick="G.closeM(\'contributionModal\')">×</button><div class="mt">💝 Вклад и уровень доверия</div><div id="contributionMc"></div></div>';
+document.body.appendChild(m);
+}
+document.getElementById('contributionMc').innerHTML=h;
+if(this.API_BASE){
+fetch(this.API_BASE+'/api/game/withdraw/eligibility',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}}).then(r=>r.json()).then(el=>{
+const tr=document.getElementById('contributionTrust');
+const v=document.getElementById('contributionValue');
+if(tr) tr.textContent=el.compliance_ok?'Высокий':'Обычный';
+if(v) v.textContent=(el.completed_action_value_ton||0)+' / '+(el.required_action_value_ton||0)+' PHXPW';
+}).catch(()=>{});
+}
+this.openM('contributionModal');
 },
 
 exportSBT(){
@@ -1529,38 +2728,55 @@ this.notify('Вывод медалей на кошелёк (SBT) — подкл�
 openM(id){document.getElementById(id).classList.add('active')},
 closeM(id){document.getElementById(id).classList.remove('active')},
 
-openHelp(){
-const h=`
-<div class="help-section"><h4>📅 Эра</h4><p>Игра идёт по эрам (всего 4). Одна эра длится неделю. В блоке под шапкой отображаются текущая эра и время до конца. По окончании эры вы получаете медаль участия. Уровень деревни считается по постройкам.</p></div>
-<div class="help-section"><h4>🏘️ Деревня</h4><p>Стройте здания за 🪙 монеты, 🪵 дерево и 🪨 камень. Каждое здание даёт доход в монетах в час. Нажимайте «Собрать Ресурсы», чтобы получить накопленные монеты. Ратуша — обязательная первая постройка. Можно улучшать здания до 10 уровня.</p></div>
-<div class="help-section"><h4>⛏️ Шахта</h4><p>Попытки копания восстанавливаются по расписанию (чекин в разделе «Задания»). В ячейках могут быть реликвии или амулеты разной редкости. За 💎 можно купить подсказку (одна ячейка с призом), полное сканирование или «Феникс Глаз». «Новая Шахта» — сброс сетки и новых призов.</p></div>
-<div class="help-section"><h4>🏪 Маркет</h4><p><strong>Реликвии</strong> — продажа найденных реликвий за 🪙 (есть лимиты по уровню и налог). <strong>Амулеты</strong> — покупка за TON. <strong>Алмазы</strong> — пачки 💎 за TON или за ⭐ поинты (1 TON = 10 поинтов).</p></div>
-<div class="help-section"><h4>📋 Задания</h4><p>Чекин даёт попытки копания в шахте. Подписки на каналы дают 💎 и поинты. Привязка кошелька — через TON-перевод с комментарием.</p></div>
-<div class="help-section"><h4>👤 Профиль и инвентарь</h4><p>Реликвии и амулеты — в инвентаре. Реликвии можно активировать (баф), продать в маркете или <strong>сжечь</strong>. Сжигание даёт опыт и букву для скрытого квеста. Медаль «Вечно в Пламени» — за количество сожжённых. Withdraw (вывод TON) доступен с уровня ветерана, раз в неделю.</p></div>
-<div class="help-section"><h4>🔥 Сжигание</h4><p>В инвентаре реликвий нажмите «Сжечь» — вы получите опыт и случайную букву. После 50 сжиганий опыт за одно сжигание уменьшается вдвое. Буквы нужны для квеста «ФЕНИКС».</p></div>
-<div class="help-section"><h4>🔤 Квест ФЕНИКС</h4><p>В инвентаре откройте «Буквы». Кликайте по буквам строго по порядку: <strong>Ф → Е → Н → И → К → С</strong>. Собрав слово, вы получите заявку на награду 100 000 Phoenix (нужны минимум сжиганий и дней в игре). Админ получит уведомление.</p></div>
-<div class="help-section"><h4>⭐ Поинты</h4><p>Поинты дают подписки и квесты. Ими можно покупать пачки алмазов в маркете (эквивалент TON в поинтах). Оценка продажи реликвии в маркете показывается и в монетах, и в поинтах.</p></div>
-`;
-document.getElementById('helpmc').innerHTML=h;
-this.openM('helpModal');
+openHelp(){ var el=document.getElementById('helpmc'); if(el) el.innerHTML='<div class="help-section"><h4>📖 Обучение</h4><p>Загрузка…</p></div>'; this.openM('helpModal'); },
+
+PNL_STAKING_URL:'https://jvault.xyz/staking/v2/stake/FIRST-YEAR-COMPL',
+PNL_SWAP_URL:'https://app.ston.fi/swap?ft=TON&tt=EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43&chartVisible=true&chartInterval=1w',
+
+openPnlStaking(){
+const url=this.PNL_STAKING_URL||'https://jvault.xyz/staking/v2/stake/FIRST-YEAR-COMPL';
+if(window.Telegram?.WebApp?.openLink){ window.Telegram.WebApp.openLink(url); }else{ window.open(url,'_blank'); }
+},
+openPnlBuy(){
+const url=this.PNL_SWAP_URL||'https://app.ston.fi/swap?ft=TON&tt=EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43';
+if(window.Telegram?.WebApp?.openLink){ window.Telegram.WebApp.openLink(url); }else{ window.open(url,'_blank'); }
 },
 
-openAboutProject(){
-const links=[
-{name:'Сайт проекта',url:'https://phoenixpaw.com',icon:'🌐'},
-{name:'Купить PHOEX (Swap)',url:'https://app.ston.fi/swap?ft=TON&tt=EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43&chartVisible=true&chartInterval=1w',icon:'💱'},
-{name:'Пулы (DexScreener)',url:'https://dexscreener.com/ton/eqadltefzxg_xtelfakfgd-hpvkrejqv_fdc7z2rooddrndm',icon:'📊'},
-{name:'Стейкинг (jVault)',url:'https://jvault.xyz/staking/v2/stake/FIRST-YEAR-COMPL',icon:'🔒'},
-{name:'NFT коллекция',url:'https://getgems.io/phoenixpaw',icon:'🖼️'}
-];
-let h=`
-<div class="help-section"><h4>🪙 Токен PHOEX (Phoenix)</h4><p>Официальный токен проекта Phoenix. Контракт в сети TON. Используется для наград, стейкинга, комиссий и внутренней экономики игры. Символ: <strong>PHOEX</strong> (ранее PHXPW).</p><p style="font-size:11px;word-break:break-all;opacity:.9">Контракт: EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43</p></div>
-<div class="help-section"><h4>📌 О проекте</h4><p>Village Era — игра в мире Phoenix: деревня, шахта, реликвии, маркет и квесты. Чекин и подписки на каналы дают попытки копания и награды. Соберите буквы и выполните квест «ФЕНИКС» для заявки на награду. Сжигание реликвий даёт опыт и буквы.</p></div>
-<div class="help-section"><h4>🔗 Ссылки</h4><div style="display:flex;flex-direction:column;gap:8px">`;
-links.forEach(l=>{ h+=`<a href="${l.url}" target="_blank" rel="noopener" style="color:#ffa500;font-weight:600;display:flex;align-items:center;gap:8px">${l.icon} ${l.name}</a>`; });
-h+='</div></div>';
-document.getElementById('aboutmc').innerHTML=h;
+async openAboutProject(){
+const links=[{name:'Сайт проекта',url:'https://phoenixpaw.com',icon:'🌐'},{name:'Купить PHOEX (Swap)',url:'https://app.ston.fi/swap?ft=TON&tt=EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43&chartVisible=true&chartInterval=1w',icon:'💱'},{name:'Пулы (DexScreener)',url:'https://dexscreener.com/ton/eqadltefzxg_xtelfakfgd-hpvkrejqv_fdc7z2rooddrndm',icon:'📊'},{name:'Стейкинг (jVault)',url:'https://jvault.xyz/staking/v2/stake/FIRST-YEAR-COMPL',icon:'🔒'},{name:'NFT коллекция',url:'https://getgems.io/phoenixpaw',icon:'🖼️'}];
+const aboutHtml='<div class="help-section"><h4>🔥 Проект Phoenix</h4><p><strong>Phoenix</strong> — экосистема в сети TON: токен PHOEX, стейкинг, пулы ликвидности, бот и игра Village Era. День рождения: 17 декабря 2024.</p><p>Village Era — игра в мире Phoenix: вы строите племя из 32 типов зданий (9 слотов), копаете шахту за реликвиями и амулетами, торгуете в маркете, участвуете в эрах и квесте «ФЕНИКС». Чекин и подписки дают попытки копания и награды.</p></div><div class="help-section"><h4>🪙 Токен PHOEX</h4><p>Символ: <strong>PHOEX</strong> (ранее PHXPW). Контракт в TON: EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43. Используется для свапов, стейкинга, наград и маркета в игре.</p></div><div class="help-section"><h4>📊 Распределение токенов</h4><p>• 🔥 Сожжено: ~9.2% · 🔒 К сжиганию: 1% · 🏦 Проект: ~34% · 💎 В стейкинге: ~35% · 💧 В пулах и на рынке: ~9.7%.</p></div><div class="help-section"><h4>🏦 Стейкинг и ликвидность</h4><p>Пулы 90/120/220/365 дней, APR до 330%. JVault — безопасный пул (LP сожжены). StonFi и DeDust — ликвидность, низкое проскальзывание.</p></div><div class="help-section"><h4>👥 Холдеры</h4><p>Держатели PHOEX участвуют в стейкинге, рефералах и наградах. Верификация кошелька в игре: 0.1 TON с комментарием на адрес проекта (кнопка «Авторизоваться»).</p></div><div class="help-section"><h4>📚 Каталог предметов</h4><p>Вкладки выше: <strong>Реликвии, Амулеты, Бафы, Порчи, Артефакты, Яйца</strong> — все предметы игры (~121). Подробнее о эффектах и комбинациях — в <strong>Обучении</strong> (📖).</p></div><div class="help-section"><h4>🔗 Ссылки</h4><div style="display:flex;flex-direction:column;gap:8px">'+links.map(l=>`<a href="${l.url}" target="_blank" rel="noopener" style="color:#ffa500;font-weight:600">${l.icon} ${l.name}</a>`).join('')+'</div></div>';
+let catalog=[];
+try{ if(this.API_BASE){ const r=await fetch(this.API_BASE+'/api/game/items-catalog',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}}); if(r.ok) catalog=await r.json(); } if(catalog.length===0){ const r2=await fetch('data/items-catalog.json'); if(r2.ok) catalog=await r2.json(); } if(catalog.length===0&&window.ITEMS_CATALOG) catalog=window.ITEMS_CATALOG; }catch(e){ if(window.ITEMS_CATALOG) catalog=window.ITEMS_CATALOG; }
+const slotToTab={relic_slot:'relics',amulet:'amulets',buff:'buffs',curse:'curses',artifact_relic:'artifacts',egg:'eggs'};
+const tabLabels={about:'О проекте',relics:'Реликвии',amulets:'Амулеты',buffs:'Бафы',curses:'Порчи',artifacts:'Артефакты',eggs:'Яйца'};
+this._aboutCatalog=catalog; this._aboutAboutHtml=aboutHtml; this._aboutSlotToTab=slotToTab; this._aboutTabLabels=tabLabels;
+const tabsEl=document.getElementById('aboutTabs');
+if(tabsEl) tabsEl.innerHTML=['about','relics','amulets','buffs','curses','artifacts','eggs'].map(t=>'<button type="button" class="btn btn-small '+(t==='about'?'btn-success':'')+'" onclick="G.switchAboutTab(\''+t+'\')">'+tabLabels[t]+'</button>').join('');
+this.switchAboutTab('about');
 this.openM('aboutModal');
+},
+switchAboutTab(tabId){
+const contentEl=document.getElementById('aboutmc');
+if(!contentEl) return;
+document.querySelectorAll('#aboutTabs .btn').forEach(b=>{
+b.classList.remove('btn-success');
+if((b.getAttribute('onclick')||'').indexOf("'"+tabId+"'")>=0) b.classList.add('btn-success');
+});
+if(tabId==='about'){ contentEl.innerHTML=this._aboutAboutHtml||''; return; }
+const catalog=this._aboutCatalog||[];
+const slotForTab={}; Object.keys(this._aboutSlotToTab||{}).forEach(k=>{ slotForTab[this._aboutSlotToTab[k]]=k; });
+const slotType=slotForTab[tabId];
+const items=catalog.filter(i=>(i.slot_type||i.item_type)===slotType);
+const labels=this._aboutTabLabels||{relics:'Реликвии',amulets:'Амулеты',buffs:'Бафы',curses:'Порчи',artifacts:'Артефакты',eggs:'Яйца'};
+const tabContent=window.ABOUT_TABS_CONTENT&&window.ABOUT_TABS_CONTENT[tabId];
+let html='<div class="help-section"><h4>'+(labels[tabId]||tabId)+'</h4>';
+if(tabContent){ if(tabContent.intro) html+=tabContent.intro; if(tabContent.usage) html+='<div style="margin-top:12px">'+tabContent.usage+'</div>'; if(tabContent.whenActivate) html+='<div style="margin-top:12px">'+tabContent.whenActivate+'</div>'; }
+html+='<h5 style="margin-top:16px;margin-bottom:8px">Список предметов</h5>';
+if(items.length===0){ html+='<p style="opacity:.8">Нет данных в каталоге</p></div>'; contentEl.innerHTML=html; return; }
+html+='<table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="border-bottom:1px solid rgba(255,69,0,.4)"><th style="text-align:left;padding:6px">ID</th><th style="text-align:left;padding:6px">Название</th><th style="text-align:left;padding:6px">Тип/редкость</th><th style="text-align:left;padding:6px">Эффект</th></tr>';
+items.forEach(i=>{ const typeRarity=(i.subtype||i.type||i.rarity||'').toString(); const effect=(i.effect||(i.effects&&typeof i.effects==='object'?JSON.stringify(i.effects):'')||'—').toString(); html+='<tr style="border-bottom:1px solid rgba(255,69,0,.2)"><td style="padding:6px;opacity:.9">'+(i.key||i.id||'').toString()+'</td><td style="padding:6px;color:#ffa500">'+(i.name||'—').toString()+'</td><td style="padding:6px">'+typeRarity+'</td><td style="padding:6px;opacity:.95">'+effect+'</td></tr>'; });
+html+='</table></div>';
+contentEl.innerHTML=html;
 },
 
 notify(msg,type=''){
@@ -1584,20 +2800,14 @@ document.getElementById('villageLevel').textContent=this.d.vLevel;
 document.getElementById('lossMultiplier').textContent=this.d.lossMult.toFixed(1)+'x';
 this.updateOnlineCount();
 const poolEl=document.getElementById('prizePool');
-if(poolEl) poolEl.textContent=this.economy.withdraw.globalCapTON+' TON';
+if(poolEl) poolEl.textContent=(this.economy.withdraw.globalCapTON*41650).toLocaleString('ru-RU')+' PHXPW';
 },
 
 startTimers(){
 setInterval(()=>this.updateCheckinUI(),1000);
 setInterval(()=>this.updateDigsTimer(),1000);
-setInterval(()=>{
-this.allPlayers.forEach(p=>{
-if(p.id!==this.myPlayerId&&Math.random()>.95){
-p.online=!p.online;
-}
-});
-this.updateOnlineCount();
-},5000);
+// WebSocket handles online count — connect once
+this.connectOnlineWS();
 this.updateEraTimer();
 setInterval(()=>this.updateEraTimer(),60000);
 this.checkSkyFall();
@@ -1638,7 +2848,9 @@ this.updateUI();
 
 save(){
 if(this.API_BASE){
-fetch(this.API_BASE+'/api/game/action',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)},body:JSON.stringify({action:'sync',state:this.d,params:{username:window.Telegram?.WebApp?.initDataUnsafe?.user?.username,first_name:window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name}})}).catch(()=>{});
+fetch(this.API_BASE+'/api/game/action',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-User-Id':String(this.myPlayerId||0)},body:JSON.stringify({action:'sync',state:this.d,params:{username:window.Telegram?.WebApp?.initDataUnsafe?.user?.username,first_name:window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name}})}).then(r=>{
+if(!r.ok){ console.error('[save] sync failed, status='+r.status); r.text().then(t=>console.error('[save] body:',t)).catch(()=>{}); if(!this._syncWarnShown){this._syncWarnShown=true;this.notify('Ошибка сохранения на сервер ('+r.status+')','error');}}
+}).catch(e=>{console.error('[save] network error',e);if(!this._syncWarnShown){this._syncWarnShown=true;this.notify('Нет связи с сервером','error');}});
 return;
 }
 localStorage.setItem('villageEra',JSON.stringify(this.d));
@@ -1652,11 +2864,73 @@ return;
 }
 try{
 const r=await fetch(this.API_BASE+'/api/game/state',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
-if(r.ok){ const st=await r.json(); Object.keys(st).forEach(k=>{ if(st[k]!==undefined) this.d[k]=st[k]; }); }
-}catch(e){ console.warn('API load failed',e); }
+if(r.ok){ const st=await r.json(); Object.keys(st).forEach(k=>{ if(st[k]!==undefined&&k!=='buildings') this.d[k]=st[k]; }); }
+const fieldR=await fetch(this.API_BASE+'/api/game/field',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+if(fieldR.ok){
+const field=await fieldR.json();
+const bySlot=[];
+for(let s=1;s<=9;s++){
+const row=field.find(x=>x.slot_index===s);
+if(row) bySlot.push({t:row.building_key,lv:row.level||1,last:Date.now(),_slotIndex:s});
+}
+this.d.buildings=bySlot;
+this._fieldFromApi=true;
+}
+const defR=await fetch(this.API_BASE+'/api/game/buildings/def',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+if(defR.ok){
+const defs=await defR.json();
+defs.forEach(b=>{
+const cfg=b.config||{};
+const incArr=cfg.incomePerHour||[];
+const inc=incArr[0]||0;
+if(!this.buildingTypes[b.key]) this.buildingTypes[b.key]={n:b.name||b.key,i:'🏗️',inc,c:{wood:30,stone:30,coins:100}};
+else{ this.buildingTypes[b.key].n=b.name||this.buildingTypes[b.key].n; if(incArr.length) this.buildingTypes[b.key].inc=inc; }
+});
+}
+if(this.API_BASE){ this.syncCheckinState(); this.initLeaderboard().then(()=>this.updateCheckinUI()); }
+}catch(e){ console.warn('API load failed',e); if(typeof this.notify==='function') this.notify('Не удалось загрузить данные с сервера','error'); }
+},
+async syncCheckinState(){
+if(!this.API_BASE)return;
+try{
+const r=await fetch(this.API_BASE+'/api/game/checkin-state',{headers:{'X-Telegram-User-Id':String(this.myPlayerId||0)}});
+const data=r.ok?await r.json():{};
+this.d.digsLeft=data.attempts!==undefined?data.attempts:this.d.digsLeft;
+if(data.next_checkin_at) this.d.nextCheckinAt=new Date(data.next_checkin_at.replace('Z','')).getTime();
+else this.d.nextCheckinAt=null;
+this.updateCheckinUI(); this.updateDigsTimer();
+}catch(_){}
+},
+
+getBuildingSlotIndex(idx){
+if(this._fieldFromApi&&this.d.buildings[idx]&&this.d.buildings[idx]._slotIndex) return this.d.buildings[idx]._slotIndex;
+return (idx+1);
+},
+getFirstEmptySlot(){
+if(!this._fieldFromApi) return this.d.buildings.length<9 ? (this.d.buildings.length+1) : null;
+const used=new Set((this.d.buildings||[]).map(b=>b._slotIndex).filter(Boolean));
+for(let s=1;s<=9;s++) if(!used.has(s)) return s;
+return null;
+},
+
+runButtonChecks(){
+const missing=[]; let ok=0; const seen=new Set();
+document.querySelectorAll('[onclick*="G."]').forEach(el=>{
+const m=(el.getAttribute('onclick')||'').match(/G\.(\w+)/g);
+if(m) m.forEach(x=>{ const name=x.replace('G.',''); if(seen.has(name)) return; seen.add(name); if(typeof this[name]!=='function') missing.push(name); else ok++; });
+});
+if(missing.length) console.warn('Кнопки без обработчика:', missing);
+else console.log('Проверка кнопок: все '+ok+' обработчиков на месте.');
+return {ok,missing};
 }
 };
-window.onload=()=>G.init();
+window.onload=()=>{ G.init(); setTimeout(()=>{ if(window.G&&G.runButtonChecks) G.runButtonChecks(); },1500); };
 </script>
+<script src="frontend/config/features.js"></script>
+<script src="frontend/js/market.js"></script>
+<script src="frontend/data/about-tabs-content.js"></script>
+<script src="frontend/js/about.js"></script>
+<script src="frontend/data/help-content.js"></script>
+<script src="frontend/js/help.js"></script>
 </body>
 </html>

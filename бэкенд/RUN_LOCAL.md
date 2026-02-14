@@ -134,18 +134,15 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
 ```bash
 cd "/Users/Den/Downloads/Игра"
+node generate_config.js   # один раз при смене API: генерирует config.js с GAME_API_BASE из .env
 python3 -m http.server 8080
 ```
 
-Откройте в браузере: **http://localhost:8080/village-era-game-final.html**
+Откройте в браузере: **http://localhost:8080/village-era-game-final.html** (единственная точка входа; другие HTML не используют актуальный код).
 
-В коде игры задайте URL бэкенда (в объекте `G`, поле `API_BASE`):
+URL бэкенда задаётся в **config.js** (поле `window.GAME_API_BASE`), который генерируется из `.env` в папке Игра. В `.env` в папке Игра добавьте, например: `API_BASE=http://localhost:8000`. После изменения API запустите снова `node generate_config.js`.
 
-```javascript
-API_BASE: 'http://localhost:8000',
-```
-
-Если фронт открыт с другого компьютера — укажите IP сервера, например `http://192.168.1.10:8000`.
+Если фронт открыт с другого компьютера — укажите IP сервера в API_BASE, например `http://192.168.1.10:8000`.
 
 ---
 

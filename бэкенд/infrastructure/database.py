@@ -8,6 +8,7 @@ import asyncpg
 from config import DATABASE_URL
 
 logger = logging.getLogger(__name__)
+
 _pool: Optional[asyncpg.Pool] = None
 
 
@@ -53,7 +54,7 @@ async def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_pending_payouts_telegram
             ON pending_payouts(telegram_id)
         """)
-        # Архитектура 25: users (user_id для связей)
+        # users: telegram_id — ID из Telegram; id — наш внутренний ID для связей (FK во всех таблицах)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -62,6 +63,14 @@ async def init_db() -> None:
             )
         """)
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_users_telegram ON users(telegram_id)")
+        # Подстройка под существующую БД: если users уже был без id (только telegram_id), добавляем id для связей
+        try:
+            await conn.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS id SERIAL UNIQUE NOT NULL"
+            )
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                logger.warning("users.id migration: %s", e)
         # user_profile — 18_Dev
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS user_profile (
@@ -277,6 +286,25 @@ async def init_db() -> None:
         """)
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_crafting_log_user ON crafting_log(user_id)")
 
+        # Статистика по предметам: события (дроп, сжигание, слияние, продажа и т.д.)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS item_events (
+                id SERIAL PRIMARY KEY,
+                item_def_id INTEGER REFERENCES item_defs(id) ON DELETE SET NULL,
+                event_type TEXT NOT NULL,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                ref_type TEXT,
+                ref_id BIGINT,
+                meta JSONB NOT NULL DEFAULT '{}',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_item_events_item_def ON item_events(item_def_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_item_events_type ON item_events(event_type)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_item_events_user ON item_events(user_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_item_events_created ON item_events(created_at)")
+
         # Фаза 4: рынок и P2P (18_Dev, 11)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS market_orders (
@@ -326,6 +354,96 @@ async def init_db() -> None:
             )
         """)
 
+        # Магазин из казны (фиксированные предложения)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS shop_offers (
+                id SERIAL PRIMARY KEY,
+                item_def_id INTEGER NOT NULL UNIQUE REFERENCES item_defs(id) ON DELETE RESTRICT,
+                pay_currency TEXT NOT NULL DEFAULT 'COINS',
+                pay_amount BIGINT NOT NULL,
+                stock_type TEXT NOT NULL DEFAULT 'unlimited',
+                max_per_user_per_era INTEGER,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_shop_offers_item ON shop_offers(item_def_id)")
+
+        # Визиты и атаки (ограбление построек)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS visit_log (
+                id SERIAL PRIMARY KEY,
+                visitor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                target_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                visited_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                attack_performed BOOLEAN NOT NULL DEFAULT FALSE,
+                buildings_robbed JSONB NOT NULL DEFAULT '{}',
+                total_stolen BIGINT NOT NULL DEFAULT 0
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_visit_log_visitor ON visit_log(visitor_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_visit_log_target ON visit_log(target_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_visit_log_visited_at ON visit_log(visited_at)")
+
+        # Накопленные монеты по зданию (до сбора)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS building_pending_income (
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                slot_index INTEGER NOT NULL CHECK (slot_index >= 1 AND slot_index <= 9),
+                pending_coins BIGINT NOT NULL DEFAULT 0,
+                last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (user_id, slot_index)
+            )
+        """)
+
+        # Кулдаун ограбления: атакующий–цель–слот, раз в час
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS rob_cooldown (
+                attacker_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                target_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                slot_index INTEGER NOT NULL CHECK (slot_index >= 1 AND slot_index <= 9),
+                last_robbed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (attacker_id, target_id, slot_index)
+            )
+        """)
+
+        # Фамильяры (определения)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS familiars_def (
+                id SERIAL PRIMARY KEY,
+                key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                passive_buff_json JSONB NOT NULL DEFAULT '{}',
+                extra_abilities JSONB NOT NULL DEFAULT '[]',
+                rarity TEXT NOT NULL DEFAULT 'common'
+            )
+        """)
+
+        # Фамильяры у игрока
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_familiars (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                familiar_def_id INTEGER NOT NULL REFERENCES familiars_def(id) ON DELETE RESTRICT,
+                equipped BOOLEAN NOT NULL DEFAULT TRUE,
+                acquired_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_user_familiars_user ON user_familiars(user_id)")
+
+        # Пул результатов вылупления яиц (color, rarity -> тип и веса)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS egg_hatch_pool (
+                id SERIAL PRIMARY KEY,
+                egg_color TEXT NOT NULL REFERENCES eggs_def(color) ON DELETE CASCADE,
+                egg_rarity TEXT NOT NULL DEFAULT 'common',
+                outcome_type TEXT NOT NULL,
+                weight INTEGER NOT NULL DEFAULT 1,
+                UNIQUE(egg_color, egg_rarity, outcome_type)
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_egg_hatch_pool_color ON egg_hatch_pool(egg_color)")
+
         # Фаза 5: вывод и eligibility (18_Dev, 08)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS user_wallets (
@@ -334,6 +452,24 @@ async def init_db() -> None:
                 verified_at TIMESTAMPTZ,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
+        """)
+        # До 10 кошельков на юзера: привязки с отдельным verify_code на каждую
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_wallet_bindings (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                wallet_address TEXT UNIQUE,
+                verify_code TEXT,
+                verified_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_user_wallet_bindings_user ON user_wallet_bindings(user_id)")
+        # Миграция: скопировать из user_wallets в user_wallet_bindings (один раз)
+        await conn.execute("""
+            INSERT INTO user_wallet_bindings (user_id, wallet_address, verified_at, created_at)
+            SELECT user_id, wallet_address, verified_at, created_at FROM user_wallets
+            ON CONFLICT (wallet_address) DO NOTHING
         """)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS withdraw_gating (
@@ -548,6 +684,30 @@ async def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at)
         """)
         await conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_task_claims (
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                task_key TEXT NOT NULL,
+                claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (user_id, task_key)
+            )
+        """)
+
+        # Квест ФЕНИКС: текущее слово, счётчик сдач (макс 5), смена слова после 5
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS phoenix_quest_state (
+                id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+                current_word TEXT NOT NULL DEFAULT 'ФЕНИКС',
+                submissions_count INTEGER NOT NULL DEFAULT 0,
+                word_index INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
+            INSERT INTO phoenix_quest_state (id, current_word, submissions_count, word_index)
+            VALUES (1, 'ФЕНИКС', 0, 0) ON CONFLICT (id) DO NOTHING
+        """)
+
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS user_activity_stats (
                 user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -556,6 +716,75 @@ async def init_db() -> None:
                 reactions_by_type JSONB NOT NULL DEFAULT '{}',
                 last_activity_at TIMESTAMPTZ,
                 PRIMARY KEY (user_id, project_id)
+            )
+        """)
+
+        # Админ-панель (отдельный вход по логину/паролю, не в основном приложении)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS admin_panel_credentials (
+                id SERIAL PRIMARY KEY,
+                login TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                token TEXT,
+                token_expires_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS staking_contract_addresses (
+                id SERIAL PRIMARY KEY,
+                contract_address TEXT NOT NULL UNIQUE,
+                label TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        # NFT-каталог разработчика: коллекции и отдельные NFT
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS dev_collections (
+                id SERIAL PRIMARY KEY,
+                collection_address TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL DEFAULT '',
+                description TEXT NOT NULL DEFAULT '',
+                image TEXT NOT NULL DEFAULT '',
+                creator_address TEXT NOT NULL DEFAULT '',
+                items_count INTEGER NOT NULL DEFAULT 0,
+                synced_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS dev_nfts (
+                id SERIAL PRIMARY KEY,
+                nft_address TEXT NOT NULL UNIQUE,
+                collection_id INTEGER REFERENCES dev_collections(id) ON DELETE CASCADE,
+                collection_address TEXT NOT NULL DEFAULT '',
+                nft_index INTEGER NOT NULL DEFAULT 0,
+                owner_address TEXT NOT NULL DEFAULT '',
+                name TEXT NOT NULL DEFAULT '',
+                description TEXT NOT NULL DEFAULT '',
+                image TEXT NOT NULL DEFAULT '',
+                metadata_url TEXT NOT NULL DEFAULT '',
+                attributes JSONB NOT NULL DEFAULT '[]',
+                mint_timestamp TIMESTAMPTZ,
+                synced_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_dev_nfts_collection ON dev_nfts(collection_address)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_dev_nfts_owner ON dev_nfts(owner_address)")
+        # Лог синхронизации NFT (когда последний раз запускали полный/инкрементальный синк)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS nft_sync_log (
+                id SERIAL PRIMARY KEY,
+                sync_type TEXT NOT NULL DEFAULT 'full',
+                collections_synced INTEGER NOT NULL DEFAULT 0,
+                nfts_synced INTEGER NOT NULL DEFAULT 0,
+                errors INTEGER NOT NULL DEFAULT 0,
+                started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                finished_at TIMESTAMPTZ
             )
         """)
 
@@ -573,6 +802,11 @@ async def init_db() -> None:
             "ALTER TABLE dig_log ADD COLUMN IF NOT EXISTS ip_hash TEXT",
             "ALTER TABLE dig_log ADD COLUMN IF NOT EXISTS device_hash TEXT",
             "ALTER TABLE dig_log ADD COLUMN IF NOT EXISTS vpn_flag BOOLEAN",
+            "ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS badges JSONB NOT NULL DEFAULT '[]'",
+            "ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS last_collected_at TIMESTAMPTZ",
+            "ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS furnace_bonus_until TIMESTAMPTZ",
+            "ALTER TABLE dev_collections ADD COLUMN IF NOT EXISTS project_id INTEGER DEFAULT 1",
+            "ALTER TABLE dev_nfts ADD COLUMN IF NOT EXISTS project_id INTEGER DEFAULT 1",
         ):
             try:
                 await conn.execute(sql)
@@ -581,11 +815,29 @@ async def init_db() -> None:
                     logger.warning("Migration step: %s", e)
         await _seed_item_defs_and_eggs(conn)
         await _seed_buildings_def(conn)
+        await _seed_familiars_def(conn)
+        await _seed_egg_hatch_pool(conn)
+        await _seed_shop_offers(conn)
     logger.info("Game DB initialized")
 
 
+# allowed_buildings для реликвий (02_Реликвии_и_эффекты)
+RELIC_ALLOWED_BUILDINGS = {
+    "fire_01": ["houses"], "fire_02": ["farm"], "fire_03": ["market", "trade_guild", "auction_house"],
+    "fire_04": ["lumbermill", "quarry", "caravan"], "fire_05": ["market", "trade_guild", "auction_house"],
+    "fire_06": ["workshop", "alchemy"], "fire_07": ["post_office", "ad_totem"], "fire_08": ["warehouse", "treasury"],
+    "yin_01": ["houses", "firebrigade"], "yin_02": ["guard_post", "watchtower", "infirmary"],
+    "yin_03": ["townhall"], "yin_04": ["treasury", "well"], "yin_05": ["houses", "guard_post"],
+    "yin_06": ["farm", "infirmary"], "yin_07": ["market", "trade_guild"], "yin_08": ["well", "firebrigade"],
+    "yan_01": ["forge", "arena"], "yan_02": ["forge", "blacklist_office"], "yan_03": ["forge", "arena"],
+    "yan_04": ["forge", "arena"], "yan_05": ["market", "blacklist_office"], "yan_06": ["forge"],
+    "yan_07": ["forge", "arena"], "yan_08": ["era_monument"],
+}
+
+
 async def _seed_item_defs_and_eggs(conn: asyncpg.Connection) -> None:
-    """Сид item_defs (реликвии по 19) и eggs_def (по конфигу)."""
+    """Сид item_defs из каталога (все категории с описанием) и eggs_def (по конфигу)."""
+    from pathlib import Path
     # eggs_def из game config
     from config import get_eggs_config
     eggs_cfg = get_eggs_config()
@@ -595,31 +847,96 @@ async def _seed_item_defs_and_eggs(conn: asyncpg.Connection) -> None:
                VALUES ($1, $2, $3) ON CONFLICT (color) DO NOTHING""",
             c.get("color", ""), c.get("rarity", "common"), c.get("weight", 1),
         )
-    # item_defs: реликвии FIRE, YIN, YAN, TSY, MAGIC, EPIC (19_Список_предметов)
-    relics = [
-        *[("fire_%02d" % i, "relic_slot", "FIRE", "Реликвия FIRE %d" % i) for i in range(1, 9)],
-        *[("yin_%02d" % i, "relic_slot", "YIN", "Реликвия YIN %d" % i) for i in range(1, 9)],
-        *[("yan_%02d" % i, "relic_slot", "YAN", "Реликвия YAN %d" % i) for i in range(1, 9)],
-        *[("tsy_%02d" % i, "relic_slot", "TSY", "Реликвия TSY %d" % i) for i in range(1, 9)],
-        *[("magic_%02d" % i, "relic_slot", "MAGIC", "Реликвия MAGIC %d" % i) for i in range(1, 7)],
-        *[("epic_%02d" % i, "relic_slot", "EPIC", "Реликвия EPIC %d" % i) for i in range(1, 5)],
-    ]
-    for key, item_type, rarity, name in relics:
+    # Каталог: сначала Игра/data/items-catalog.json, иначе бэкенд/data/items_defs_seed.json
+    base = Path(__file__).resolve().parent.parent
+    catalog_path = base.parent / "data" / "items-catalog.json"
+    if not catalog_path.exists():
+        catalog_path = base / "data" / "items_defs_seed.json"
+    catalog = []
+    if catalog_path.exists():
+        try:
+            with open(catalog_path, "r", encoding="utf-8") as f:
+                catalog = json.load(f)
+        except Exception as e:
+            logger.warning("Could not load items catalog from %s: %s", catalog_path, e)
+    # Если каталог загружен — upsert все предметы с эффектом и описанием
+    for it in catalog:
+        key = it.get("key") or it.get("id")
+        if not key:
+            continue
+        item_type = it.get("slot_type") or it.get("item_type", "")
+        subtype = it.get("type") or it.get("subtype") or item_type
+        name = it.get("name", key)
+        rarity = it.get("rarity", "common")
+        effect = it.get("effect", "")
+        description = it.get("description", effect)
+        effects_json = json.dumps({"effect": effect, "description": description})
+        allowed = it.get("allowed_buildings")
+        if allowed is None:
+            allowed = RELIC_ALLOWED_BUILDINGS.get(key, [])
+        allowed_json = json.dumps(allowed if isinstance(allowed, list) else [])
         await conn.execute(
             """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
-               VALUES ($1, $2, $3, $4, $5, '[]', '{}') ON CONFLICT (key) DO NOTHING""",
-            key, item_type, rarity, name, rarity,
+               VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)
+               ON CONFLICT (key) DO UPDATE SET
+                 item_type = EXCLUDED.item_type, subtype = EXCLUDED.subtype, name = EXCLUDED.name,
+                 rarity = EXCLUDED.rarity, allowed_buildings = EXCLUDED.allowed_buildings,
+                 effects_json = EXCLUDED.effects_json""",
+            key, item_type, subtype, name, rarity, allowed_json, effects_json,
         )
-    # амулеты по редкости (один на редкость для дропа)
-    amulets = [("amulet_fire", "amulet", "FIRE", "Амулет огня"), ("amulet_yin", "amulet", "YIN", "Амулет инь"),
-               ("amulet_yan", "amulet", "YAN", "Амулет янь"), ("amulet_tsy", "amulet", "TSY", "Амулет цы"),
-               ("amulet_magic", "amulet", "MAGIC", "Амулет магии"), ("amulet_epic", "amulet", "EPIC", "Амулет эпик")]
-    for key, item_type, rarity, name in amulets:
+    # Если каталог пуст — минимальный сид реликвий и буквы (fallback)
+    if not catalog:
+        relics = [
+            *[("fire_%02d" % i, "relic_slot", "FIRE", "Реликвия FIRE %d" % i) for i in range(1, 9)],
+            *[("yin_%02d" % i, "relic_slot", "YIN", "Реликвия YIN %d" % i) for i in range(1, 9)],
+            *[("yan_%02d" % i, "relic_slot", "YAN", "Реликвия YAN %d" % i) for i in range(1, 9)],
+            *[("tsy_%02d" % i, "relic_slot", "TSY", "Реликвия TSY %d" % i) for i in range(1, 9)],
+            *[("magic_%02d" % i, "relic_slot", "MAGIC", "Реликвия MAGIC %d" % i) for i in range(1, 7)],
+            *[("epic_%02d" % i, "relic_slot", "EPIC", "Реликвия EPIC %d" % i) for i in range(1, 5)],
+        ]
+        for key, item_type, rarity, name in relics:
+            await conn.execute(
+                """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
+                   VALUES ($1, $2, $3, $4, $5, '[]', '{}') ON CONFLICT (key) DO NOTHING""",
+                key, item_type, rarity, name, rarity,
+            )
+    # Буквы для квеста ФЕНИКС
+    await conn.execute(
+        """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
+           VALUES ('letter', 'letter', 'letter', 'Буква', 'common', '[]', '{}') ON CONFLICT (key) DO NOTHING"""
+    )
+    # Печки (ключ по цвету): 6 видов
+    for color, name in [
+        ("red", "Печка красная"), ("green", "Печка зелёная"), ("blue", "Печка синяя"),
+        ("yellow", "Печка жёлтая"), ("purple", "Печка фиолетовая"), ("black", "Печка чёрная"),
+    ]:
         await conn.execute(
             """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
-               VALUES ($1, $2, $3, $4, $5, '[]', '{}') ON CONFLICT (key) DO NOTHING""",
-            key, item_type, rarity, name, rarity,
+               VALUES ($1, 'furnace', $2, $3, 'common', '[]', '{"effect":"открыть 3 обычных или 1 крутое яйцо"}')
+               ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name, effects_json = EXCLUDED.effects_json""",
+            f"furnace_{color}", color, name,
         )
+    # Предмет доступа к полной истории (логи визитов/атак)
+    await conn.execute(
+        """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
+           VALUES ('full_history_access', 'special', 'utility', 'Доступ к логам игры', 'rare', '[]',
+                   '{"effect":"просмотр полной истории: кто к кому ходил, что делал"}')
+           ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name, effects_json = EXCLUDED.effects_json"""
+    )
+    # Предмет эры: защита от воров (−50% удачи ворам, +50% владельцу)
+    await conn.execute(
+        """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
+           VALUES ('thief_protection_era', 'amulet', 'ERA', 'Страж племени', 'rare', '[]',
+                   '{"effect":"−50% удачи ворам, +50% удачи владельцу при ограблении"}')
+           ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name, effects_json = EXCLUDED.effects_json"""
+    )
+    # Артефакт сокращения кулдауна атаки
+    await conn.execute(
+        """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
+           VALUES ('attack_cd_reduce', 'artifact_relic', 'ATTACK', 'Песочные часы атаки', 'rare', '[]',
+                   '{"effect":"−15 мин к кулдауну атаки при активации"}')
+           ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name, effects_json = EXCLUDED.effects_json"""
+    )
 
 
 # Здания по 01_Здания_и_задания: key, name, category, stack_limit, config (incomePerHour, slotsByLevel)
@@ -669,8 +986,154 @@ async def _seed_buildings_def(conn: asyncpg.Connection) -> None:
         )
 
 
+async def _seed_familiars_def(conn: asyncpg.Connection) -> None:
+    """Сид определений фамильяров (пассивные бафы, возможности)."""
+    familiars = [
+        ("fam_guard", "Страж", '{"incomePct": 2}', "[]", "common"),
+        ("fam_luck", "Талисман удачи", '{"dropChancePct": 1}', "[]", "rare"),
+        ("fam_shield", "Щитник", '{"theftResistPct": 5}', "[]", "rare"),
+        ("fam_coin", "Монетник", '{"incomePct": 5}', "[]", "epic"),
+    ]
+    for key, name, passive_buff_json, extra_abilities, rarity in familiars:
+        await conn.execute(
+            """INSERT INTO familiars_def (key, name, passive_buff_json, extra_abilities, rarity)
+               VALUES ($1, $2, $3::jsonb, $4::jsonb, $5) ON CONFLICT (key) DO UPDATE SET
+                 name = EXCLUDED.name, passive_buff_json = EXCLUDED.passive_buff_json,
+                 extra_abilities = EXCLUDED.extra_abilities, rarity = EXCLUDED.rarity""",
+            key, name, passive_buff_json, extra_abilities, rarity,
+        )
+
+
+async def _seed_egg_hatch_pool(conn: asyncpg.Connection) -> None:
+    """Пул результатов вылупления: по цвету/редкости — resource, relic, familiar."""
+    from config import get_eggs_config
+    eggs_cfg = get_eggs_config()
+    colors = [c.get("color") for c in eggs_cfg.get("colors", []) if c.get("color")]
+    if not colors:
+        colors = ["red", "green", "blue", "yellow", "purple", "black"]
+    for color in colors:
+        for rarity, outcomes in [
+            ("common", [("resource", 60), ("relic", 30), ("familiar", 10)]),
+            ("rare", [("resource", 40), ("relic", 40), ("familiar", 20)]),
+            ("epic", [("resource", 20), ("relic", 40), ("familiar", 40)]),
+            ("legendary", [("resource", 10), ("relic", 30), ("familiar", 60)]),
+        ]:
+            for outcome_type, weight in outcomes:
+                await conn.execute(
+                    """INSERT INTO egg_hatch_pool (egg_color, egg_rarity, outcome_type, weight)
+                       VALUES ($1, $2, $3, $4)
+                       ON CONFLICT (egg_color, egg_rarity, outcome_type) DO UPDATE SET weight = EXCLUDED.weight""",
+                    color, rarity, outcome_type, weight,
+                )
+
+
+async def _seed_shop_offers(conn: asyncpg.Connection) -> None:
+    """Сид предложений магазина из казны (item_def_id по key). Гарантирует наличие item_defs перед вставкой в shop_offers."""
+    # Гарантированно создать в item_defs печки и спецпредметы (на случай старой БД без них)
+    for color, name in [
+        ("red", "Печка красная"), ("green", "Печка зелёная"), ("blue", "Печка синяя"),
+        ("yellow", "Печка жёлтая"), ("purple", "Печка фиолетовая"), ("black", "Печка чёрная"),
+    ]:
+        await conn.execute(
+            """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
+               VALUES ($1, 'furnace', $2, $3, 'common', '[]', '{"effect":"открыть 3 обычных или 1 крутое яйцо"}')
+               ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name, effects_json = EXCLUDED.effects_json""",
+            f"furnace_{color}", color, name,
+        )
+    await conn.execute(
+        """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
+           VALUES ('full_history_access', 'special', 'utility', 'Доступ к логам игры', 'rare', '[]',
+                   '{"effect":"просмотр полной истории: кто к кому ходил, что делал"}')
+           ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name, effects_json = EXCLUDED.effects_json"""
+    )
+    await conn.execute(
+        """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
+           VALUES ('thief_protection_era', 'amulet', 'ERA', 'Страж племени', 'rare', '[]',
+                   '{"effect":"−50% удачи ворам, +50% удачи владельцу при ограблении"}')
+           ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name, effects_json = EXCLUDED.effects_json"""
+    )
+    await conn.execute(
+        """INSERT INTO item_defs (key, item_type, subtype, name, rarity, allowed_buildings, effects_json)
+           VALUES ('attack_cd_reduce', 'artifact_relic', 'ATTACK', 'Песочные часы атаки', 'rare', '[]',
+                   '{"effect":"−15 мин к кулдауну атаки при активации"}')
+           ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name, effects_json = EXCLUDED.effects_json"""
+    )
+    rows = await conn.fetch(
+        """SELECT id, key FROM item_defs WHERE key IN (
+           'full_history_access', 'thief_protection_era', 'attack_cd_reduce',
+           'furnace_red', 'furnace_green', 'furnace_blue', 'furnace_yellow', 'furnace_purple', 'furnace_black'
+           )"""
+    )
+    by_key = {r["key"]: r["id"] for r in rows}
+    logger.info("Shop offers seed: %d item_defs found, inserting offers", len(by_key))
+    offers = [
+        # --- За звёзды ---
+        ("full_history_access", "STARS", 5000, 0),
+        ("thief_protection_era", "STARS", 3000, 1),
+        ("attack_cd_reduce", "STARS", 800, 2),
+        # Премиум-амулеты
+        ("amu_06", "STARS", 1500, 3),    # Удача ×2
+        ("amu_07", "STARS", 2000, 4),    # Доход ×3
+        ("amu_08", "STARS", 2500, 5),    # Анти-Skyfall
+        ("amu_09", "STARS", 3500, 6),    # Сейф вывода
+        ("amu_04", "STARS", 1200, 7),    # Заморозка порчи
+        ("amu_05", "STARS", 1000, 8),    # Очищение
+        # --- За монеты ---
+        # Амулеты стихий
+        ("amulet_fire", "COINS", 800, 20),
+        ("amulet_yin", "COINS", 800, 21),
+        ("amulet_yan", "COINS", 800, 22),
+        ("amulet_tsy", "COINS", 800, 23),
+        ("amulet_magic", "COINS", 1200, 24),
+        # Артефакты защиты
+        ("ward_01", "COINS", 600, 30),   # Щит Тумана
+        ("ward_02", "COINS", 600, 31),   # Пластина Холода
+        # Хроно-артефакты
+        ("chrono_01", "COINS", 400, 35), # Песок Минут
+        ("chrono_02", "COINS", 500, 36), # Маятник Сдвига
+        ("chrono_03", "COINS", 400, 37), # Малая Пружина
+    ]
+    # Добавляем все из списка (для тех, что есть в item_defs)
+    all_shop_keys = set()
+    for key, currency, amount, sort_order in offers:
+        item_id = by_key.get(key)
+        if not item_id:
+            # Попробуем найти в БД напрямую
+            row = await conn.fetchrow("SELECT id FROM item_defs WHERE key = $1", key)
+            if row:
+                item_id = row["id"]
+        if not item_id:
+            continue
+        all_shop_keys.add(key)
+        await conn.execute(
+            """INSERT INTO shop_offers (item_def_id, pay_currency, pay_amount, stock_type, sort_order)
+               VALUES ($1, $2, $3, 'unlimited', $4)
+               ON CONFLICT (item_def_id) DO UPDATE SET pay_currency = EXCLUDED.pay_currency,
+                 pay_amount = EXCLUDED.pay_amount, sort_order = EXCLUDED.sort_order""",
+            item_id, currency, amount, sort_order,
+        )
+    for i, color in enumerate(["red", "green", "blue", "yellow", "purple", "black"]):
+        key = f"furnace_{color}"
+        item_id = by_key.get(key)
+        if item_id:
+            await conn.execute(
+                """INSERT INTO shop_offers (item_def_id, pay_currency, pay_amount, stock_type, sort_order)
+                   VALUES ($1, 'COINS', 500, 'unlimited', $2)
+                   ON CONFLICT (item_def_id) DO UPDATE SET pay_amount = EXCLUDED.pay_amount, sort_order = EXCLUDED.sort_order""",
+                item_id, 50 + i,
+            )
+
+
 def _row_to_state(row: asyncpg.Record) -> Dict[str, Any]:
-    state = dict(row["state"]) if row["state"] else {}
+    raw = row["state"]
+    if raw is None:
+        state = {}
+    elif isinstance(raw, dict):
+        state = dict(raw)
+    elif isinstance(raw, str):
+        state = json.loads(raw) if raw else {}
+    else:
+        state = dict(raw)
     state["phoenixQuestCompleted"] = row.get("phoenix_quest_completed", False)
     state["burnedCount"] = int(row.get("burned_count", 0))
     state["points"] = int(row.get("points_balance", 0))
@@ -754,8 +1217,17 @@ async def add_pending_payout(
     reward_type: str,
     amount: int,
 ) -> int:
+    """Добавить выплату в очередь. Для наград типа phoenix_quest — не дублируем: если уже есть запись по (telegram_id, reward_type), возвращаем её id."""
     pool = await get_pool()
     async with pool.acquire() as conn:
+        single_claim_types = ("phoenix_quest",)
+        if reward_type in single_claim_types:
+            existing = await conn.fetchrow(
+                """SELECT id FROM pending_payouts WHERE telegram_id = $1 AND reward_type = $2 LIMIT 1""",
+                telegram_id, reward_type,
+            )
+            if existing:
+                return int(existing["id"])
         row = await conn.fetchrow(
             """INSERT INTO pending_payouts (telegram_id, reward_type, amount, status)
                VALUES ($1, $2, $3, 'pending') RETURNING id""",
@@ -957,6 +1429,16 @@ async def add_coins_ledger(
     idem_key: Optional[str] = None,
 ) -> None:
     """Начисляет монеты через economy_ledger и user_balances."""
+    await add_currency_credit(user_id, "COINS", amount, ref_type, ref_id, idem_key)
+
+
+async def add_currency_credit(
+    user_id: int, currency: str, amount: int, ref_type: str, ref_id: Optional[str] = None,
+    idem_key: Optional[str] = None,
+) -> None:
+    """Начисляет валюту (COINS, STARS, DIAMONDS) через economy_ledger и user_balances."""
+    if amount <= 0:
+        return
     pool = await get_pool()
     async with pool.acquire() as conn:
         if idem_key:
@@ -967,15 +1449,15 @@ async def add_coins_ledger(
                 return
         await conn.execute(
             """INSERT INTO economy_ledger (user_id, kind, currency, amount, ref_type, ref_id, idem_key)
-               VALUES ($1, 'credit', 'COINS', $2, $3, $4, $5)""",
-            user_id, amount, ref_type, ref_id or "", idem_key,
+               VALUES ($1, 'credit', $2, $3, $4, $5, $6)""",
+            user_id, currency, amount, ref_type, ref_id or "", idem_key,
         )
         await conn.execute(
             """INSERT INTO user_balances (user_id, currency, balance, updated_at)
-               VALUES ($1, 'COINS', $2, NOW())
+               VALUES ($1, $2, $3, NOW())
                ON CONFLICT (user_id, currency) DO UPDATE SET
-                 balance = user_balances.balance + $2, updated_at = NOW()""",
-            user_id, amount,
+                 balance = user_balances.balance + $3, updated_at = NOW()""",
+            user_id, currency, amount,
         )
 
 
@@ -990,16 +1472,188 @@ async def get_item_def_ids_by_rarity(rarity: str) -> List[int]:
     return [int(r["id"]) for r in rows]
 
 
-async def add_user_item(user_id: int, item_def_id: int, item_level: int = 1) -> int:
-    """Добавляет предмет в инвентарь. Возвращает user_items.id."""
+async def get_item_def_id_by_key(key: str) -> Optional[int]:
+    """Возвращает id item_def по key или None."""
     pool = await get_pool()
     async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT id FROM item_defs WHERE key = $1", key)
+    return int(row["id"]) if row else None
+
+
+async def add_user_item(user_id: int, item_def_id: int, item_level: int = 1, meta: Optional[Dict] = None) -> int:
+    """Добавляет предмет в инвентарь. Возвращает user_items.id."""
+    pool = await get_pool()
+    meta = meta or {}
+    async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO user_items (user_id, item_def_id, state, item_level)
-               VALUES ($1, $2, 'inventory', $3) RETURNING id""",
-            user_id, item_def_id, item_level,
+            """INSERT INTO user_items (user_id, item_def_id, state, item_level, meta)
+               VALUES ($1, $2, 'inventory', $3, $4::jsonb) RETURNING id""",
+            user_id, item_def_id, item_level, json.dumps(meta),
         )
     return int(row["id"])
+
+
+async def get_letter_item_def_id() -> Optional[int]:
+    """ID item_def для типа letter (квест ФЕНИКС)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT id FROM item_defs WHERE key = 'letter' AND item_type = 'letter'")
+    return int(row["id"]) if row else None
+
+
+async def add_letter_to_user(user_id: int, symbol: str) -> int:
+    """Добавляет букву в инвентарь (meta.symbol). Возвращает user_items.id."""
+    letter_def_id = await get_letter_item_def_id()
+    if not letter_def_id:
+        raise ValueError("Letter item_def not found")
+    return await add_user_item(user_id, letter_def_id, item_level=1, meta={"symbol": symbol.upper()})
+
+
+async def get_phoenix_quest_state() -> Dict[str, Any]:
+    """Текущее загаданное слово и счётчик сдач (макс 5)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT current_word, submissions_count, word_index, updated_at FROM phoenix_quest_state WHERE id = 1")
+    if not row:
+        return {"current_word": "ФЕНИКС", "submissions_count": 0, "word_index": 0, "max_submissions": 5}
+    return {
+        "current_word": row["current_word"],
+        "submissions_count": row["submissions_count"],
+        "word_index": row["word_index"],
+        "max_submissions": 5,
+        "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+    }
+
+
+PHOENIX_WORDS_LIST = ["ФЕНИКС", "СЛОВО", "ОГОНЬ", "ПОБЕДА", "МЕДАЛЬ", "ТОКЕН", "ИГРОК", "ЭРА"]
+
+
+async def advance_phoenix_word() -> str:
+    """После 5 сдач переключает на следующее слово. Возвращает новое current_word."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT word_index FROM phoenix_quest_state WHERE id = 1")
+        idx = int(row["word_index"]) if row else 0
+        next_idx = (idx + 1) % len(PHOENIX_WORDS_LIST)
+        next_word = PHOENIX_WORDS_LIST[next_idx]
+        await conn.execute(
+            """UPDATE phoenix_quest_state SET current_word = $1, submissions_count = 0, word_index = $2, updated_at = NOW() WHERE id = 1""",
+            next_word, next_idx,
+        )
+    return next_word
+
+
+async def get_user_letter_items(user_id: int) -> List[Dict[str, Any]]:
+    """Список букв в инвентаре (user_items с item_type=letter, state=inventory)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT ui.id, ui.meta
+               FROM user_items ui
+               JOIN item_defs id ON id.id = ui.item_def_id
+               WHERE ui.user_id = $1 AND id.item_type = 'letter' AND ui.state = 'inventory'
+               ORDER BY ui.id""",
+            user_id,
+        )
+    return [{"id": r["id"], "symbol": (r["meta"] or {}).get("symbol", "?")} for r in rows]
+
+
+async def consume_letter_items(user_id: int, item_ids: List[int], word: str) -> bool:
+    """
+    Списывает буквы по id. word — ожидаемое слово; для каждого символа должен быть ровно один id.
+    Возвращает True если списание прошло.
+    """
+    word_upper = word.strip().upper()
+    if len(word_upper) != len(item_ids) or len(set(item_ids)) != len(item_ids):
+        return False
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for i, char in enumerate(word_upper):
+            item_id = item_ids[i]
+            row = await conn.fetchrow(
+                """SELECT ui.id FROM user_items ui
+                   JOIN item_defs id ON id.id = ui.item_def_id
+                   WHERE ui.user_id = $1 AND ui.id = $2 AND id.item_type = 'letter' AND ui.state = 'inventory'""",
+                user_id, item_id,
+            )
+            if not row:
+                return False
+            meta = await conn.fetchrow("SELECT meta FROM user_items WHERE id = $1", item_id)
+            sym = (meta["meta"] or {}).get("symbol", "")
+            if sym.upper() != char:
+                return False
+        for item_id in item_ids:
+            await conn.execute("DELETE FROM user_items WHERE id = $1 AND user_id = $2", item_id, user_id)
+    return True
+
+
+async def add_user_badge(user_id: int, badge_key: str) -> None:
+    """Добавляет бейдж в user_profile.badges (например 'букварь')."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT badges FROM user_profile WHERE user_id = $1", user_id)
+        badges = list(row["badges"]) if row and row["badges"] else []
+        if badge_key not in badges:
+            badges.append(badge_key)
+            await conn.execute(
+                "UPDATE user_profile SET badges = $1::jsonb, updated_at = NOW() WHERE user_id = $2",
+                json.dumps(badges), user_id,
+            )
+
+
+async def has_user_badge(user_id: int, badge_key: str) -> bool:
+    """Проверяет наличие бейджа у пользователя."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT badges FROM user_profile WHERE user_id = $1", user_id)
+    badges = list(row["badges"]) if row and row.get("badges") else []
+    return badge_key in badges
+
+
+async def phoenix_submit_word(
+    user_id: int,
+    word: str,
+    letter_item_ids: List[int],
+) -> Dict[str, Any]:
+    """
+    Сдача слова: списание букв, проверка совпадения с текущим словом, топ-5 приз + бейдж «Букварь».
+    Возвращает: success, place (1-5 или 0), badge_granted, message, next_word (если слово сменилось).
+    """
+    state = await get_phoenix_quest_state()
+    current = (state["current_word"] or "").strip().upper()
+    word_upper = word.strip().upper()
+    if not current or not word_upper:
+        return {"success": False, "place": 0, "badge_granted": False, "message": "Пустое слово"}
+    if len(word_upper) != len(letter_item_ids):
+        return {"success": False, "place": 0, "badge_granted": False, "message": "Количество букв не совпадает со словом"}
+    consumed = await consume_letter_items(user_id, letter_item_ids, word_upper)
+    if not consumed:
+        return {"success": False, "place": 0, "badge_granted": False, "message": "Не удалось списать буквы (нет в инвентаре или не совпадают)"}
+    if word_upper != current:
+        return {"success": True, "place": 0, "badge_granted": False, "message": "Слово принято, но это не загаданное слово"}
+    count = state["submissions_count"]
+    if count >= 5:
+        return {"success": True, "place": 0, "badge_granted": False, "message": "Загаданное слово уже отгадано 5 раз"}
+    pool = await get_pool()
+    place = count + 1
+    next_word = None
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE phoenix_quest_state SET submissions_count = submissions_count + 1, updated_at = NOW() WHERE id = 1"""
+        )
+        new_row = await conn.fetchrow("SELECT submissions_count FROM phoenix_quest_state WHERE id = 1")
+        new_count = int(new_row["submissions_count"]) if new_row else 0
+    if place <= 5:
+        await add_user_badge(user_id, "букварь")
+    if new_count >= 5:
+        next_word = await advance_phoenix_word()
+    return {
+        "success": True,
+        "place": place,
+        "badge_granted": place <= 5,
+        "message": f"Правильно! Вы #{place} из 5. Бейдж «Букварь» выдан." if place <= 5 else "Правильно, но призы уже разыграны.",
+        "next_word": next_word,
+    }
 
 
 async def add_player_egg(user_id: int, color: str) -> int:
@@ -1011,6 +1665,122 @@ async def add_player_egg(user_id: int, color: str) -> int:
             user_id, color,
         )
     return int(row["id"])
+
+
+async def get_egg_hatch_pool(egg_color: str, egg_rarity: str) -> List[tuple]:
+    """Возвращает список (outcome_type, weight) для вылупления по цвету и редкости яйца."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT outcome_type, weight FROM egg_hatch_pool WHERE egg_color = $1 AND egg_rarity = $2",
+            egg_color, egg_rarity,
+        )
+    return [(r["outcome_type"], int(r["weight"])) for r in rows] if rows else [("resource", 100)]
+
+
+async def get_eggs_def_rarity(color: str) -> str:
+    """Редкость яйца по цвету из eggs_def."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT rarity FROM eggs_def WHERE color = $1", color)
+    return row["rarity"] if row else "common"
+
+
+async def consume_player_eggs(user_id: int, egg_ids: List[int]) -> bool:
+    """Удаляет яйца по id. Возвращает True если все id принадлежат юзеру и удалены."""
+    if not egg_ids:
+        return False
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for eid in egg_ids:
+            await conn.execute("DELETE FROM player_eggs WHERE id = $1 AND user_id = $2", eid, user_id)
+    return True
+
+
+async def add_user_familiar(user_id: int, familiar_def_id: int) -> int:
+    """Добавляет фамильяра игроку. Возвращает user_familiars.id."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO user_familiars (user_id, familiar_def_id, equipped) VALUES ($1, $2, TRUE) RETURNING id""",
+            user_id, familiar_def_id,
+        )
+    return int(row["id"])
+
+
+async def get_familiar_defs_random_one() -> Optional[int]:
+    """Случайный familiars_def.id по весу редкости (упрощённо: равновероятно)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT id FROM familiars_def")
+    if not rows:
+        return None
+    return random.choice([int(r["id"]) for r in rows])
+
+
+async def do_furnace_hatch(
+    user_id: int,
+    furnace_user_item_id: int,
+    egg_ids: List[int],
+) -> Dict[str, Any]:
+    """
+    Вылупление: 1 печка + 3 яйца одного цвета (или 1 редкое яйцо). Consume furnace and eggs, roll outcome (resource/relic/familiar).
+    Возвращает { ok, outcome_type, coins_granted?, item_def_id?, familiar_def_id?, message }.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        furnace = await conn.fetchrow(
+            """SELECT ui.id, ui.item_def_id, id.key AS item_key
+               FROM user_items ui JOIN item_defs id ON id.id = ui.item_def_id
+               WHERE ui.id = $1 AND ui.user_id = $2 AND ui.state = 'inventory' AND id.item_type = 'furnace'""",
+            furnace_user_item_id, user_id,
+        )
+        if not furnace:
+            return {"ok": False, "outcome_type": None, "message": "furnace_not_found"}
+        color = furnace["item_key"].replace("furnace_", "") if furnace["item_key"] else ""
+        if not color or len(egg_ids) not in (1, 3):
+            return {"ok": False, "outcome_type": None, "message": "need_3_eggs_or_1_rare"}
+        eggs = await conn.fetch(
+            "SELECT id, color FROM player_eggs WHERE user_id = $1 AND id = ANY($2::int[])",
+            user_id, egg_ids,
+        )
+        if len(eggs) != len(egg_ids):
+            return {"ok": False, "outcome_type": None, "message": "eggs_not_found"}
+        if any(e["color"] != color for e in eggs):
+            return {"ok": False, "outcome_type": None, "message": "eggs_color_mismatch"}
+        egg_rarity = await get_eggs_def_rarity(color)
+        if len(egg_ids) == 1 and egg_rarity == "common":
+            return {"ok": False, "outcome_type": None, "message": "need_3_common_or_1_rare"}
+        pool_outcomes = await get_egg_hatch_pool(color, egg_rarity)
+        total_w = sum(w for _, w in pool_outcomes)
+        r = random.randint(1, max(1, total_w))
+        outcome_type = "resource"
+        for ot, w in pool_outcomes:
+            r -= w
+            if r <= 0:
+                outcome_type = ot
+                break
+        await conn.execute("DELETE FROM user_items WHERE id = $1 AND user_id = $2", furnace_user_item_id, user_id)
+        for eid in egg_ids:
+            await conn.execute("DELETE FROM player_eggs WHERE id = $1 AND user_id = $2", eid, user_id)
+    coins_granted = 0
+    item_def_id = None
+    familiar_def_id = None
+    if outcome_type == "resource":
+        coins_granted = random.randint(50, 200)
+        await add_coins_ledger(user_id, coins_granted, "furnace_hatch", ref_id="")
+    elif outcome_type == "relic":
+        ids = await get_item_def_ids_by_rarity("FIRE")
+        if ids:
+            item_def_id = random.choice(ids)
+            await add_user_item(user_id, item_def_id, item_level=1)
+            await record_item_event(item_def_id, "drop", user_id, 1, ref_type="furnace_hatch", ref_id=None)
+    elif outcome_type == "familiar":
+        fid = await get_familiar_defs_random_one()
+        if fid:
+            await add_user_familiar(user_id, fid)
+            familiar_def_id = fid
+    return {"ok": True, "outcome_type": outcome_type, "coins_granted": coins_granted, "item_def_id": item_def_id, "familiar_def_id": familiar_def_id, "message": "ok"}
 
 
 async def get_user_balances(user_id: int) -> Dict[str, int]:
@@ -1197,6 +1967,56 @@ async def get_user_buildings(user_id: int) -> Dict[str, Dict[str, Any]]:
     }
 
 
+async def _sync_coins_from_state(conn, user_id: int) -> int:
+    """Если user_balances не содержит COINS, инициализирует из game_players.state.coins. Возвращает баланс."""
+    balance_row = await conn.fetchrow(
+        "SELECT balance FROM user_balances WHERE user_id = $1 AND currency = 'COINS'",
+        user_id,
+    )
+    if balance_row is not None:
+        return int(balance_row["balance"])
+    # Берём coins из game_players.state
+    tg_row = await conn.fetchrow("SELECT telegram_id FROM users WHERE id = $1", user_id)
+    coins = 0
+    if tg_row:
+        state_row = await conn.fetchrow(
+            "SELECT state FROM game_players WHERE telegram_id = $1",
+            tg_row["telegram_id"],
+        )
+        if state_row and state_row["state"]:
+            raw = state_row["state"]
+            st = json.loads(raw) if isinstance(raw, str) else (raw if isinstance(raw, dict) else {})
+            coins = int(st.get("coins", 0))
+    await conn.execute(
+        """INSERT INTO user_balances (user_id, currency, balance)
+           VALUES ($1, 'COINS', $2)
+           ON CONFLICT (user_id, currency) DO NOTHING""",
+        user_id, coins,
+    )
+    logger.info("_sync_coins_from_state: user_id=%s, synced coins=%s", user_id, coins)
+    return coins
+
+
+async def _update_state_coins(conn, user_id: int, new_coins: int) -> None:
+    """Обновляет coins внутри game_players.state JSON."""
+    tg_row = await conn.fetchrow("SELECT telegram_id FROM users WHERE id = $1", user_id)
+    if not tg_row:
+        return
+    state_row = await conn.fetchrow(
+        "SELECT state FROM game_players WHERE telegram_id = $1",
+        tg_row["telegram_id"],
+    )
+    if not state_row or not state_row["state"]:
+        return
+    raw = state_row["state"]
+    st = json.loads(raw) if isinstance(raw, str) else (dict(raw) if isinstance(raw, dict) else {})
+    st["coins"] = new_coins
+    await conn.execute(
+        "UPDATE game_players SET state = $2::jsonb, updated_at = NOW() WHERE telegram_id = $1",
+        tg_row["telegram_id"], json.dumps(st),
+    )
+
+
 async def place_building(
     user_id: int, slot_index: int, building_key: str, cost: int = 100
 ) -> Optional[str]:
@@ -1221,16 +2041,16 @@ async def place_building(
         )
         if occupied:
             return "slot_occupied"
-        balance_row = await conn.fetchrow(
-            "SELECT balance FROM user_balances WHERE user_id = $1 AND currency = 'COINS'",
-            user_id,
-        )
-        balance = int(balance_row["balance"]) if balance_row else 0
+        # Синхронизируем баланс из game_players.state если user_balances пуст
+        balance = await _sync_coins_from_state(conn, user_id)
         if balance < cost:
             return "insufficient_coins"
+        new_balance = balance - cost
         await conn.execute(
-            "UPDATE user_balances SET balance = balance - $2, updated_at = NOW() WHERE user_id = $1 AND currency = 'COINS'",
-            user_id, cost,
+            """INSERT INTO user_balances (user_id, currency, balance, updated_at)
+               VALUES ($1, 'COINS', $2, NOW())
+               ON CONFLICT (user_id, currency) DO UPDATE SET balance = $2, updated_at = NOW()""",
+            user_id, new_balance,
         )
         await conn.execute(
             """INSERT INTO economy_ledger (user_id, kind, currency, amount, ref_type, ref_id)
@@ -1246,6 +2066,8 @@ async def place_building(
                VALUES ($1, $2, 1, $3) ON CONFLICT (user_id, building_key) DO UPDATE SET invested_cost = user_buildings.invested_cost + $3""",
             user_id, building_key, cost,
         )
+        # Обновляем coins в game_players.state
+        await _update_state_coins(conn, user_id, new_balance)
     return None
 
 
@@ -1270,15 +2092,21 @@ async def demolish_building(user_id: int, slot_index: int) -> Optional[str]:
         await conn.execute("DELETE FROM player_field WHERE user_id = $1 AND slot_index = $2", user_id, slot_index)
         await conn.execute("DELETE FROM user_buildings WHERE user_id = $1 AND building_key = $2", user_id, building_key)
         if refund > 0:
+            # Синхронизируем баланс перед начислением
+            cur_balance = await _sync_coins_from_state(conn, user_id)
+            new_balance = cur_balance + refund
             await conn.execute(
-                "UPDATE user_balances SET balance = balance + $2, updated_at = NOW() WHERE user_id = $1 AND currency = 'COINS'",
-                user_id, refund,
+                """INSERT INTO user_balances (user_id, currency, balance, updated_at)
+                   VALUES ($1, 'COINS', $2, NOW())
+                   ON CONFLICT (user_id, currency) DO UPDATE SET balance = $2, updated_at = NOW()""",
+                user_id, new_balance,
             )
             await conn.execute(
                 """INSERT INTO economy_ledger (user_id, kind, currency, amount, ref_type, ref_id)
                    VALUES ($1, 'credit', 'COINS', $2, 'field_demolish', $3)""",
                 user_id, refund, building_key,
             )
+            await _update_state_coins(conn, user_id, new_balance)
         await conn.execute(
             """INSERT INTO demolish_log (user_id, building_key, refunded_amount, refund_rate)
                VALUES ($1, $2, $3, 0.25)""",
@@ -1300,16 +2128,16 @@ async def upgrade_building(user_id: int, building_key: str, cost: int) -> Option
         level = int(row["level"])
         if level >= 10:
             return "max_level"
-        balance_row = await conn.fetchrow(
-            "SELECT balance FROM user_balances WHERE user_id = $1 AND currency = 'COINS'",
-            user_id,
-        )
-        balance = int(balance_row["balance"]) if balance_row else 0
+        # Синхронизируем баланс из game_players.state если user_balances пуст
+        balance = await _sync_coins_from_state(conn, user_id)
         if balance < cost:
             return "insufficient_coins"
+        new_balance = balance - cost
         await conn.execute(
-            "UPDATE user_balances SET balance = balance - $2, updated_at = NOW() WHERE user_id = $1 AND currency = 'COINS'",
-            user_id, cost,
+            """INSERT INTO user_balances (user_id, currency, balance, updated_at)
+               VALUES ($1, 'COINS', $2, NOW())
+               ON CONFLICT (user_id, currency) DO UPDATE SET balance = $2, updated_at = NOW()""",
+            user_id, new_balance,
         )
         await conn.execute(
             """INSERT INTO economy_ledger (user_id, kind, currency, amount, ref_type, ref_id)
@@ -1321,6 +2149,8 @@ async def upgrade_building(user_id: int, building_key: str, cost: int) -> Option
                WHERE user_id = $1 AND building_key = $2""",
             user_id, building_key, cost,
         )
+        # Обновляем coins в game_players.state
+        await _update_state_coins(conn, user_id, new_balance)
     return None
 
 
@@ -1483,12 +2313,18 @@ async def fill_market_order_coins(
         )
         await conn.execute("UPDATE market_orders SET status = 'filled' WHERE id = $1", order_id)
         item_rows = await conn.fetch(
-            "SELECT user_item_id FROM market_order_items WHERE order_id = $1",
+            """SELECT moi.user_item_id, ui.item_def_id
+               FROM market_order_items moi
+               JOIN user_items ui ON ui.id = moi.user_item_id
+               WHERE moi.order_id = $1""",
             order_id,
         )
         for r in item_rows:
             await conn.execute("UPDATE user_items SET user_id = $2, state = 'inventory' WHERE id = $1", r["user_item_id"], buyer_id)
             await conn.execute("DELETE FROM escrow_items WHERE user_item_id = $1", r["user_item_id"])
+        for r in item_rows:
+            await record_item_event(r["item_def_id"], "sold", seller_id, 1, ref_type="market_order", ref_id=order_id)
+            await record_item_event(r["item_def_id"], "bought", buyer_id, 1, ref_type="market_order", ref_id=order_id)
     return None
 
 
@@ -1644,30 +2480,190 @@ async def get_leaderboards(period: str, period_key: Optional[str] = None) -> Lis
     async with pool.acquire() as conn:
         if period_key:
             rows = await conn.fetch(
-                "SELECT user_id, points, updated_at FROM leaderboards WHERE period = $1 AND period_key = $2 ORDER BY points DESC LIMIT 100",
+                """SELECT lb.user_id, lb.points, lb.updated_at, u.telegram_id,
+                          COALESCE(gp.first_name, gp.username, '') AS display_name
+                   FROM leaderboards lb
+                   JOIN users u ON u.id = lb.user_id
+                   LEFT JOIN game_players gp ON gp.telegram_id = u.telegram_id
+                   WHERE lb.period = $1 AND lb.period_key = $2 ORDER BY lb.points DESC LIMIT 100""",
                 period, period_key,
             )
         else:
             rows = await conn.fetch(
-                "SELECT period_key, user_id, points, updated_at FROM leaderboards WHERE period = $1 ORDER BY period_key DESC, points DESC LIMIT 500",
+                """SELECT lb.period_key, lb.user_id, lb.points, lb.updated_at, u.telegram_id,
+                          COALESCE(gp.first_name, gp.username, '') AS display_name
+                   FROM leaderboards lb
+                   JOIN users u ON u.id = lb.user_id
+                   LEFT JOIN game_players gp ON gp.telegram_id = u.telegram_id
+                   WHERE lb.period = $1 ORDER BY lb.period_key DESC, lb.points DESC LIMIT 500""",
                 period,
             )
+    if rows:
+        return [
+            {
+                "period_key": r.get("period_key"),
+                "user_id": r["user_id"],
+                "id": int(r["telegram_id"]) if r.get("telegram_id") is not None else r["user_id"],
+                "telegram_id": int(r["telegram_id"]) if r.get("telegram_id") is not None else None,
+                "points": int(r["points"]),
+                "name": (r.get("display_name") or "").strip() or f"Игрок {r.get('telegram_id') or r['user_id']}",
+                "updated_at": r["updated_at"].isoformat() if r.get("updated_at") else None,
+            }
+            for r in rows
+        ]
+    # Fallback: таблица leaderboards пуста — рейтинг по очкам из game_players (текущая эра/глобально)
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT gp.telegram_id, gp.points_balance AS points,
+                      COALESCE(gp.first_name, gp.username, '') AS display_name
+               FROM game_players gp
+               WHERE gp.points_balance > 0
+               ORDER BY gp.points_balance DESC LIMIT 200"""
+        )
     return [
         {
-            "period_key": r.get("period_key"),
-            "user_id": r["user_id"],
+            "period_key": period_key,
+            "user_id": 0,
+            "id": int(r["telegram_id"]) if r.get("telegram_id") is not None else 0,
+            "telegram_id": int(r["telegram_id"]) if r.get("telegram_id") is not None else None,
             "points": int(r["points"]),
-            "updated_at": r["updated_at"].isoformat() if r.get("updated_at") else None,
+            "name": (r.get("display_name") or "").strip() or f"Игрок {r.get('telegram_id') or ''}",
+            "updated_at": None,
         }
         for r in rows
     ]
+
+
+MAX_WALLETS_PER_USER = 10
+
+
+async def _cleanup_duplicate_pending_bindings(conn, user_id: int) -> None:
+    """Оставить по одной непроверенной привязке на каждый verify_code, остальные удалить."""
+    await conn.execute(
+        """DELETE FROM user_wallet_bindings a
+           WHERE a.user_id = $1 AND a.verified_at IS NULL
+           AND EXISTS (
+             SELECT 1 FROM user_wallet_bindings b
+             WHERE b.user_id = a.user_id AND b.verify_code = a.verify_code
+               AND b.verified_at IS NULL AND b.id < a.id
+           )""",
+        user_id,
+    )
+
+
+async def list_user_wallet_bindings(
+    user_id: int,
+    telegram_id: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Список привязанных кошельков пользователя (до 10). Удаляются дубликаты и лишняя «ожидает верификации», если уже есть верифицированный кошелёк."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await _cleanup_duplicate_pending_bindings(conn, user_id)
+        if telegram_id is not None:
+            has_verified = await conn.fetchval(
+                "SELECT 1 FROM user_wallet_bindings WHERE user_id = $1 AND verified_at IS NOT NULL LIMIT 1",
+                user_id,
+            )
+            if has_verified:
+                await conn.execute(
+                    "DELETE FROM user_wallet_bindings WHERE user_id = $1 AND verify_code = $2 AND verified_at IS NULL",
+                    user_id,
+                    f"verify:{telegram_id}",
+                )
+        rows = await conn.fetch(
+            "SELECT id, wallet_address, verified_at, created_at FROM user_wallet_bindings WHERE user_id = $1 ORDER BY verified_at NULLS LAST, created_at",
+            user_id,
+        )
+    return [
+        {
+            "id": r["id"],
+            "wallet_address": r["wallet_address"],
+            "verified_at": r["verified_at"].isoformat() if r["verified_at"] else None,
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        }
+        for r in rows
+    ]
+
+
+async def add_user_wallet_binding(user_id: int, verify_code: str, wallet_address: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Создать привязку или вернуть существующую непроверенную с тем же verify_code (чтобы не плодить дубли «ожидает верификации»). Не более MAX_WALLETS_PER_USER. Возвращает { id, verify_code } или None."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            """SELECT id, verify_code FROM user_wallet_bindings
+               WHERE user_id = $1 AND verify_code = $2 AND verified_at IS NULL LIMIT 1""",
+            user_id, verify_code,
+        )
+        if existing:
+            return {"id": existing["id"], "verify_code": existing["verify_code"]}
+        n = await conn.fetchval("SELECT COUNT(*) FROM user_wallet_bindings WHERE user_id = $1", user_id)
+        if n >= MAX_WALLETS_PER_USER:
+            return None
+        addr = wallet_address.strip() if wallet_address else None
+        try:
+            row = await conn.fetchrow(
+                """INSERT INTO user_wallet_bindings (user_id, wallet_address, verify_code, created_at)
+                   VALUES ($1, $2, $3, NOW()) RETURNING id, verify_code""",
+                user_id, addr, verify_code,
+            )
+            return {"id": row["id"], "verify_code": row["verify_code"]} if row else None
+        except Exception:
+            return None
+
+
+async def delete_user_wallet_binding(user_id: int, binding_id: int) -> bool:
+    """Отвязать кошелёк (только свой)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        r = await conn.execute(
+            "DELETE FROM user_wallet_bindings WHERE id = $1 AND user_id = $2", binding_id, user_id
+        )
+    return r == "DELETE 1"
+
+
+async def get_user_wallet_binding_by_code(verify_code: str):
+    """Найти привязку по коду верификации (для обработки входящего tx)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchrow(
+            "SELECT id, user_id, wallet_address FROM user_wallet_bindings WHERE verify_code = $1", verify_code
+        )
+
+
+async def set_wallet_binding_verified(binding_id: int) -> None:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE user_wallet_bindings SET verified_at = NOW(), verify_code = NULL WHERE id = $1", binding_id
+        )
+
+
+async def delete_pending_wallet_bindings_by_code(user_id: int, verify_code: str) -> None:
+    """Удалить все непроверенные привязки с данным verify_code (дубликаты после повторных «Добавить кошелёк»)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM user_wallet_bindings WHERE user_id = $1 AND verify_code = $2 AND verified_at IS NULL",
+            user_id, verify_code,
+        )
+
+
+async def update_wallet_binding_address(binding_id: int, wallet_address: str) -> None:
+    """Установить адрес кошелька по привязке (перед верификацией по tx)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE user_wallet_bindings SET wallet_address = $1 WHERE id = $2",
+            wallet_address.strip(),
+            binding_id,
+        )
 
 
 async def get_withdraw_eligibility(user_id: int) -> Dict[str, Any]:
     """Проверка возможности вывода: уровень, кошелёк, gating, compliance."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        wallet = await conn.fetchrow("SELECT wallet_address FROM user_wallets WHERE user_id = $1", user_id)
+        wallet = await conn.fetchrow("SELECT 1 FROM user_wallet_bindings WHERE user_id = $1 AND verified_at IS NOT NULL LIMIT 1", user_id)
         gating = await conn.fetchrow(
             "SELECT required_action_value_ton, completed_action_value_ton, status FROM withdraw_gating WHERE user_id = $1",
             user_id,
@@ -1723,7 +2719,228 @@ async def donate_to_profile(
                  completed_action_value_ton = withdraw_gating.completed_action_value_ton + $2""",
             user_id, credit,
         )
+        await conn.execute(
+            """UPDATE user_profile SET furnace_bonus_until = NOW() + INTERVAL '24 hours', updated_at = NOW() WHERE user_id = $1""",
+            user_id,
+        )
     return True
+
+
+async def get_and_consume_furnace_bonus(user_id: int) -> bool:
+    """Если у пользователя активен бонус доната (furnace_bonus_until > now), сбрасывает его и возвращает True. Иначе False."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT furnace_bonus_until FROM user_profile WHERE user_id = $1", user_id,
+        )
+        if not row or not row["furnace_bonus_until"]:
+            return False
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        if now < row["furnace_bonus_until"]:
+            await conn.execute(
+                "UPDATE user_profile SET furnace_bonus_until = NULL, updated_at = NOW() WHERE user_id = $1",
+                user_id,
+            )
+            return True
+    return False
+
+
+async def get_items_catalog() -> List[Dict[str, Any]]:
+    """Возвращает каталог предметов из item_defs для «О проекте» и маркета. slot_type и effect для фронта."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT id, key, item_type, subtype, name, rarity, effects_json
+               FROM item_defs ORDER BY item_type, subtype, key"""
+        )
+    out = []
+    for r in rows:
+        raw = r["effects_json"]
+        if isinstance(raw, dict):
+            effects = raw
+        elif isinstance(raw, str) and raw:
+            try:
+                effects = json.loads(raw)
+            except (TypeError, ValueError):
+                effects = {}
+        else:
+            effects = {}
+        effect_str = effects.get("effect", "") if isinstance(effects, dict) else ""
+        out.append({
+            "id": r["id"],
+            "key": r["key"],
+            "item_type": r["item_type"],
+            "slot_type": r["item_type"],
+            "subtype": r["subtype"],
+            "name": r["name"],
+            "rarity": r["rarity"],
+            "effect": effect_str,
+            "effects": effects,
+        })
+    return out
+
+
+async def get_shop_offers() -> List[Dict[str, Any]]:
+    """Список предложений магазина из казны (покупка за COINS/STARS)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT so.id, so.item_def_id, so.pay_currency, so.pay_amount, so.stock_type,
+                      so.max_per_user_per_era, so.sort_order,
+                      id.key AS item_key, id.name AS item_name, id.rarity, id.effects_json
+               FROM shop_offers so
+               JOIN item_defs id ON id.id = so.item_def_id
+               ORDER BY so.sort_order, so.id"""
+        )
+    return [
+        {
+            "id": r["id"],
+            "item_def_id": r["item_def_id"],
+            "item_key": r["item_key"],
+            "item_name": r["item_name"],
+            "rarity": r["rarity"],
+            "pay_currency": r["pay_currency"],
+            "pay_amount": int(r["pay_amount"]),
+            "stock_type": r["stock_type"],
+            "max_per_user_per_era": r["max_per_user_per_era"],
+            "effects": (r["effects_json"] if isinstance(r["effects_json"], dict) else json.loads(r["effects_json"])) if r["effects_json"] else {},
+        }
+        for r in rows
+    ]
+
+
+async def purchase_shop_offer(user_id: int, offer_id: int, quantity: int = 1) -> Optional[str]:
+    """
+    Покупка в магазине за казну. Списывает COINS/STARS, выдаёт предмет в user_items.
+    Возвращает None при успехе, иначе строку ошибки.
+    """
+    if quantity < 1 or quantity > 99:
+        return "invalid_quantity"
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        offer = await conn.fetchrow(
+            """SELECT so.id, so.item_def_id, so.pay_currency, so.pay_amount, so.stock_type, so.max_per_user_per_era
+               FROM shop_offers so WHERE so.id = $1""",
+            offer_id,
+        )
+        if not offer:
+            return "offer_not_found"
+        currency = offer["pay_currency"]
+        amount = offer["pay_amount"] * quantity
+        balance_row = await conn.fetchrow(
+            "SELECT balance FROM user_balances WHERE user_id = $1 AND currency = $2",
+            user_id, currency,
+        )
+        balance = int(balance_row["balance"]) if balance_row else 0
+        if balance < amount:
+            return "insufficient_balance"
+        await conn.execute(
+            """UPDATE user_balances SET balance = balance - $2, updated_at = NOW()
+               WHERE user_id = $1 AND currency = $3""",
+            user_id, amount, currency,
+        )
+        await conn.execute(
+            """INSERT INTO economy_ledger (user_id, kind, currency, amount, ref_type, ref_id)
+               VALUES ($1, 'debit', $2, $3, 'shop_purchase', $4)""",
+            user_id, -amount, currency, offer_id,
+        )
+        item_def_id = offer["item_def_id"]
+        for _ in range(quantity):
+            await conn.execute(
+                """INSERT INTO user_items (user_id, item_def_id, state, item_level)
+                   VALUES ($1, $2, 'inventory', 1)""",
+                user_id, item_def_id,
+            )
+    await record_item_event(item_def_id, "bought", user_id, quantity, ref_type="shop_offer", ref_id=offer_id)
+    return None
+
+
+async def record_item_event(
+    item_def_id: Optional[int],
+    event_type: str,
+    user_id: int,
+    quantity: int = 1,
+    ref_type: Optional[str] = None,
+    ref_id: Optional[int] = None,
+    meta: Optional[Dict[str, Any]] = None,
+) -> None:
+    """
+    Пишет событие по предмету для статистики.
+    event_type: drop, burn, merge_input, merge_break, merge_output,
+                upgrade_input, upgrade_break, upgrade_ok, reroll_input, reroll_break, reroll_ok, sold, bought.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO item_events (item_def_id, event_type, user_id, quantity, ref_type, ref_id, meta)
+               VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)""",
+            item_def_id, event_type, user_id, quantity, ref_type, ref_id, json.dumps(meta or {}),
+        )
+
+
+async def get_item_stats() -> List[Dict[str, Any]]:
+    """
+    Сводная статистика по каждому предмету (item_def_id):
+    сколько у игроков (inventory, equipped, listed), сколько выпало, сожгли, ушло в слияние/слом и т.д.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        defs = await conn.fetch("SELECT id, key, name, item_type, subtype, rarity FROM item_defs ORDER BY id")
+        result = []
+        for d in defs:
+            item_def_id = d["id"]
+            inv = await conn.fetchrow(
+                """SELECT
+                    COUNT(*) FILTER (WHERE state = 'inventory') AS total_inventory,
+                    COUNT(*) FILTER (WHERE state = 'equipped') AS total_equipped,
+                    COUNT(*) FILTER (WHERE state = 'listed') AS total_listed
+                   FROM user_items WHERE item_def_id = $1""",
+                item_def_id,
+            )
+            events = await conn.fetchrow(
+                """SELECT
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'drop'), 0) AS total_dropped,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'burn'), 0) AS total_burned,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'merge_input'), 0) AS total_merge_input,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'merge_break'), 0) AS total_merge_break,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'merge_output'), 0) AS total_merge_output,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'upgrade_input'), 0) AS total_upgrade_input,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'upgrade_break'), 0) AS total_upgrade_break,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'upgrade_ok'), 0) AS total_upgrade_ok,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'reroll_input'), 0) AS total_reroll_input,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'reroll_break'), 0) AS total_reroll_break,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'reroll_ok'), 0) AS total_reroll_ok,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'sold'), 0) AS total_sold,
+                    COALESCE(SUM(quantity) FILTER (WHERE event_type = 'bought'), 0) AS total_bought
+                   FROM item_events WHERE item_def_id = $1""",
+                item_def_id,
+            )
+            result.append({
+                "item_def_id": item_def_id,
+                "key": d["key"],
+                "name": d["name"],
+                "item_type": d["item_type"],
+                "subtype": d["subtype"],
+                "rarity": d["rarity"],
+                "total_inventory": int(inv["total_inventory"] or 0),
+                "total_equipped": int(inv["total_equipped"] or 0),
+                "total_listed": int(inv["total_listed"] or 0),
+                "total_dropped": int(events["total_dropped"] or 0),
+                "total_burned": int(events["total_burned"] or 0),
+                "total_merge_input": int(events["total_merge_input"] or 0),
+                "total_merge_break": int(events["total_merge_break"] or 0),
+                "total_merge_output": int(events["total_merge_output"] or 0),
+                "total_upgrade_input": int(events["total_upgrade_input"] or 0),
+                "total_upgrade_break": int(events["total_upgrade_break"] or 0),
+                "total_upgrade_ok": int(events["total_upgrade_ok"] or 0),
+                "total_reroll_input": int(events["total_reroll_input"] or 0),
+                "total_reroll_break": int(events["total_reroll_break"] or 0),
+                "total_reroll_ok": int(events["total_reroll_ok"] or 0),
+                "total_sold": int(events["total_sold"] or 0),
+                "total_bought": int(events["total_bought"] or 0),
+            })
+    return result
 
 
 async def get_market_orders_open(pay_currency: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -1740,6 +2957,23 @@ async def get_market_orders_open(pay_currency: Optional[str] = None) -> List[Dic
                 """SELECT id, seller_id, pay_currency, pay_amount, expires_at, created_at
                    FROM market_orders WHERE status = 'open' ORDER BY created_at DESC"""
             )
+        order_ids = [r["id"] for r in rows]
+        items_by_order: Dict[int, List[Dict[str, Any]]] = {oid: [] for oid in order_ids}
+        if order_ids:
+            item_rows = await conn.fetch(
+                """SELECT moi.order_id, id.key AS item_key, id.name AS item_name, id.rarity
+                   FROM market_order_items moi
+                   JOIN user_items ui ON ui.id = moi.user_item_id
+                   JOIN item_defs id ON id.id = ui.item_def_id
+                   WHERE moi.order_id = ANY($1::int[])""",
+                order_ids,
+            )
+            for ir in item_rows:
+                items_by_order[ir["order_id"]].append({
+                    "key": ir["item_key"],
+                    "name": ir["item_name"],
+                    "rarity": ir["rarity"] or "fire",
+                })
     return [
         {
             "id": r["id"],
@@ -1748,13 +2982,14 @@ async def get_market_orders_open(pay_currency: Optional[str] = None) -> List[Dic
             "pay_amount": int(r["pay_amount"]),
             "expires_at": r["expires_at"].isoformat() if r["expires_at"] else None,
             "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "items": items_by_order.get(r["id"], []),
         }
         for r in rows
     ]
 
 
-async def collect_income(user_id: int) -> Dict[str, Any]:
-    """Начисляет доход с поля за оффлайн (кап 12 ч). Возвращает { earned, hours_used }."""
+async def get_building_pending_income(user_id: int) -> Dict[int, int]:
+    """Возвращает накопленные монеты по слотам (slot_index -> pending_coins). Обновляет building_pending_income из last_collected_at."""
     from datetime import datetime, timezone
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -1767,24 +3002,165 @@ async def collect_income(user_id: int) -> Dict[str, Any]:
             user_id,
         )
         profile = await conn.fetchrow(
-            "SELECT ads_enabled FROM user_profile WHERE user_id = $1",
+            "SELECT ads_enabled, last_collected_at FROM user_profile WHERE user_id = $1",
             user_id,
         )
-    ads_mult = 1.0 if (profile and profile["ads_enabled"]) else 0.5
-    total_per_hour = 0
-    for r in rows:
-        config = dict(r["config"]) if r["config"] else {}
-        income_arr = config.get("incomePerHour") or [0] * 10
-        level = min(int(r["level"]), 10)
-        base = income_arr[level - 1] if level <= len(income_arr) else 0
-        total_per_hour += base * ads_mult
-    cap_hours = 12
-    # Упрощение: считаем что последний сбор был при placed_at или сейчас - 12ч
-    hours_used = min(cap_hours, 12.0)
-    earned = int(total_per_hour * hours_used)
-    if earned > 0:
-        await add_coins_ledger(user_id, earned, "field_income", ref_id="collect")
-    return {"earned": earned, "hours_used": hours_used}
+        ads_mult = 1.0 if (profile and profile["ads_enabled"]) else 0.5
+        now = datetime.now(timezone.utc)
+        last_at = profile.get("last_collected_at") if profile else None
+        cap_hours = 12.0
+        if last_at:
+            hours_used = min(cap_hours, (now - last_at).total_seconds() / 3600.0)
+        else:
+            hours_used = cap_hours
+        pending_by_slot: Dict[int, int] = {}
+        for r in rows:
+            config = dict(r["config"]) if r["config"] else {}
+            income_arr = config.get("incomePerHour") or [0] * 10
+            level = min(int(r["level"]), 10)
+            base = income_arr[level - 1] if level <= len(income_arr) else 0
+            pending_by_slot[r["slot_index"]] = int(base * ads_mult * hours_used)
+        for slot_index, pending in pending_by_slot.items():
+            await conn.execute(
+                """INSERT INTO building_pending_income (user_id, slot_index, pending_coins, last_updated_at)
+                   VALUES ($1, $2, $3, NOW())
+                   ON CONFLICT (user_id, slot_index) DO UPDATE SET
+                     pending_coins = EXCLUDED.pending_coins, last_updated_at = NOW()""",
+                user_id, slot_index, pending,
+            )
+    return pending_by_slot
+
+
+async def get_user_id_by_telegram_id(telegram_id: int) -> Optional[int]:
+    """Возвращает user_id по telegram_id или None."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT id FROM users WHERE telegram_id = $1", telegram_id)
+    return int(row["id"]) if row else None
+
+
+async def perform_attack(
+    attacker_id: int,
+    target_id: int,
+    building_slot_indexes: List[int],
+) -> Dict[str, Any]:
+    """
+    Атака (ограбление до 2 зданий). Проверяет cooldown 30 мин и 1ч на постройку.
+    50% шанс на каждое здание; забирает 20% накопленных в слоте. Возвращает { ok, total_stolen, buildings_robbed, message }.
+    """
+    from datetime import datetime, timezone, timedelta
+    if len(building_slot_indexes) > 2:
+        return {"ok": False, "total_stolen": 0, "buildings_robbed": {}, "message": "invalid_slots"}
+    for s in building_slot_indexes:
+        if s < 1 or s > 9:
+            return {"ok": False, "total_stolen": 0, "buildings_robbed": {}, "message": "invalid_slot_index"}
+    pool = await get_pool()
+    now = datetime.now(timezone.utc)
+    pending_by_slot = await get_building_pending_income(target_id)
+    buildings_robbed: Dict[int, int] = {}
+    total_stolen = 0
+    rob_pct = 0.20
+    async with pool.acquire() as conn:
+        last_attack = await conn.fetchrow(
+            """SELECT visited_at FROM visit_log
+               WHERE visitor_id = $1 AND target_id = $2 AND attack_performed = TRUE
+               ORDER BY visited_at DESC LIMIT 1""",
+            attacker_id, target_id,
+        )
+        if last_attack:
+            next_at = last_attack["visited_at"] + timedelta(minutes=30)
+            if now < next_at:
+                return {"ok": False, "total_stolen": 0, "buildings_robbed": {}, "message": "attack_cooldown", "next_attack_at": next_at.isoformat()}
+        for slot_index in building_slot_indexes:
+            if slot_index not in pending_by_slot or pending_by_slot[slot_index] <= 0:
+                continue
+            cooldown_row = await conn.fetchrow(
+                """SELECT last_robbed_at FROM rob_cooldown
+                   WHERE attacker_id = $1 AND target_id = $2 AND slot_index = $3""",
+                attacker_id, target_id, slot_index,
+            )
+            if cooldown_row and (cooldown_row["last_robbed_at"] + timedelta(hours=1)) > now:
+                continue
+            if random.random() > 0.5:
+                continue
+            steal = max(1, int(pending_by_slot[slot_index] * rob_pct))
+            await conn.execute(
+                """INSERT INTO building_pending_income (user_id, slot_index, pending_coins, last_updated_at)
+                   VALUES ($1, $2, 0, NOW())
+                   ON CONFLICT (user_id, slot_index) DO UPDATE SET
+                     pending_coins = GREATEST(0, building_pending_income.pending_coins - $3), last_updated_at = NOW()""",
+                target_id, slot_index, steal,
+            )
+            buildings_robbed[slot_index] = steal
+            total_stolen += steal
+            await conn.execute(
+                """INSERT INTO rob_cooldown (attacker_id, target_id, slot_index, last_robbed_at)
+                   VALUES ($1, $2, $3, NOW())
+                   ON CONFLICT (attacker_id, target_id, slot_index) DO UPDATE SET last_robbed_at = NOW()""",
+                attacker_id, target_id, slot_index,
+            )
+        buildings_robbed_json = json.dumps({str(k): v for k, v in buildings_robbed.items()})
+        visit_id = await conn.fetchval(
+            """INSERT INTO visit_log (visitor_id, target_id, visited_at, attack_performed, buildings_robbed, total_stolen)
+               VALUES ($1, $2, NOW(), TRUE, $3::jsonb, $4) RETURNING id""",
+            attacker_id, target_id, buildings_robbed_json, total_stolen,
+        )
+    if total_stolen > 0:
+        await add_coins_ledger(attacker_id, total_stolen, "attack_rob", ref_id=visit_id)
+    return {"ok": True, "total_stolen": total_stolen, "buildings_robbed": buildings_robbed, "message": "ok", "visit_id": visit_id}
+
+
+async def get_visit_log(user_id: int, role: str = "any", limit: int = 50) -> List[Dict[str, Any]]:
+    """Лог визитов/атак: role=visitor (где я гость), target (где я цель), any (оба)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if role == "visitor":
+            rows = await conn.fetch(
+                """SELECT vl.id, vl.visitor_id, vl.target_id, vl.visited_at, vl.attack_performed, vl.buildings_robbed, vl.total_stolen
+                   FROM visit_log vl WHERE vl.visitor_id = $1 ORDER BY vl.visited_at DESC LIMIT $2""",
+                user_id, limit,
+            )
+        elif role == "target":
+            rows = await conn.fetch(
+                """SELECT vl.id, vl.visitor_id, vl.target_id, vl.visited_at, vl.attack_performed, vl.buildings_robbed, vl.total_stolen
+                   FROM visit_log vl WHERE vl.target_id = $1 ORDER BY vl.visited_at DESC LIMIT $2""",
+                user_id, limit,
+            )
+        else:
+            rows = await conn.fetch(
+                """SELECT vl.id, vl.visitor_id, vl.target_id, vl.visited_at, vl.attack_performed, vl.buildings_robbed, vl.total_stolen
+                   FROM visit_log vl WHERE vl.visitor_id = $1 OR vl.target_id = $1 ORDER BY vl.visited_at DESC LIMIT $2""",
+                user_id, limit,
+            )
+    return [
+        {
+            "id": r["id"],
+            "visitor_id": r["visitor_id"],
+            "target_id": r["target_id"],
+            "visited_at": r["visited_at"].isoformat() if r["visited_at"] else None,
+            "attack_performed": r["attack_performed"],
+            "buildings_robbed": dict(r["buildings_robbed"]) if r["buildings_robbed"] else {},
+            "total_stolen": int(r["total_stolen"]),
+        }
+        for r in rows
+    ]
+
+
+async def collect_income(user_id: int) -> Dict[str, Any]:
+    """Начисляет доход с поля: считает pending по слотам, зачисляет в казну, обнуляет pending и last_collected_at. Кап 12 ч."""
+    pool = await get_pool()
+    pending_by_slot = await get_building_pending_income(user_id)
+    total_earned = sum(pending_by_slot.values())
+    if total_earned > 0:
+        await add_coins_ledger(user_id, total_earned, "field_income", ref_id="collect")
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM building_pending_income WHERE user_id = $1", user_id)
+        await conn.execute(
+            "UPDATE user_profile SET last_collected_at = NOW(), updated_at = NOW() WHERE user_id = $1",
+            user_id,
+        )
+    cap_hours = 12.0
+    return {"earned": total_earned, "hours_used": cap_hours, "pending_by_slot": pending_by_slot}
 
 
 async def update_checkin_state(
@@ -1795,16 +3171,18 @@ async def update_checkin_state(
     bonus_minutes_used: int = 0,
     effective_cd_minutes: int = 600,
 ) -> None:
-    """Обновляет checkin_state и пишет checkin_log после успешного чекина."""
+    """Обновляет checkin_state и пишет checkin_log после успешного чекина. Upsert для надёжности — строки создаются если их нет."""
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Upsert checkin_state: создаёт строку если нет, обновляет если есть
         await conn.execute(
-            """UPDATE checkin_state SET
+            """INSERT INTO checkin_state (user_id, last_checkin_at, next_checkin_at, streak, updated_at)
+               VALUES ($1, NOW(), $2, 1, NOW())
+               ON CONFLICT (user_id) DO UPDATE SET
                  last_checkin_at = NOW(),
                  next_checkin_at = $2,
-                 streak = streak + 1,
-                 updated_at = NOW()
-               WHERE user_id = $1""",
+                 streak = checkin_state.streak + 1,
+                 updated_at = NOW()""",
             user_id, next_checkin_at,
         )
         await conn.execute(
@@ -1812,9 +3190,12 @@ async def update_checkin_state(
                VALUES ($1, $2, $3, $4, $5, $6)""",
             user_id, granted_attempts, base_cd_minutes, bonus_minutes_used, effective_cd_minutes, next_checkin_at,
         )
+        # Upsert attempts_balance: создаёт строку если нет, прибавляет если есть
         await conn.execute(
-            """UPDATE attempts_balance SET attempts = attempts + $2, updated_at = NOW()
-               WHERE user_id = $1""",
+            """INSERT INTO attempts_balance (user_id, attempts) VALUES ($1, $2)
+               ON CONFLICT (user_id) DO UPDATE SET
+                 attempts = attempts_balance.attempts + EXCLUDED.attempts,
+                 updated_at = NOW()""",
             user_id, granted_attempts,
         )
 
@@ -1962,6 +3343,30 @@ async def admin_delete_task(task_id: int) -> bool:
     async with pool.acquire() as conn:
         n = await conn.execute("DELETE FROM admin_tasks WHERE id = $1", task_id)
     return n == "DELETE 1"
+
+
+async def try_claim_task_reward(user_id: int, task_key: str) -> bool:
+    """Закрепить выдачу награды за задание (один раз на пользователя и task_key). Возвращает True если это первое получение, False если уже получал."""
+    pool = await get_pool()
+    key = task_key.strip()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO user_task_claims (user_id, task_key) VALUES ($1, $2)
+               ON CONFLICT (user_id, task_key) DO NOTHING RETURNING user_id""",
+            user_id, key,
+        )
+    return row is not None
+
+
+async def has_claimed_task(user_id: int, task_key: str) -> bool:
+    """Проверить, получал ли пользователь уже награду за задание."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT 1 FROM user_task_claims WHERE user_id = $1 AND task_key = $2",
+            user_id, task_key.strip(),
+        )
+    return row is not None
 
 
 async def admin_get_page_texts(page_id: Optional[str] = None, project_id: int = 1) -> Dict[str, Any]:
@@ -2141,3 +3546,323 @@ async def admin_get_activity_stats(project_id: int = 1, user_id: Optional[int] =
                 project_id,
             )
     return [dict(r) for r in rows]
+
+
+# ——— Админ-панель (логин/пароль, отдельно от приложения) ———
+
+async def admin_panel_has_any() -> bool:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        r = await conn.fetchval("SELECT 1 FROM admin_panel_credentials LIMIT 1")
+    return r is not None
+
+
+async def admin_panel_create(login: str, password_hash: str) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO admin_panel_credentials (login, password_hash, updated_at)
+               VALUES ($1, $2, NOW()) RETURNING id""",
+            login.strip(), password_hash,
+        )
+    return row["id"]
+
+
+async def admin_panel_get_by_login(login: str) -> Optional[Dict[str, Any]]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, login, password_hash FROM admin_panel_credentials WHERE login = $1",
+            login.strip(),
+        )
+    return dict(row) if row else None
+
+
+async def admin_panel_get_by_token(token: str) -> Optional[Dict[str, Any]]:
+    if not token:
+        return None
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """SELECT id, login FROM admin_panel_credentials
+               WHERE token = $1 AND token_expires_at > NOW()""",
+            token,
+        )
+    return dict(row) if row else None
+
+
+async def admin_panel_set_token(admin_id: int, token: str, expires_at) -> None:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE admin_panel_credentials SET token = $1, token_expires_at = $2, updated_at = NOW() WHERE id = $3""",
+            token, expires_at, admin_id,
+        )
+
+
+async def admin_panel_update_password(admin_id: int, password_hash: str) -> None:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE admin_panel_credentials SET password_hash = $1, token = NULL, token_expires_at = NULL, updated_at = NOW() WHERE id = $2",
+            password_hash, admin_id,
+        )
+
+
+async def admin_panel_update_login(admin_id: int, login: str) -> None:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE admin_panel_credentials SET login = $1, updated_at = NOW() WHERE id = $2",
+            login.strip(), admin_id,
+        )
+
+
+async def staking_contracts_list() -> List[Dict[str, Any]]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, contract_address, label, sort_order, created_at FROM staking_contract_addresses ORDER BY sort_order, id"
+        )
+    return [
+        {
+            "id": r["id"],
+            "contract_address": r["contract_address"],
+            "label": r["label"] or "",
+            "sort_order": r["sort_order"],
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        }
+        for r in rows
+    ]
+
+
+async def staking_contract_add(contract_address: str, label: Optional[str] = None, sort_order: int = 0) -> Optional[int]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        try:
+            row = await conn.fetchrow(
+                """INSERT INTO staking_contract_addresses (contract_address, label, sort_order) VALUES ($1, $2, $3) RETURNING id""",
+                contract_address.strip(), (label or "").strip() or None, sort_order,
+            )
+            return row["id"]
+        except Exception:
+            return None
+
+
+async def staking_contract_delete(contract_id: int) -> bool:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        r = await conn.execute("DELETE FROM staking_contract_addresses WHERE id = $1", contract_id)
+    return r == "DELETE 1"
+
+
+async def get_pnl_wallet_state(user_id: int) -> Dict[str, Any]:
+    """Состояние кошелька и стейкингов для экрана PnL: привязка, список кошельков (сокращённые), общая статистика, контракты стейкинга."""
+    from infrastructure.ton_address import raw_to_friendly
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        wallets = await conn.fetch(
+            "SELECT id, wallet_address FROM user_wallet_bindings WHERE user_id = $1 AND verified_at IS NOT NULL ORDER BY created_at",
+            user_id,
+        )
+        sessions = await conn.fetch(
+            "SELECT id, status FROM staking_sessions WHERE user_id = $1 AND status IN ('PENDING', 'ACCUMULATING', 'LOCKED')",
+            user_id,
+        )
+        contracts = await conn.fetch(
+            "SELECT id, contract_address, label FROM staking_contract_addresses ORDER BY sort_order, id"
+        )
+    # Конвертируем raw → friendly (UQ…) через Ton Center API
+    wallet_list = []
+    first_friendly = None
+    for r in wallets:
+        addr = r["wallet_address"] or ""
+        friendly = await raw_to_friendly(addr)
+        masked = friendly[:8] + "…" + friendly[-4:] if len(friendly) > 14 else friendly
+        wallet_list.append({"id": r["id"], "wallet_address_masked": masked, "wallet_address_friendly": friendly})
+        if first_friendly is None:
+            first_friendly = friendly
+    first_masked = first_friendly[:8] + "…" + first_friendly[-4:] if first_friendly and len(first_friendly) > 14 else (first_friendly or "")
+    return {
+        "wallet_bound": len(wallets) > 0,
+        "wallets_count": len(wallets),
+        "wallets": wallet_list,
+        "wallet_address_masked": first_masked,
+        "wallet_address_full": first_friendly or "",
+        "has_active_staking": len(sessions) > 0,
+        "active_staking_count": len(sessions),
+        "staking_contracts": [
+            {"id": r["id"], "contract_address": r["contract_address"], "label": r["label"] or ""}
+            for r in contracts
+        ],
+    }
+
+
+# ──────────────────────────────────────────────────────────────
+# Dev NFT collections & items (каталог NFT от разработчика)
+# ──────────────────────────────────────────────────────────────
+
+async def upsert_dev_collection(
+    collection_address: str,
+    name: str = "",
+    description: str = "",
+    image: str = "",
+    creator_address: str = "",
+    items_count: int = 0,
+) -> int:
+    """Upsert коллекции разработчика. Возвращает id."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO dev_collections (collection_address, name, description, image, creator_address, items_count, synced_at)
+               VALUES ($1, $2, $3, $4, $5, $6, NOW())
+               ON CONFLICT (collection_address) DO UPDATE SET
+                 name = EXCLUDED.name,
+                 description = EXCLUDED.description,
+                 image = EXCLUDED.image,
+                 creator_address = EXCLUDED.creator_address,
+                 items_count = EXCLUDED.items_count,
+                 synced_at = NOW()
+               RETURNING id""",
+            collection_address, name, description, image, creator_address, items_count,
+        )
+        return row["id"]
+
+
+async def upsert_dev_nft(
+    nft_address: str,
+    collection_id: int,
+    collection_address: str = "",
+    nft_index: int = 0,
+    owner_address: str = "",
+    name: str = "",
+    description: str = "",
+    image: str = "",
+    metadata_url: str = "",
+    attributes: Any = None,
+    mint_timestamp: Any = None,
+) -> int:
+    """Upsert NFT из коллекции разработчика. Возвращает id."""
+    pool = await get_pool()
+    attrs = json.dumps(attributes or [])
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO dev_nfts (nft_address, collection_id, collection_address, nft_index, owner_address, name, description, image, metadata_url, attributes, mint_timestamp, synced_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, NOW())
+               ON CONFLICT (nft_address) DO UPDATE SET
+                 collection_id = EXCLUDED.collection_id,
+                 collection_address = EXCLUDED.collection_address,
+                 owner_address = EXCLUDED.owner_address,
+                 name = EXCLUDED.name,
+                 description = EXCLUDED.description,
+                 image = EXCLUDED.image,
+                 metadata_url = EXCLUDED.metadata_url,
+                 attributes = EXCLUDED.attributes,
+                 mint_timestamp = EXCLUDED.mint_timestamp,
+                 synced_at = NOW()
+               RETURNING id""",
+            nft_address, collection_id, collection_address, nft_index,
+            owner_address, name, description, image, metadata_url,
+            attrs, mint_timestamp,
+        )
+        return row["id"]
+
+
+async def get_dev_collections() -> List[Dict[str, Any]]:
+    """Все коллекции разработчика (items_count = реальное кол-во NFT в dev_nfts)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT c.*,
+                   COALESCE(n.cnt, 0) AS real_items_count
+            FROM dev_collections c
+            LEFT JOIN (
+                SELECT collection_id, COUNT(*) AS cnt
+                FROM dev_nfts
+                GROUP BY collection_id
+            ) n ON n.collection_id = c.id
+            ORDER BY c.created_at
+        """)
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["items_count"] = d.pop("real_items_count")
+        result.append(d)
+    return result
+
+
+async def get_dev_nfts_for_user(user_wallet_addresses: List[str]) -> List[Dict[str, Any]]:
+    """NFT из коллекций разработчика, принадлежащие юзеру (по списку его кошельков)."""
+    if not user_wallet_addresses:
+        return []
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT n.*, c.name AS collection_name, c.image AS collection_image
+               FROM dev_nfts n
+               JOIN dev_collections c ON c.id = n.collection_id
+               WHERE n.owner_address = ANY($1::text[])
+               ORDER BY c.name, n.nft_index""",
+            user_wallet_addresses,
+        )
+    return [dict(r) for r in rows]
+
+
+async def get_dev_nfts_by_collection(collection_address: str) -> List[Dict[str, Any]]:
+    """Все NFT из конкретной коллекции."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM dev_nfts WHERE collection_address = $1 ORDER BY nft_index",
+            collection_address,
+        )
+    return [dict(r) for r in rows]
+
+
+async def get_all_dev_nfts() -> List[Dict[str, Any]]:
+    """Все NFT из всех коллекций разработчика."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT n.*, c.name AS collection_name
+               FROM dev_nfts n
+               JOIN dev_collections c ON c.id = n.collection_id
+               ORDER BY c.name, n.nft_index"""
+        )
+    return [dict(r) for r in rows]
+
+
+async def get_dev_profile_stats() -> Dict[str, Any]:
+    """Статистика профиля разработчика: количество коллекций и NFT."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        coll_count = await conn.fetchval("SELECT COUNT(*) FROM dev_collections")
+        nft_count = await conn.fetchval("SELECT COUNT(*) FROM dev_nfts")
+        last_sync = await conn.fetchval(
+            "SELECT finished_at FROM nft_sync_log WHERE finished_at IS NOT NULL ORDER BY finished_at DESC LIMIT 1"
+        )
+    return {
+        "collections_count": coll_count or 0,
+        "nfts_total": nft_count or 0,
+        "last_synced_at": last_sync.isoformat() if last_sync else None,
+    }
+
+
+async def log_nft_sync(sync_type: str, collections_synced: int, nfts_synced: int, errors: int) -> None:
+    """Записать результат синхронизации NFT."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO nft_sync_log (sync_type, collections_synced, nfts_synced, errors, finished_at)
+               VALUES ($1, $2, $3, $4, NOW())""",
+            sync_type, collections_synced, nfts_synced, errors,
+        )
+
+
+async def clear_dev_collections() -> None:
+    """Удалить все записи из dev_collections и dev_nfts (перед полным ресинком)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM dev_nfts")
+        await conn.execute("DELETE FROM dev_collections")
