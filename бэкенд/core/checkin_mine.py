@@ -24,6 +24,7 @@ from infrastructure.database import (
     get_item_def_id_by_key,
     get_item_def_ids_by_rarity,
     get_mine_session,
+    get_setting,
     mark_cell_opened,
     pick_egg_color_by_weight,
     record_dig_log,
@@ -32,20 +33,25 @@ from infrastructure.database import (
 )
 
 
-def _next_checkin_at(base_cd_minutes: int, bonus_minutes: int = 0) -> datetime:
-    effective = max(CHECKIN_RULES.get("minCdMinutes", 540), base_cd_minutes - bonus_minutes)
+def _next_checkin_at(base_cd_minutes: int, min_cd_minutes: int, bonus_minutes: int = 0) -> datetime:
+    effective = max(min_cd_minutes, base_cd_minutes - bonus_minutes)
     return datetime.now(timezone.utc) + timedelta(minutes=effective)
 
 
-async def do_checkin(telegram_id: int) -> Dict[str, Any]:
+async def do_checkin(telegram_id: int, source: str = "app") -> Dict[str, Any]:
     """
-    Выполняет чекин: если cooldown прошёл — начисляет попытки (3), обновляет next_checkin_at.
-    Возвращает { "ok": bool, "granted_attempts": int, "next_checkin_at": str, "attempts_balance": int, "message": str }.
+    Выполняет чекин: если cooldown прошёл — начисляет попытки, обновляет next_checkin_at.
+    source: "app" — чекин из приложения (с рекламой) → 3 попытки; "chat" — по команде модератора (Голос/ vote/ checkin) → 2 попытки.
     """
     user_id = await ensure_user(telegram_id)
     state = await get_checkin_state(user_id)
-    base_cd = CHECKIN_RULES.get("baseCdMinutes", 600)
-    granted = CHECKIN_RULES.get("grantedAttempts", 3)
+    cooldown_hours = await get_setting("checkin.cooldown_hours", CHECKIN_RULES.get("baseCdMinutes", 600) / 60)
+    base_cd = int(float(cooldown_hours) * 60)
+    min_cd = int(base_cd * 0.9)
+    if source == "chat":
+        granted = await get_setting("checkin.attempts_per_claim_chat", 2)
+    else:
+        granted = await get_setting("checkin.attempts_per_claim", CHECKIN_RULES.get("grantedAttempts", 3))
 
     now = datetime.now(timezone.utc)
     next_at = None
@@ -65,8 +71,8 @@ async def do_checkin(telegram_id: int) -> Dict[str, Any]:
         }
 
     bonus = 0  # TODO: из user_profile.checkin_cd_bonus_minutes и рекламы
-    effective_cd = max(CHECKIN_RULES.get("minCdMinutes", 540), base_cd - bonus)
-    next_checkin = _next_checkin_at(base_cd, bonus)
+    effective_cd = max(min_cd, base_cd - bonus)
+    next_checkin = _next_checkin_at(base_cd, min_cd, bonus)
 
     await update_checkin_state(
         user_id,
@@ -109,13 +115,12 @@ def _build_prize_cells(grid_size: int, count: int, seed: Optional[int] = None) -
 
 async def do_mine_create(telegram_id: int) -> Dict[str, Any]:
     """
-    Создаёт новую сессию шахты 6×6 с призовыми ячейками по конфигу.
-    Возвращает { "ok": True, "mine_id": int, "grid_size": 36, "prize_count": int }.
+    Создаёт новую сессию шахты с призовыми ячейками по конфигу.
+    Uses runtime settings from game_settings table, falls back to game_config.json.
     """
     user_id = await ensure_user(telegram_id)
-    mine_cfg = get_mine_config()
-    grid_size = mine_cfg.get("gridSize", 36)
-    dist = mine_cfg.get("prizeCellsDistribution", [])
+    grid_size = await get_setting("mine.grid_size", get_mine_config().get("gridSize", 36))
+    dist = await get_setting("mine.prize_cells_distribution", get_mine_config().get("prizeCellsDistribution", []))
     prize_count = _pick_prize_cells_count(dist)
     seed = int(time.time() * 1000) + telegram_id
     prize_cells = _build_prize_cells(grid_size, prize_count, seed)
@@ -206,17 +211,17 @@ async def do_mine_dig(
     user_id = await ensure_user(telegram_id)
     session = await get_mine_session(mine_id, user_id)
     if not session:
-        return {"ok": False, "prize_hit": False, "drop_type": "none", "coins_drop": 0, "message": "mine_not_found"}
+        return {"ok": False, "prize_hit": False, "drop_type": "none", "coins_drop": 0, "message": "mine_not_found", "opened_cells": []}
 
     if cell_index < 0 or cell_index >= session["grid_size"]:
-        return {"ok": False, "prize_hit": False, "drop_type": "none", "coins_drop": 0, "message": "invalid_cell"}
+        return {"ok": False, "prize_hit": False, "drop_type": "none", "coins_drop": 0, "message": "invalid_cell", "opened_cells": list(session["opened_cells"])}
 
     if cell_index in session["opened_cells"]:
-        return {"ok": False, "prize_hit": False, "drop_type": "none", "coins_drop": 0, "message": "already_opened"}
+        return {"ok": False, "prize_hit": False, "drop_type": "none", "coins_drop": 0, "message": "already_opened", "opened_cells": list(session["opened_cells"])}
 
     consumed = await consume_attempt(user_id)
     if not consumed:
-        return {"ok": False, "prize_hit": False, "drop_type": "none", "coins_drop": 0, "message": "no_attempts"}
+        return {"ok": False, "prize_hit": False, "drop_type": "none", "coins_drop": 0, "message": "no_attempts", "opened_cells": list(session["opened_cells"])}
 
     prize_cells = session["prize_cells"]
     prize_hit = cell_index in prize_cells
@@ -229,8 +234,7 @@ async def do_mine_dig(
     egg_hit = False
 
     if prize_hit:
-        mine_cfg = get_mine_config()
-        loot_cfg = mine_cfg.get("prizeCellLoot") or {"relicPct": 72, "amuletPct": 15, "coinsPct": 12.1, "eggPct": 0.9}
+        loot_cfg = await get_setting("mine.prize_loot") or get_mine_config().get("prizeCellLoot") or {"relicPct": 72, "amuletPct": 15, "coinsPct": 12.1, "eggPct": 0.9}
         drop_type = _roll_prize_loot(loot_cfg)
         if drop_type == "coins":
             coins_drop = _coins_by_rarity()
@@ -282,6 +286,7 @@ async def do_mine_dig(
     )
 
     balance = await get_attempts(user_id)
+    opened_cells = list(session["opened_cells"]) + [cell_index]
     return {
         "ok": True,
         "prize_hit": prize_hit,
@@ -294,4 +299,5 @@ async def do_mine_dig(
         "egg_hit": egg_hit,
         "attempts_balance": balance,
         "message": "ok",
+        "opened_cells": opened_cells,
     }

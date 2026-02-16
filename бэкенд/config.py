@@ -87,6 +87,10 @@ BURN_DIMINISHING_AFTER = int(_env("BURN_DIMINISHING_AFTER", "50"))
 # Telegram bot (для проверки пользователя в чате/канале getChatMember)
 BOT_TOKEN = _env("BOT_TOKEN", "")
 
+# iCryptoCheck (переводы/вывод)
+ICRYPTOCHECK_API_URL = _env("ICRYPTOCHECK_API_URL", "https://api.icryptocheck.com/api/v1").rstrip("/")
+ICRYPTOCHECK_API_KEY = _env("ICRYPTOCHECK_API_KEY", "")
+
 # Админ-панель (отдельный вход по логину/паролю; соль для хеша пароля)
 ADMIN_PANEL_PASSWORD_SALT = _env("ADMIN_PANEL_PASSWORD_SALT", "village_era_admin_salt_change_me")
 

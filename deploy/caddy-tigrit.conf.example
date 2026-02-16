@@ -1,0 +1,12 @@
+# Caddy на хосте 149: поддомен Тигрит с HTTPS (без этого — ERR_SSL_PROTOCOL_ERROR в браузере).
+# Добавьте этот блок в основной конфиг Caddy (рядом с stakingphxpw.com).
+# Caddy сам получит сертификат Let's Encrypt для tigrit.stakingphxpw.com.
+#
+# tigrit.stakingphxpw.com {
+#     reverse_proxy localhost:8081
+# }
+#
+# Если Caddy в Docker (n8n_default и т.п.), укажите host:  host.docker.internal:8081
+# или IP хоста (например 172.17.0.1:8081) вместо localhost:8081.
+#
+# После правки: caddy reload  или  docker restart <caddy_container>

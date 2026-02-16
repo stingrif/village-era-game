@@ -10,7 +10,9 @@ from fastapi.responses import JSONResponse
 
 from api.admin_routes import router as admin_router
 from api.admin_panel_routes import router as admin_panel_router
+from api.internal_routes import router as internal_router
 from api.routes import router
+from api.session_middleware import SessionResolveMiddleware
 from infrastructure.database import init_db, close_db
 
 logging.basicConfig(level=logging.INFO)
@@ -54,15 +56,18 @@ NFT_SYNC_INTERVAL = 30 * 60
 
 
 async def _nft_sync_loop():
-    """Фоновая задача: периодическая синхронизация NFT-каталога разработчика."""
-    from infrastructure.nft_sync import run_full_sync
+    """Фоновая задача: периодическая синхронизация NFT-каталога + холдеров."""
+    from infrastructure.nft_sync import run_full_sync, sync_nft_holders
     # Первый запуск через 10 сек после старта (дать БД проинициализироваться)
     await asyncio.sleep(10)
     while True:
         try:
             logger.info("nft_sync_loop: starting periodic sync")
             stats = await run_full_sync()
-            logger.info("nft_sync_loop: done — %s", stats)
+            logger.info("nft_sync_loop: nft done — %s", stats)
+            # Sync holder analytics after NFT sync
+            holder_stats = await sync_nft_holders()
+            logger.info("nft_sync_loop: holders done — %s", holder_stats)
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -117,7 +122,9 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
+app.add_middleware(SessionResolveMiddleware)
 app.include_router(router)
+app.include_router(internal_router)
 app.include_router(admin_router)
 app.include_router(admin_panel_router)
 

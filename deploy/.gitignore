@@ -1,0 +1,9 @@
+# Секреты: не коммитить
+.env
+.env.local
+.env.*.local
+
+# Python
+**/venv/
+**/__pycache__/
+*.pyc

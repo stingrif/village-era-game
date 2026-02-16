@@ -1,0 +1,12 @@
+aiogram==3.10.0
+python-dotenv==1.0.1
+requests==2.32.3
+asyncpg>=0.28.0
+httpx>=0.24.0
+pytest==7.4.3
+gspread==6.1.2
+google-auth==2.34.0
+jsonschema==4.23.0
+PyYAML==6.0.2
+fastapi==0.112.0
+uvicorn==0.30.0

@@ -1,6 +1,7 @@
 import json
 import logging
 import random
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 import asyncpg
@@ -510,6 +511,19 @@ async def init_db() -> None:
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS withdraw_penalties (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                amount NUMERIC NOT NULL DEFAULT 0,
+                currency TEXT NOT NULL DEFAULT 'PHXPW',
+                reason TEXT,
+                notify_user BOOLEAN NOT NULL DEFAULT FALSE,
+                notified_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                created_by_telegram_id BIGINT
+            )
+        """)
 
         # Фазы 6–7: стейкинг и блокчейн
         await conn.execute("""
@@ -788,6 +802,150 @@ async def init_db() -> None:
             )
         """)
 
+        # ——— nft_holder_snapshots: cached NFT holder analytics ———
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS nft_holder_snapshots (
+                id SERIAL PRIMARY KEY,
+                owner_address TEXT NOT NULL,
+                nft_count INTEGER NOT NULL DEFAULT 0,
+                collections JSONB NOT NULL DEFAULT '[]',
+                phxpw_balance NUMERIC NOT NULL DEFAULT 0,
+                total_received NUMERIC NOT NULL DEFAULT 0,
+                total_sent NUMERIC NOT NULL DEFAULT 0,
+                staking_rewards NUMERIC NOT NULL DEFAULT 0,
+                linked_telegram_id BIGINT,
+                linked_username TEXT,
+                synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(owner_address)
+            )
+        """)
+
+        # ——— game_settings: runtime-editable config (key-value) ———
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS game_settings (
+                key TEXT PRIMARY KEY,
+                value JSONB NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        # ——— referrals: общая реферальная система для экосистемы ———
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS referrals (
+                referrer_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                referred_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(referred_user_id)
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_user_id)")
+
+        # ——— tigrit_*: микросервис Деревня Тигрит (общий users.id) ———
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tigrit_user_profile (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                username TEXT,
+                race TEXT,
+                clazz TEXT,
+                xp INTEGER NOT NULL DEFAULT 0,
+                level INTEGER NOT NULL DEFAULT 0,
+                house INTEGER NOT NULL DEFAULT 0,
+                job INTEGER NOT NULL DEFAULT 0,
+                friends INTEGER NOT NULL DEFAULT 0,
+                last_activity BIGINT DEFAULT 0,
+                activity_count INTEGER NOT NULL DEFAULT 0,
+                tax_applied INTEGER NOT NULL DEFAULT 0,
+                job_name TEXT,
+                job_expires_at BIGINT DEFAULT 0,
+                job_xp_per_hour INTEGER DEFAULT 0,
+                job_msg_chat_id BIGINT DEFAULT 0,
+                job_msg_id BIGINT DEFAULT 0,
+                personal_resources INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tigrit_cooldowns (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                last_xp_at BIGINT DEFAULT 0
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tigrit_village (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                level INTEGER NOT NULL DEFAULT 0,
+                activity INTEGER NOT NULL DEFAULT 0,
+                resources INTEGER NOT NULL DEFAULT 0,
+                population INTEGER NOT NULL DEFAULT 0,
+                build_stage INTEGER NOT NULL DEFAULT 0,
+                build_name TEXT NOT NULL DEFAULT 'Площадь',
+                build_progress INTEGER NOT NULL DEFAULT 0,
+                last_tick BIGINT DEFAULT 0,
+                last_tax_check BIGINT DEFAULT 0,
+                last_event_time BIGINT DEFAULT 0
+            )
+        """)
+        await conn.execute("INSERT INTO tigrit_village (id) VALUES (1) ON CONFLICT (id) DO NOTHING")
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tigrit_chats (
+                chat_id BIGINT PRIMARY KEY,
+                type TEXT NOT NULL DEFAULT '',
+                title TEXT NOT NULL DEFAULT '',
+                invite_link TEXT,
+                owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tigrit_settings (
+                k TEXT PRIMARY KEY,
+                v TEXT
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tigrit_interactions (
+                id SERIAL PRIMARY KEY,
+                ts BIGINT DEFAULT 0,
+                kind TEXT,
+                actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                target_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                payload TEXT
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tigrit_last_messages (
+                chat_id BIGINT NOT NULL,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                kind TEXT NOT NULL DEFAULT '',
+                message_id BIGINT NOT NULL DEFAULT 0,
+                updated_at BIGINT DEFAULT 0,
+                PRIMARY KEY (chat_id, user_id, kind)
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tigrit_events (
+                id SERIAL PRIMARY KEY,
+                title TEXT,
+                effect_type TEXT,
+                effect_sign INTEGER DEFAULT 0,
+                effect_value INTEGER DEFAULT 0,
+                chat_id BIGINT,
+                message_id BIGINT,
+                start_ts BIGINT DEFAULT 0,
+                end_ts BIGINT DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'active'
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tigrit_event_participants (
+                event_id INTEGER NOT NULL REFERENCES tigrit_events(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                decision TEXT NOT NULL DEFAULT '',
+                ts BIGINT DEFAULT 0,
+                PRIMARY KEY (event_id, user_id)
+            )
+        """)
+
         for sql in (
             "ALTER TABLE admin_partner_tokens ADD COLUMN IF NOT EXISTS project_id INTEGER DEFAULT 1 REFERENCES projects(id)",
             "ALTER TABLE admin_tasks ADD COLUMN IF NOT EXISTS project_id INTEGER DEFAULT 1 REFERENCES projects(id)",
@@ -818,6 +976,7 @@ async def init_db() -> None:
         await _seed_familiars_def(conn)
         await _seed_egg_hatch_pool(conn)
         await _seed_shop_offers(conn)
+    await seed_game_settings()
     logger.info("Game DB initialized")
 
 
@@ -1306,13 +1465,27 @@ async def get_checkin_state(user_id: int) -> Optional[Dict[str, Any]]:
 
 
 async def get_attempts(user_id: int) -> int:
+    """Возвращает баланс попыток; обнуляет его, если прошло больше N дней с последнего изменения (не пользовались)."""
+    expiry_days = await get_setting("checkin.attempts_expiry_days", 2)
+    expiry_days = int(float(expiry_days))
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """SELECT attempts FROM attempts_balance WHERE user_id = $1""",
+            """SELECT attempts, updated_at FROM attempts_balance WHERE user_id = $1""",
             user_id,
         )
-    return int(row["attempts"]) if row else 0
+        if not row:
+            return 0
+        now = datetime.now(timezone.utc)
+        updated_at = row["updated_at"]
+        if updated_at is not None and expiry_days > 0:
+            if (now - (updated_at.replace(tzinfo=timezone.utc) if updated_at.tzinfo is None else updated_at)) > timedelta(days=expiry_days):
+                await conn.execute(
+                    """UPDATE attempts_balance SET attempts = 0, updated_at = NOW() WHERE user_id = $1""",
+                    user_id,
+                )
+                return 0
+        return int(row["attempts"])
 
 
 async def add_attempts(user_id: int, delta: int) -> int:
@@ -1810,6 +1983,23 @@ async def get_user_inventory(user_id: int) -> Dict[str, Any]:
             "SELECT id, color, acquired_at, meta FROM player_eggs WHERE user_id = $1 ORDER BY acquired_at DESC",
             user_id,
         )
+    def _safe_meta(v: Any) -> dict:
+        if v is None:
+            return {}
+        if isinstance(v, dict):
+            return v
+        try:
+            return dict(v)
+        except Exception:
+            return {}
+
+    def _safe_iso(v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        if hasattr(v, "isoformat"):
+            return v.isoformat()
+        return str(v)
+
     items = []
     for r in rows:
         items.append({
@@ -1822,15 +2012,15 @@ async def get_user_inventory(user_id: int) -> Dict[str, Any]:
             "rarity": r["rarity"],
             "state": r["state"],
             "item_level": r["item_level"],
-            "meta": dict(r["meta"]) if r["meta"] else {},
-            "acquired_at": r["acquired_at"].isoformat() if r["acquired_at"] else None,
+            "meta": _safe_meta(r.get("meta")),
+            "acquired_at": _safe_iso(r.get("acquired_at")),
         })
     eggs_list = [
         {
             "id": r["id"],
             "color": r["color"],
-            "acquired_at": r["acquired_at"].isoformat() if r["acquired_at"] else None,
-            "meta": dict(r["meta"]) if r["meta"] else {},
+            "acquired_at": _safe_iso(r.get("acquired_at")),
+            "meta": _safe_meta(r.get("meta")),
         }
         for r in eggs
     ]
@@ -1922,7 +2112,7 @@ async def get_buildings_def() -> List[Dict[str, Any]]:
             "category": r["category"],
             "kind": r["kind"],
             "stack_limit": r["stack_limit"],
-            "config": dict(r["config"]) if r["config"] else {},
+            "config": (r["config"] if isinstance(r["config"], dict) else json.loads(r["config"]) if r["config"] else {}),
         }
         for r in rows
     ]
@@ -2659,6 +2849,70 @@ async def update_wallet_binding_address(binding_id: int, wallet_address: str) ->
         )
 
 
+# ——— withdraw_penalties (штрафы на вывод, срабатывают при выводе) ———
+
+async def get_pending_penalty_total(user_id: int) -> float:
+    """Сумма неприменённых штрафов по user_id (вычитается при выводе)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT COALESCE(SUM(amount), 0)::numeric AS total FROM withdraw_penalties WHERE user_id = $1",
+            user_id,
+        )
+        return float(row["total"]) if row else 0.0
+
+
+async def add_withdraw_penalty(
+    user_id: int,
+    amount: float,
+    currency: str = "PHXPW",
+    reason: Optional[str] = None,
+    notify_user: bool = False,
+    created_by_telegram_id: Optional[int] = None,
+) -> int:
+    """Добавить штраф на вывод. Возвращает id записи."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO withdraw_penalties (user_id, amount, currency, reason, notify_user, created_by_telegram_id)
+               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
+            user_id, amount, currency or "PHXPW", reason, notify_user, created_by_telegram_id,
+        )
+        return row["id"]
+
+
+async def mark_penalty_notified(penalty_id: int) -> None:
+    """Отметить, что пользователю отправлено уведомление о штрафе."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE withdraw_penalties SET notified_at = NOW() WHERE id = $1",
+            penalty_id,
+        )
+
+
+async def get_penalties_for_user(user_id: int) -> List[Dict[str, Any]]:
+    """Список штрафов пользователя для админки."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, amount, currency, reason, notify_user, notified_at, created_at FROM withdraw_penalties WHERE user_id = $1 ORDER BY created_at DESC",
+            user_id,
+        )
+        return [
+            {
+                "id": r["id"],
+                "amount": float(r["amount"]),
+                "currency": r["currency"],
+                "reason": r["reason"],
+                "notify_user": r["notify_user"],
+                "notified_at": r["notified_at"].isoformat() if r.get("notified_at") else None,
+                "created_at": r["created_at"].isoformat() if r.get("created_at") else None,
+            }
+            for r in rows
+        ]
+
+
 async def get_withdraw_eligibility(user_id: int) -> Dict[str, Any]:
     """Проверка возможности вывода: уровень, кошелёк, gating, compliance."""
     pool = await get_pool()
@@ -2675,6 +2929,7 @@ async def get_withdraw_eligibility(user_id: int) -> Dict[str, Any]:
     completed = float(gating["completed_action_value_ton"]) if gating else 0
     rule_10_ok = completed >= required if required else True
     compliance_ok = compliance is None or compliance["status"] == "ok"
+    penalty_total = await get_pending_penalty_total(user_id)
     can_withdraw = level_ok and wallet_bound and rule_10_ok and compliance_ok
     return {
         "can_withdraw": can_withdraw,
@@ -2684,6 +2939,7 @@ async def get_withdraw_eligibility(user_id: int) -> Dict[str, Any]:
         "required_action_value_ton": required,
         "completed_action_value_ton": completed,
         "compliance_ok": compliance_ok,
+        "pending_penalty_total": float(penalty_total),
     }
 
 
@@ -3037,6 +3293,14 @@ async def get_user_id_by_telegram_id(telegram_id: int) -> Optional[int]:
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT id FROM users WHERE telegram_id = $1", telegram_id)
     return int(row["id"]) if row else None
+
+
+async def get_telegram_id_by_user_id(user_id: int) -> Optional[int]:
+    """Возвращает telegram_id по user_id (users.id) или None."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT telegram_id FROM users WHERE id = $1", user_id)
+    return int(row["telegram_id"]) if row else None
 
 
 async def perform_attack(
@@ -3866,3 +4130,203 @@ async def clear_dev_collections() -> None:
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM dev_nfts")
         await conn.execute("DELETE FROM dev_collections")
+
+
+# ===================== game_settings (runtime config) =====================
+
+# Default values seeded on first run
+_GAME_SETTINGS_DEFAULTS: Dict[str, Any] = {
+    "checkin.cooldown_hours": 10,
+    "checkin.attempts_per_claim": 3,
+    "checkin.attempts_per_claim_chat": 2,
+    "checkin.attempts_expiry_days": 2,
+    "mine.grid_size": 36,
+    "mine.prize_cells_distribution": [
+        {"cells": 2, "chancePct": 10}, {"cells": 3, "chancePct": 20},
+        {"cells": 4, "chancePct": 30}, {"cells": 5, "chancePct": 25},
+        {"cells": 6, "chancePct": 15},
+    ],
+    "mine.prize_loot": {
+        "relicPct": 65, "amuletPct": 14, "coinsPct": 10,
+        "eggPct": 0.8, "projectTokensPct": 5, "furnacePct": 5.2,
+    },
+    "mine.egg_roll": {"targetEggPerClick": 0.001, "derivedEggGivenPrizeCellPct": 0.909},
+    "eggs.colors": [
+        {"color": "red", "rarity": "common", "weight": 22},
+        {"color": "green", "rarity": "common", "weight": 22},
+        {"color": "blue", "rarity": "common", "weight": 22},
+        {"color": "yellow", "rarity": "common", "weight": 18},
+        {"color": "purple", "rarity": "rare", "weight": 10},
+        {"color": "black", "rarity": "epic", "weight": 5},
+        {"color": "white", "rarity": "legendary", "weight": 1},
+    ],
+    "field.max_buildings": 9,
+    "field.demolish_refund_rate": 0.25,
+    "prize_pool.entry_phxpw": 30000,
+    "prize_pool.phxpw_price_ton": 0.00002412,
+    "fees.transaction_percent": 6.0,
+    "fees.early_unstake": 10.0,
+    "fees.express_withdrawal": 60.0,
+    "fees.nft_holders": 2.0,
+    "fees.project": 2.0,
+    "fees.burn": 1.0,
+    "fees.charity": 1.0,
+    "staking.enabled": True,
+    "staking.base_apy": 0.15,
+    "staking.reward_period_sec": 3600,
+    "staking.min_stake": 100.0,
+    "staking.max_stake": 1000000000.0,
+    "staking.auto_compound": False,
+    "quest.reward_amount": 100000,
+    "quest.min_burn_count": 5,
+    "quest.min_account_age_days": 3,
+    "quest.submit_rate_limit_sec": 5,
+    "quest.burn_diminishing_after": 50,
+    "holders.show_detailed_public": False,
+}
+
+
+async def seed_game_settings() -> None:
+    """Insert default settings where missing (does NOT overwrite existing)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for key, val in _GAME_SETTINGS_DEFAULTS.items():
+            await conn.execute(
+                """INSERT INTO game_settings (key, value)
+                   VALUES ($1, $2::jsonb)
+                   ON CONFLICT (key) DO NOTHING""",
+                key, json.dumps(val),
+            )
+
+
+async def get_setting(key: str, default=None):
+    """Read a single setting from game_settings, fall back to default."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchval(
+            "SELECT value FROM game_settings WHERE key = $1", key
+        )
+    if row is not None:
+        return json.loads(row) if isinstance(row, str) else row
+    return default if default is not None else _GAME_SETTINGS_DEFAULTS.get(key)
+
+
+async def set_setting(key: str, value: Any) -> None:
+    """Upsert a single setting."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO game_settings (key, value, updated_at)
+               VALUES ($1, $2::jsonb, NOW())
+               ON CONFLICT (key) DO UPDATE SET value = $2::jsonb, updated_at = NOW()""",
+            key, json.dumps(value),
+        )
+
+
+async def get_all_settings() -> Dict[str, Any]:
+    """Return all game_settings as a flat dict."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT key, value FROM game_settings ORDER BY key")
+    result = {}
+    for r in rows:
+        v = r["value"]
+        result[r["key"]] = json.loads(v) if isinstance(v, str) else v
+    return result
+
+
+def get_settings_defaults() -> Dict[str, Any]:
+    """Return the hardcoded defaults dict (for display in admin panel)."""
+    return dict(_GAME_SETTINGS_DEFAULTS)
+
+
+# ===================== nft_holder_snapshots =====================
+
+async def upsert_holder_snapshot(
+    owner_address: str,
+    nft_count: int = 0,
+    collections: Any = None,
+    phxpw_balance: float = 0,
+    total_received: float = 0,
+    total_sent: float = 0,
+    staking_rewards: float = 0,
+    linked_telegram_id: Optional[int] = None,
+    linked_username: Optional[str] = None,
+) -> None:
+    """Insert or update a holder snapshot."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO nft_holder_snapshots
+                   (owner_address, nft_count, collections, phxpw_balance,
+                    total_received, total_sent, staking_rewards,
+                    linked_telegram_id, linked_username, synced_at)
+               VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, NOW())
+               ON CONFLICT (owner_address) DO UPDATE SET
+                   nft_count = $2, collections = $3::jsonb, phxpw_balance = $4,
+                   total_received = $5, total_sent = $6, staking_rewards = $7,
+                   linked_telegram_id = $8, linked_username = $9, synced_at = NOW()""",
+            owner_address,
+            nft_count,
+            json.dumps(collections or []),
+            phxpw_balance,
+            total_received,
+            total_sent,
+            staking_rewards,
+            linked_telegram_id,
+            linked_username,
+        )
+
+
+async def get_all_holder_snapshots() -> List[Dict[str, Any]]:
+    """Return all NFT holder snapshots, ordered by nft_count desc."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM nft_holder_snapshots ORDER BY nft_count DESC, phxpw_balance DESC"
+        )
+    result = []
+    for r in rows:
+        d = dict(r)
+        colls = d.get("collections")
+        d["collections"] = json.loads(colls) if isinstance(colls, str) else (colls or [])
+        d["phxpw_balance"] = float(d.get("phxpw_balance") or 0)
+        d["total_received"] = float(d.get("total_received") or 0)
+        d["total_sent"] = float(d.get("total_sent") or 0)
+        d["staking_rewards"] = float(d.get("staking_rewards") or 0)
+        if d.get("synced_at"):
+            d["synced_at"] = d["synced_at"].isoformat()
+        result.append(d)
+    return result
+
+
+async def get_holder_snapshots_count() -> int:
+    """Return count of unique NFT holders."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM nft_holder_snapshots WHERE nft_count > 0") or 0
+
+
+async def get_nft_owners_with_links() -> List[Dict[str, Any]]:
+    """Get unique NFT owners from dev_nfts joined with wallet bindings to find linked TG users."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT
+                n.owner_address,
+                COUNT(*) AS nft_count,
+                ARRAY_AGG(DISTINCT c.name) FILTER (WHERE c.name IS NOT NULL) AS collection_names,
+                ARRAY_AGG(DISTINCT c.collection_address) FILTER (WHERE c.collection_address IS NOT NULL) AS collection_addresses,
+                wb.user_id AS linked_user_id,
+                u.telegram_id AS linked_telegram_id,
+                gp.username AS linked_username
+            FROM dev_nfts n
+            JOIN dev_collections c ON c.id = n.collection_id
+            LEFT JOIN user_wallet_bindings wb ON wb.wallet_address = n.owner_address AND wb.verified_at IS NOT NULL
+            LEFT JOIN users u ON u.id = wb.user_id
+            LEFT JOIN game_players gp ON gp.telegram_id = u.telegram_id
+            WHERE n.owner_address != '' AND n.owner_address IS NOT NULL
+            GROUP BY n.owner_address, wb.user_id, u.telegram_id, gp.username
+            ORDER BY COUNT(*) DESC
+        """)
+    return [dict(r) for r in rows]

@@ -1,0 +1,21 @@
+{
+  "width": 32,
+  "height": 32,
+  "tiles": [
+    {"x": 15, "y": 15, "type": "center", "name": "Площадь"},
+    {"x": 14, "y": 13, "type": "house", "name": "Дом"},
+    {"x": 16, "y": 13, "type": "market", "name": "Рынок"},
+    {"x": 13, "y": 14, "type": "tower", "name": "Башня"},
+    {"x": 17, "y": 14, "type": "farm", "name": "Ферма"},
+    {"x": 13, "y": 15, "type": "temple", "name": "Храм"},
+    {"x": 17, "y": 15, "type": "treasury", "name": "Сокровищница"},
+    {"x": 13, "y": 16, "type": "ruins", "name": "Руины"},
+    {"x": 17, "y": 16, "type": "arena", "name": "Арена"},
+    {"x": 14, "y": 17, "type": "library", "name": "Библиотека"},
+    {"x": 16, "y": 17, "type": "forge", "name": "Кузница"},
+    {"x": 12, "y": 14, "type": "garden", "name": "Сад духов"},
+    {"x": 18, "y": 16, "type": "portal", "name": "Портал"},
+    {"x": 15, "y": 12, "type": "inn", "name": "Таверна"},
+    {"x": 15, "y": 17, "type": "academy", "name": "Академия магии"}
+  ]
+}

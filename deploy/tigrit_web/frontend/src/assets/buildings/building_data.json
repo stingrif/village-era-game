@@ -1,0 +1,116 @@
+{
+  "buildings": [
+    {
+      "id": "house",
+      "color": "#a44200",
+      "name": "Дом",
+      "size": [1, 1],
+      "description": "Жилой дом для жителей деревни",
+      "link": "https://t.me/PHXPW" 
+    },
+    {
+      "id": "market",
+      "color": "#d5a6bd",
+      "name": "Рынок",
+      "size": [2, 2],
+      "description": "Рыночная площадь для торговли",
+      "link": "https://app.ston.fi/swap?ft=TON&tt=EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43"
+    },
+    {
+      "id": "tower",
+      "color": "#9fc5e8",
+      "name": "Башня",
+      "size": [1, 1],
+      "description": "Сторожевая башня для защиты деревни",
+      "link": "https://discord.gg/3XvzEdG8SG"
+    },
+    {
+      "id": "farm",
+      "color": "#b6d7a8",
+      "name": "Ферма",
+      "size": [2, 1],
+      "description": "Производство пищи для жителей",
+      "link": "https://phoenixpaw.io/"
+    },
+    {
+      "id": "temple",
+      "color": "#c27ba0",
+      "name": "Храм",
+      "size": [2, 2],
+      "description": "Место силы, где жители поклоняются и проводят обряды",
+      "link": "https://getgems.io/phoenixpaw"
+    },
+    {
+      "id": "treasury",
+      "color": "#ffd966",
+      "name": "Сокровищница",
+      "size": [1, 1],
+      "description": "Хранилище золота и токенов деревни",
+      "link": "https://tonviewer.com/EQABtSLSzrAOISWPfIjBl2VmeStkM1eHaPrUxRTj8mY-9h43"
+    },
+    {
+      "id": "ruins",
+      "color": "#999999",
+      "name": "Руины",
+      "size": [2, 2],
+      "description": "Остатки древних построек, полные загадок и тайн",
+      "link": "https://medium.com/@phoenixpaw555/new-year-magic-at-phoenixpaw-334428ce36bb"
+    },
+    {
+      "id": "arena",
+      "color": "#e06666",
+      "name": "Арена",
+      "size": [2, 2],
+      "description": "Место для сражений героев и зрелищных праздников",
+      "link": "https://x.com/PawPhoenixoff"
+    },
+    {
+      "id": "library",
+      "color": "#6fa8dc",
+      "name": "Библиотека",
+      "size": [2, 1],
+      "description": "Знания и хроники деревни, доступные каждому герою",
+      "link": "https://facebook.com/groups/1704725113644946"
+    },
+    {
+      "id": "forge",
+      "color": "#cc4125",
+      "name": "Кузница",
+      "size": [1, 1],
+      "description": "Создание оружия, доспехов и артефактов",
+      "link": "https://jvault.xyz/staking/v2/stake/2TRUST"
+    },
+    {
+      "id": "garden",
+      "color": "#93c47d",
+      "name": "Сад духов",
+      "size": [2, 1],
+      "description": "Место, где герои могут отдыхать и получать вдохновение",
+      "link": "https://www.instagram.com/phoenix_pawoff"
+    },
+    {
+      "id": "portal",
+      "color": "#674ea7",
+      "name": "Портал",
+      "size": [1, 1],
+      "description": "Врата в другие миры и измерения",
+      "link": "https://www.instagram.com/phoenix_paw_eng"
+    },
+    {
+      "id": "inn",
+      "color": "#f6b26b",
+      "name": "Таверна",
+      "size": [2, 1],
+      "description": "Место встреч, слухов и найма спутников",
+      "link": "https://t.me/+DaR4jxIuXhVkOThk"
+    },
+    {
+      "id": "academy",
+      "color": "#76a5af",
+      "name": "Академия магии",
+      "size": [2, 2],
+      "description": "Обучение магов и хранителей знаний",
+      "link": "https://www.tiktok.com/@phoenix_ownerden"
+    }
+  ]
+}

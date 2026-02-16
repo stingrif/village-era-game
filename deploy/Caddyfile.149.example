@@ -1,0 +1,18 @@
+# Полный пример Caddyfile для хоста 149 (n8n + stakingphxpw).
+# Использование: скопировать на сервер в конфиг Caddy, не удаляя ваши существующие блоки (n8n и др.).
+# Caddy сам получает сертификаты Let's Encrypt для указанных доменов.
+
+# === СУЩЕСТВУЮЩЕЕ: основной сайт (не трогать) ===
+stakingphxpw.com www.stakingphxpw.com {
+    reverse_proxy localhost:8081
+}
+
+# === ДОБАВЛЕНО: поддомен Тигрит (без этого — ERR_SSL_PROTOCOL_ERROR для tigrit.stakingphxpw.com) ===
+tigrit.stakingphxpw.com {
+    reverse_proxy localhost:8081
+}
+
+# Ваши остальные блоки (n8n и т.д.) оставьте как есть — они не показаны здесь.
+# Если Caddy в Docker: вместо localhost:8081 укажите host.docker.internal:8081
+#   или IP хоста, например 172.17.0.1:8081 .
+# После правки: sudo systemctl reload caddy  или  docker restart <контейнер_caddy>

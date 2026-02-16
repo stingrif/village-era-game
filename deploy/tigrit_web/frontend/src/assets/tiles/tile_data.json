@@ -1,0 +1,28 @@
+{
+  "tiles": [
+    {
+      "id": "grass",
+      "color": "#5da85d",
+      "name": "Трава",
+      "walkable": true
+    },
+    {
+      "id": "water",
+      "color": "#3d85c6",
+      "name": "Вода",
+      "walkable": false
+    },
+    {
+      "id": "road",
+      "color": "#d3b17d",
+      "name": "Дорога",
+      "walkable": true
+    },
+    {
+      "id": "sand",
+      "color": "#e6b8af",
+      "name": "Песок",
+      "walkable": true
+    }
+  ]
+}

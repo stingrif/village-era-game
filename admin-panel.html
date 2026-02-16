@@ -1142,7 +1142,9 @@ const GC_LABELS = {
 };
 const GC_KEY_INFO = {
   'checkin.cooldown_hours': {lbl:'Кулдаун между чекинами', unit:'часов', hint:'Через сколько часов можно чекиниться снова'},
-  'checkin.attempts_per_claim': {lbl:'Попыток за чекин', unit:'шт', hint:'Сколько попыток копания дается за один чекин'},
+  'checkin.attempts_per_claim': {lbl:'Попыток за чекин (из приложения)', unit:'шт', hint:'Сколько попыток даётся за чекин в приложении (с рекламой)'},
+  'checkin.attempts_per_claim_chat': {lbl:'Попыток за чекин из чата', unit:'шт', hint:'За команду Голос/vote/checkin в чате (без рекламы)'},
+  'checkin.attempts_expiry_days': {lbl:'Через сколько дней обнулять попытки', unit:'дней', hint:'Накопленные попытки обнуляются, если ими не пользоваться N дней'},
   'mine.grid_size': {lbl:'Размер поля шахты', unit:'ячеек', hint:'Общее количество ячеек (6x6 = 36)'},
   'mine.prize_cells_distribution': {lbl:'Распределение призовых ячеек', hint:'Шанс (%) на количество призовых ячеек', complex:'prize_dist'},
   'mine.prize_loot': {lbl:'Дроп из призовой ячейки', hint:'Процент дропа каждого типа (сумма ~100%)', complex:'loot_pct'},

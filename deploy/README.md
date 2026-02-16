@@ -1,5 +1,24 @@
 # Деплой на stakingphxpw.com
 
+## Синхронизация с кабзда
+
+При обновлении контента в **кабзда** скопировать в deploy:
+
+```bash
+# из папки Игра/deploy (или из корня: bash Игра/deploy/sync_from_cabzda.sh)
+bash sync_from_cabzda.sh
+```
+
+Скрипт:
+- копирует в `tigrit_api/backend/data/`: `tile_data.json`, `building_data.json`, `character_data.json`, `village_map.json` из `кабзда/tigrit_web/backend/data/`;
+- обновляет копию фронта в `tigrit_web/frontend/` (index.html, package.json, src/ и т.д.) из `кабзда/tigrit_web/frontend/`.
+
+Ожидается структура: рядом с папкой `Игра/` лежит папка `кабзда/`. Или задать путь: `CABZDA=/путь/к/кабзда bash sync_from_cabzda.sh`.
+
+После синхронизации при необходимости пересобрать образы (docker build).
+
+---
+
 ## Чек-лист (по плану)
 
 1. **Фронт:** в `config.js` задано `window.GAME_API_BASE = 'https://stakingphxpw.com/api'`.

@@ -20,9 +20,9 @@ services:
     networks:
       - game
 
-  web:
+  api-gateway:
     image: nginx:alpine
-    container_name: stakingphxpw-web
+    container_name: stakingphxpw-api-gateway
     ports:
       - "127.0.0.1:8081:80"
     volumes:
@@ -31,10 +31,112 @@ services:
     depends_on:
       app:
         condition: service_started
+      health:
+        condition: service_started
     restart: unless-stopped
     networks:
       - game
       - caddy_net
+
+  health:
+    build:
+      context: ./health
+      dockerfile: Dockerfile
+    image: stakingphxpw-health:latest
+    container_name: stakingphxpw-health
+    env_file:
+      - ../бэкенд/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - game
+
+  tigrit-bot:
+    build:
+      context: ./tigrit_bot
+      dockerfile: Dockerfile
+    image: stakingphxpw-tigrit-bot:latest
+    container_name: stakingphxpw-tigrit-bot
+    env_file:
+      - ../бэкенд/.env
+    environment:
+      - GAME_API_BASE=http://app:8000
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - game
+
+  # Перед первым запуском: cp env.secrets.example .env.secrets и заполнить
+  secrets:
+    build:
+      context: ../сервисы/secrets
+      dockerfile: Dockerfile
+    image: stakingphxpw-secrets:latest
+    container_name: stakingphxpw-secrets
+    ports:
+      - "127.0.0.1:8003:8003"
+    env_file:
+      - .env.secrets
+    environment:
+      - PORT=8003
+      - INTERNAL_TOKEN=${SECRETS_INTERNAL_TOKEN:-}
+      - SECRET_KEYS=${SECRETS_SECRET_KEYS:-}
+    restart: unless-stopped
+    networks:
+      - game
+
+  auth:
+    build:
+      context: ../сервисы/auth
+      dockerfile: Dockerfile
+    image: stakingphxpw-auth:latest
+    container_name: stakingphxpw-auth
+    ports:
+      - "127.0.0.1:8001:8001"
+    env_file:
+      - .env.secrets
+    environment:
+      - PORT=8001
+      - SECRETS_SERVICE_URL=http://secrets:8003
+      - INTERNAL_TOKEN=${SECRETS_INTERNAL_TOKEN:-}
+      - GAME_API_BASE=http://app:8000
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-}
+    depends_on:
+      - secrets
+      - app
+    restart: unless-stopped
+    networks:
+      - game
+
+  sessions:
+    build:
+      context: ../сервисы/sessions
+      dockerfile: Dockerfile
+    image: stakingphxpw-sessions:latest
+    container_name: stakingphxpw-sessions
+    ports:
+      - "127.0.0.1:8002:8002"
+    env_file:
+      - .env.secrets
+    environment:
+      - PORT=8002
+      - REDIS_URL=redis://redis:6379/0
+      - SECRETS_SERVICE_URL=http://secrets:8003
+      - INTERNAL_TOKEN=${SECRETS_INTERNAL_TOKEN:-}
+      - SESSION_TTL_SECONDS=86400
+    depends_on:
+      redis:
+        condition: service_started
+      secrets:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - game
 
   redis:
     image: redis:7-alpine
@@ -47,6 +149,36 @@ services:
       interval: 5s
       timeout: 3s
       retries: 3
+    restart: unless-stopped
+    networks:
+      - game
+
+  tigrit-api:
+    build:
+      context: ./tigrit_api
+      dockerfile: Dockerfile
+    image: stakingphxpw-tigrit-api:latest
+    container_name: stakingphxpw-tigrit-api
+    env_file:
+      - ../бэкенд/.env
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-}
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - game
+
+  tigrit-web:
+    build:
+      context: ./tigrit_web
+      dockerfile: Dockerfile
+    image: stakingphxpw-tigrit-web:latest
+    container_name: stakingphxpw-tigrit-web
+    depends_on:
+      tigrit-api:
+        condition: service_started
     restart: unless-stopped
     networks:
       - game

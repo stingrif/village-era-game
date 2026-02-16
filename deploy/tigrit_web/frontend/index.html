@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Деревня Тигрит</title>
+    <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Деревня Тигрит</h1>
+            <nav>
+                <button @click="activeTab = 'village'">Деревня</button>
+                <button @click="activeTab = 'players'">Игроки</button>
+                <button @click="activeTab = 'events'">События</button>
+                <button @click="activeTab = 'editor'">Редактор</button>
+                <button @click="activeTab = 'commands'">Команды бота</button>
+                <a href="https://stakingphxpw.com" target="_blank" rel="noopener" class="nav-link">Village Era</a>
+            </nav>
+        </header>
+        
+        <main>
+            <!-- Вкладка деревни -->
+            <div v-if="activeTab === 'village'" class="tab-content">
+                <div class="village-status">
+                    <h2>Статус деревни</h2>
+                    <p><strong>Уровень:</strong> {{ village.level }}</p>
+                    <p><strong>Активность:</strong> {{ village.activity }}</p>
+                    <p><strong>Ресурсы:</strong> {{ village.resources }}</p>
+                    <p><strong>Население:</strong> {{ village.population }}</p>
+                    <p><strong>Стройка:</strong> {{ village.build_name }} ({{ village.build_progress }}%)</p>
+                </div>
+                
+                <div class="village-map">
+                    <h2>Карта деревни</h2>
+                    <div id="map-container"></div>
+                </div>
+            </div>
+            
+            <!-- Вкладка игроков -->
+            <div v-if="activeTab === 'players'" class="tab-content">
+                <h2>Топ игроков</h2>
+                <div class="players-list">
+                    <div v-for="(player, index) in players" :key="player.user_id" class="player-card">
+                        <div class="player-avatar" :style="{ backgroundColor: getPlayerColor(player) }">
+                            {{ player.username ? player.username[0].toUpperCase() : '?' }}
+                        </div>
+                        <div class="player-info">
+                            <h3>{{ index + 1 }}. @{{ player.username || 'anon' }}</h3>
+                            <p><strong>Раса:</strong> {{ player.race }} | <strong>Класс:</strong> {{ player.clazz }}</p>
+                            <p><strong>XP:</strong> {{ player.xp }} | <strong>Уровень:</strong> {{ player.level }}</p>
+                            <p><strong>Дом:</strong> {{ player.house }} | <strong>Работа:</strong> {{ player.job }} | <strong>Друзья:</strong> {{ player.friends }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Вкладка событий -->
+            <div v-if="activeTab === 'events'" class="tab-content">
+                <section class="active-events-section">
+                    <h2>Активные ивенты</h2>
+                    <div v-if="activeEvents.length === 0" class="events-empty">Нет активных ивентов</div>
+                    <div v-else class="events-list">
+                        <div v-for="ev in activeEvents" :key="ev.id" class="event-card active-event">
+                            <div class="event-title">{{ ev.title }}</div>
+                            <div class="event-meta">До: {{ formatTime(ev.end_ts) }}</div>
+                            <!-- Ссылка только на белый список бота (ev.id — id ивента, не chat_id из БД) -->
+                            <a :href="botEventLink(ev.id)" target="_blank" rel="noopener" class="btn-bot">В бот</a>
+                        </div>
+                    </div>
+                </section>
+                <h2>Команды бота</h2>
+                <ul class="bot-commands-list">
+                    <li v-for="item in botCommands" :key="item.cmd"><code>{{ item.cmd }}</code> — {{ item.desc }}</li>
+                </ul>
+                <h2>Последние события</h2>
+                <div class="events-list">
+                    <div v-for="event in events" :key="event.id" class="event-card">
+                        <div class="event-time">{{ formatTime(event.ts) }}</div>
+                        <div class="event-content">
+                            <span class="event-type">{{ getEventType(event.kind) }}:</span>
+                            {{ event.payload }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Редактор -->
+            <div v-if="activeTab === 'editor'" class="tab-content">
+                <h2>Редактор деревни</h2>
+                <div class="editor-container">
+                    <div class="editor-sidebar">
+                        <h3>Доступные ассеты</h3>
+                        <div class="asset-category">
+                            <h4>Тайлы</h4>
+                            <div class="asset-items">
+                                <div v-for="t in assets.tiles" :key="t.id || t" class="asset-item" :style="t.color ? { borderColor: t.color } : {}" @click="selectAsset('tile', t)">
+                                    {{ typeof t === 'object' ? (t.name || t.id) : t }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="asset-category">
+                            <h4>Здания</h4>
+                            <div class="asset-items">
+                                <div class="asset-item" @click="selectAsset('building', { id: 'center', name: 'Площадь' })">Площадь</div>
+                                <div v-for="b in assets.buildings" :key="b.id || b" class="asset-item" :style="b.color ? { borderColor: b.color } : {}" @click="selectAsset('building', b)">
+                                    {{ typeof b === 'object' ? (b.name || b.id) : b }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="asset-category">
+                            <h4>Персонажи</h4>
+                            <div class="asset-items">
+                                <div v-for="c in assets.characters" :key="c.id || c" class="asset-item" :style="c.color ? { borderColor: c.color } : {}" @click="selectAsset('character', c)">
+                                    {{ typeof c === 'object' ? (c.name || c.id) : c }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="editor-canvas"></div>
+                    
+                    <div class="editor-controls">
+                        <button @click="saveMap">Сохранить карту</button>
+                        <button @click="exportMap">Экспорт JSON</button>
+                        <button @click="importMap">Импорт JSON</button>
+                        <input type="file" id="import-map" style="display: none;" @change="handleImport">
+                    </div>
+                </div>
+            </div>
+            <!-- Команды бота (отдельная вкладка) -->
+            <div v-if="activeTab === 'commands'" class="tab-content">
+                <h2>Команды бота</h2>
+                <ul class="bot-commands-list">
+                    <li v-for="item in botCommands" :key="item.cmd"><code>{{ item.cmd }}</code> — {{ item.desc }}</li>
+                </ul>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+</body>
+</html>

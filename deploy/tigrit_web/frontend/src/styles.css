@@ -1,0 +1,256 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Press Start 2P', monospace, system-ui;
+    background-color: #111;
+    color: #eee;
+    line-height: 1.6;
+}
+
+/* Удаляем запрос отсутствующего шрифта */
+/* @font-face {
+    font-family: 'Pixel';
+    src: url('assets/fonts/pixel.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+} */
+
+#app {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #444;
+    padding-bottom: 20px;
+}
+
+header h1 {
+    font-size: 36px;
+    color: #ffcc00;
+    margin-bottom: 20px;
+    text-shadow: 3px 3px 0px #331800;
+}
+
+nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+
+nav .nav-link {
+    color: #ffcc00;
+    padding: 10px 20px;
+    font-family: monospace;
+    font-size: 16px;
+    text-decoration: none;
+    border: 2px solid #ffcc00;
+    background-color: #553300;
+    transition: background-color 0.3s;
+}
+
+nav .nav-link:hover {
+    background-color: #774400;
+}
+
+button {
+    background-color: #553300;
+    color: #ffcc00;
+    border: none;
+    padding: 10px 20px;
+    font-family: monospace;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    border: 2px solid #ffcc00;
+}
+
+button:hover {
+    background-color: #774400;
+}
+
+.tab-content {
+    background-color: #222;
+    padding: 20px;
+    border: 2px solid #444;
+    border-radius: 5px;
+}
+
+h2 {
+    color: #ffcc00;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 10px;
+}
+
+/* Карта деревни */
+.village-map {
+    margin-top: 30px;
+}
+
+#map-container {
+    width: 100%;
+    height: 500px;
+    background-color: #333;
+    border: 2px solid #444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Статус деревни */
+.village-status {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.village-status p {
+    background-color: #333;
+    padding: 10px;
+    border: 1px solid #444;
+    border-radius: 3px;
+}
+
+/* Список игроков */
+.players-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.player-card {
+    background-color: #333;
+    padding: 15px;
+    border: 1px solid #444;
+    border-radius: 5px;
+    display: flex;
+    gap: 15px;
+}
+
+.player-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.player-info h3 {
+    margin-bottom: 10px;
+    color: #ffcc00;
+}
+
+/* События */
+.events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.event-card {
+    background-color: #333;
+    padding: 15px;
+    border: 1px solid #444;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.event-time {
+    color: #aaa;
+    font-size: 14px;
+}
+
+.event-type {
+    color: #ffcc00;
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+/* Редактор */
+.editor-container {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    grid-template-rows: 1fr auto;
+    gap: 20px;
+    height: 600px;
+}
+
+.editor-sidebar {
+    background-color: #333;
+    padding: 15px;
+    border: 1px solid #444;
+    border-radius: 5px;
+    overflow-y: auto;
+    grid-row: 1 / 2;
+}
+
+.asset-category {
+    margin-bottom: 20px;
+}
+
+.asset-category h4 {
+    color: #ffcc00;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+}
+
+.asset-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.asset-item {
+    background-color: #444;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.asset-item:hover {
+    background-color: #555;
+}
+
+#editor-canvas {
+    background-color: #333;
+    border: 2px solid #444;
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+}
+
+.editor-controls {
+    grid-column: 1 / 3;
+    grid-row: 2 / 3;
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.active-events-section { margin-bottom: 2rem; }
+.active-events-section h2 { color: #ffcc00; margin-bottom: 10px; }
+.events-empty { color: #888; }
+.active-event { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.active-event .event-title { flex: 1; min-width: 120px; }
+.active-event .event-meta { color: #aaa; font-size: 12px; }
+.btn-bot { color: #ffcc00; padding: 6px 12px; border: 1px solid #ffcc00; text-decoration: none; border-radius: 3px; }
+.btn-bot:hover { background: #553300; }
+.bot-commands-list { list-style: none; }
+.bot-commands-list li { margin: 8px 0; }
+.bot-commands-list code { background: #333; padding: 2px 8px; border-radius: 3px; margin-right: 8px; }

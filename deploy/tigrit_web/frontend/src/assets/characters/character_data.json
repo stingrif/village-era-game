@@ -1,0 +1,71 @@
+{
+  "races": [
+    {
+      "id": "warrior_of_light",
+      "name": "Воин Света",
+      "description": "Ангельский защитник добра",
+      "base_color": "#f9cb9c"
+    },
+    {
+      "id": "dark_igris",
+      "name": "Тёмный Игрис",
+      "description": "Тень из мира теней",
+      "base_color": "#674ea7"
+    },
+    {
+      "id": "arkhal",
+      "name": "Аркхал",
+      "description": "Друид природы",
+      "base_color": "#6aa84f"
+    },
+    {
+      "id": "tigrit",
+      "name": "Тигрит",
+      "description": "Дитя пламени и хаоса",
+      "base_color": "#e06666"
+    },
+    {
+      "id": "phoenix",
+      "name": "Феникс",
+      "description": "Возрождающийся из пепла",
+      "base_color": "#f6b26b"
+    }
+  ],
+  "classes": [
+    {
+      "id": "warrior",
+      "name": "Воин",
+      "color": "#990000"
+    },
+    {
+      "id": "mage",
+      "name": "Маг",
+      "color": "#3c78d8"
+    },
+    {
+      "id": "archer",
+      "name": "Лучник",
+      "color": "#6aa84f"
+    },
+    {
+      "id": "merchant",
+      "name": "Торговец",
+      "color": "#f1c232"
+    },
+    {
+      "id": "wanderer",
+      "name": "Странник",
+      "color": "#b45f06"
+    },
+    {
+      "id": "mercenary",
+      "name": "Наёмник",
+      "color": "#674ea7"
+    },
+    {
+      "id": "villager",
+      "name": "Житель",
+      "color": "#7f6000"
+    }
+  ]
+}

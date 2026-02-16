@@ -22,12 +22,14 @@ from typing import Any, Dict, List, Optional, Set
 
 import httpx
 
-from config import NFT_DEV_COLLECTIONS, NFT_DEV_WALLET, TON_API_KEY, TON_API_URL
+from config import NFT_DEV_COLLECTIONS, NFT_DEV_WALLET, PHOEX_TOKEN_ADDRESS, TON_API_KEY, TON_API_URL
 from infrastructure.database import (
     clear_dev_collections,
+    get_nft_owners_with_links,
     log_nft_sync,
     upsert_dev_collection,
     upsert_dev_nft,
+    upsert_holder_snapshot,
 )
 from infrastructure.ton_address import raw_to_friendly
 
@@ -381,4 +383,114 @@ async def run_full_sync() -> Dict[str, Any]:
         "nft_sync complete: %d collections, %d nfts, %d errors",
         stats["collections_synced"], stats["nfts_synced"], stats["errors"],
     )
+    return stats
+
+
+# ===================== NFT Holders Sync =====================
+
+async def sync_nft_holders() -> Dict[str, Any]:
+    """
+    Sync NFT holder analytics:
+    1. Get unique owners from dev_nfts
+    2. For each owner, fetch PHXPW balance and transfer history from TonAPI
+    3. Cross-reference with wallet bindings for linked TG users
+    4. Upsert into nft_holder_snapshots
+    """
+    stats = {"holders_synced": 0, "errors": 0}
+    owners = await get_nft_owners_with_links()
+    if not owners:
+        logger.info("sync_nft_holders: no NFT owners found")
+        return stats
+
+    jetton_master = PHOEX_TOKEN_ADDRESS or ""
+    headers = {}
+    if TON_API_KEY:
+        headers["Authorization"] = f"Bearer {TON_API_KEY}"
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+            for owner_row in owners:
+                addr = owner_row["owner_address"]
+                if not addr:
+                    continue
+                nft_count = owner_row["nft_count"]
+                coll_names = owner_row.get("collection_names") or []
+                coll_addrs = owner_row.get("collection_addresses") or []
+                collections = [
+                    {"name": n, "address": a}
+                    for n, a in zip(coll_names, coll_addrs)
+                ] if coll_names else []
+                linked_tg_id = owner_row.get("linked_telegram_id")
+                linked_username = owner_row.get("linked_username")
+
+                phxpw_balance = 0.0
+                total_received = 0.0
+                total_sent = 0.0
+
+                # Fetch PHXPW balance from TonAPI
+                if jetton_master:
+                    try:
+                        await asyncio.sleep(1.2)  # rate limit
+                        r = await client.get(
+                            f"{TON_API_URL}/accounts/{addr}/jettons/{jetton_master}"
+                        )
+                        if r.status_code == 200:
+                            data = r.json()
+                            raw_balance = data.get("balance") or "0"
+                            # PHXPW has 9 decimals
+                            try:
+                                phxpw_balance = int(raw_balance) / 1_000_000_000
+                            except (ValueError, TypeError):
+                                phxpw_balance = 0.0
+                    except Exception as e:
+                        logger.warning("sync_holders: balance fetch %s: %s", addr[:16], e)
+
+                    # Fetch jetton transfer history
+                    try:
+                        await asyncio.sleep(1.2)
+                        r = await client.get(
+                            f"{TON_API_URL}/accounts/{addr}/jettons/{jetton_master}/history",
+                            params={"limit": 100},
+                        )
+                        if r.status_code == 200:
+                            events = r.json().get("events") or []
+                            for ev in events:
+                                for action in ev.get("actions") or []:
+                                    jt = action.get("JettonTransfer") or {}
+                                    amount_raw = jt.get("amount") or "0"
+                                    try:
+                                        amount = int(amount_raw) / 1_000_000_000
+                                    except (ValueError, TypeError):
+                                        amount = 0.0
+                                    sender = _addr(jt.get("sender")) or ""
+                                    recipient = _addr(jt.get("recipient")) or ""
+                                    # Normalize addresses for comparison
+                                    if sender and sender.lower() == addr.lower():
+                                        total_sent += amount
+                                    elif recipient and recipient.lower() == addr.lower():
+                                        total_received += amount
+                    except Exception as e:
+                        logger.warning("sync_holders: history fetch %s: %s", addr[:16], e)
+
+                try:
+                    await upsert_holder_snapshot(
+                        owner_address=addr,
+                        nft_count=nft_count,
+                        collections=collections,
+                        phxpw_balance=phxpw_balance,
+                        total_received=total_received,
+                        total_sent=total_sent,
+                        staking_rewards=0,  # TODO: integrate with staking system
+                        linked_telegram_id=linked_tg_id,
+                        linked_username=linked_username,
+                    )
+                    stats["holders_synced"] += 1
+                except Exception as e:
+                    logger.warning("sync_holders: upsert error %s: %s", addr[:16], e)
+                    stats["errors"] += 1
+
+    except Exception as e:
+        logger.exception("sync_nft_holders failed: %s", e)
+
+    logger.info("sync_nft_holders complete: %d holders, %d errors", stats["holders_synced"], stats["errors"])
     return stats

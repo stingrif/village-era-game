@@ -3,7 +3,7 @@ import random
 import time
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Body, Header, HTTPException, Request
 
 from config import (
     get_eggs_config,
@@ -16,6 +16,20 @@ from config import (
     PHOENIX_QUEST_SUBMIT_RATE_LIMIT_SEC,
     PROJECT_WALLET_ADDRESS,
 )
+from infrastructure.database import get_setting, get_all_holder_snapshots, get_holder_snapshots_count
+
+# Helpers to read quest settings from DB with fallback to hardcoded defaults
+async def _quest_reward_amount():
+    return await get_setting("quest.reward_amount", PHOENIX_QUEST_REWARD_AMOUNT)
+
+async def _quest_min_burn():
+    return await get_setting("quest.min_burn_count", MIN_BURN_COUNT_FOR_PHOENIX_QUEST)
+
+async def _quest_min_age():
+    return await get_setting("quest.min_account_age_days", MIN_ACCOUNT_AGE_DAYS_FOR_PHOENIX_QUEST)
+
+async def _quest_rate_limit():
+    return await get_setting("quest.submit_rate_limit_sec", PHOENIX_QUEST_SUBMIT_RATE_LIMIT_SEC)
 from core.checkin_mine import do_checkin, do_mine_create, do_mine_dig
 from core.craft import craft_merge, craft_reroll, craft_upgrade, craft_furnace_upgrade
 from core.game_engine import (
@@ -188,27 +202,31 @@ async def game_action(
         else:
             now = time.time()
             last = _phoenix_submit_last.get(telegram_id, 0)
-            if now - last < PHOENIX_QUEST_SUBMIT_RATE_LIMIT_SEC:
+            rate_limit = await _quest_rate_limit()
+            if now - last < rate_limit:
                 raise HTTPException(
                     status_code=429,
                     detail="Rate limit: try again later",
                 )
             _phoenix_submit_last[telegram_id] = now
-            burn_ok = critical["burned_count"] >= MIN_BURN_COUNT_FOR_PHOENIX_QUEST
+            min_burn = await _quest_min_burn()
+            min_age = await _quest_min_age()
+            burn_ok = critical["burned_count"] >= min_burn
             age_days = _account_age_days(critical.get("created_at"))
-            age_ok = age_days >= MIN_ACCOUNT_AGE_DAYS_FOR_PHOENIX_QUEST
+            age_ok = age_days >= min_age
             if not (burn_ok and age_ok):
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Requires min {MIN_BURN_COUNT_FOR_PHOENIX_QUEST} burns and {MIN_ACCOUNT_AGE_DAYS_FOR_PHOENIX_QUEST} days account age",
+                    detail=f"Requires min {min_burn} burns and {min_age} days account age",
                 )
             state = apply_phoenix_quest(state)
-            await add_pending_payout(telegram_id, "phoenix_quest", PHOENIX_QUEST_REWARD_AMOUNT)
+            reward_amount = await _quest_reward_amount()
+            await add_pending_payout(telegram_id, "phoenix_quest", reward_amount)
             await notify_admin_phoenix_quest(
                 telegram_id,
                 username=username or None,
                 first_name=first_name or None,
-                reward_amount=PHOENIX_QUEST_REWARD_AMOUNT,
+                reward_amount=reward_amount,
             )
     elif action == "buy_diamonds_points":
         state = apply_buy_diamonds_points(state, params.get("pack_idx", -1))
@@ -242,10 +260,24 @@ async def game_action(
 
 @router.get("/config")
 async def game_config():
-    """Публичный конфиг игры: field, mine, eggs (15_Карта_меню_и_UI, 18_Dev)."""
+    """Публичный конфиг игры: field, mine, eggs — with dynamic overrides from game_settings."""
+    mine = dict(get_mine_config())
+    # Override from DB settings if present
+    grid_size = await get_setting("mine.grid_size")
+    if grid_size is not None:
+        mine["gridSize"] = grid_size
+    dist = await get_setting("mine.prize_cells_distribution")
+    if dist is not None:
+        mine["prizeCellsDistribution"] = dist
+    loot = await get_setting("mine.prize_loot")
+    if loot is not None:
+        mine["prizeCellLoot"] = loot
+    egg_roll = await get_setting("mine.egg_roll")
+    if egg_roll is not None:
+        mine["eggRoll"] = egg_roll
     return {
         "field": get_field_config(),
-        "mine": get_mine_config(),
+        "mine": mine,
         "eggs": get_eggs_config(),
     }
 
@@ -254,10 +286,16 @@ async def game_config():
 async def api_checkin(
     x_telegram_user_id: Optional[str] = Header(None, alias="X-Telegram-User-Id"),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    body: Optional[Dict[str, Any]] = Body(default=None),
 ):
-    """Чекин: раз в 10 ч даёт 3 попытки шахты (03_Шахта_и_яйца, 18_Dev)."""
+    """Чекин: app — 3 попытки (из приложения, с рекламой), chat — 2 попытки (команда Голос/vote/checkin в чате)."""
     telegram_id = _get_telegram_id(x_telegram_user_id, x_user_id)
-    return await do_checkin(telegram_id)
+    source = (body or {}).get("source", "app")
+    if isinstance(source, str):
+        source = source.strip().lower()
+    if source not in ("app", "chat"):
+        source = "app"
+    return await do_checkin(telegram_id, source=source)
 
 
 @router.get("/checkin-state")
@@ -366,12 +404,13 @@ async def api_phoenix_submit(
     letter_item_ids = [int(x) for x in letter_item_ids if isinstance(x, (int, str)) and str(x).isdigit()]
     result = await phoenix_submit_word(user_id, word, letter_item_ids)
     if result.get("badge_granted"):
-        await add_pending_payout(telegram_id, "phoenix_quest", PHOENIX_QUEST_REWARD_AMOUNT)
+        reward_amount = await _quest_reward_amount()
+        await add_pending_payout(telegram_id, "phoenix_quest", reward_amount)
         await notify_admin_phoenix_quest(
             telegram_id,
             username=None,
             first_name=None,
-            reward_amount=PHOENIX_QUEST_REWARD_AMOUNT,
+            reward_amount=reward_amount,
         )
     return result
 
@@ -1266,6 +1305,30 @@ async def api_nft_catalog():
         "collections_count": len(collections),
         "items": items,
     }
+
+
+@router.get("/nft/holders-summary")
+async def api_nft_holders_summary():
+    """Public: NFT holders count. If holders.show_detailed_public is enabled, includes full list."""
+    count = await get_holder_snapshots_count()
+    show_detailed = await get_setting("holders.show_detailed_public", False)
+    result = {"holders_count": count}
+    if show_detailed:
+        holders = await get_all_holder_snapshots()
+        # Public view: exclude TG links for privacy
+        result["holders"] = [
+            {
+                "address": h["owner_address"][:8] + "..." + h["owner_address"][-6:] if len(h["owner_address"]) > 16 else h["owner_address"],
+                "address_full": h["owner_address"],
+                "nft_count": h["nft_count"],
+                "collections": h["collections"],
+                "phxpw_balance": h["phxpw_balance"],
+                "total_received": h["total_received"],
+                "total_sent": h["total_sent"],
+            }
+            for h in holders
+        ]
+    return result
 
 
 @router.post("/nft/sync")
