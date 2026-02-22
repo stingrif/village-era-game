@@ -24,6 +24,7 @@
       <button class="nav-btn" :class="{ active: activeTab === 'world' }"    @click="activeTab = 'world'">🌍 Мир</button>
       <button class="nav-btn" :class="{ active: activeTab === 'chat' }"     @click="activeTab = 'chat'">💬 Общение</button>
       <button class="nav-btn" :class="{ active: activeTab === 'editor' }"   @click="activeTab = 'editor'">🗺️ Редактор</button>
+      <button class="nav-btn" :class="{ active: activeTab === 'items' }"    @click="activeTab = 'items'">🎒 Предметы</button>
       <button class="nav-btn" :class="{ active: activeTab === 'commands' }" @click="activeTab = 'commands'">🤖 Команды</button>
     </nav>
 
@@ -683,6 +684,82 @@
 
       </div>
     </div>
+
+    <!-- ─── ПРЕДМЕТЫ (ЕДИНЫЙ КАТАЛОГ) ─── -->
+    <div v-if="activeTab === 'items'" class="tab-content">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <h2 class="section-title">🎒 Каталог предметов</h2>
+        <span style="font-size:12px;color:var(--text-muted)">
+          Единый источник для Tigrit и Village Era · {{ filteredItems.length }} из {{ itemsCatalog.length }}
+        </span>
+      </div>
+
+      <!-- Фильтры по типу слота -->
+      <div class="filter-row" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-sm" :class="itemsFilter==='' ? 'btn-primary':'btn-ghost'" @click="itemsFilter=''">Все</button>
+        <button class="btn btn-sm" :class="itemsFilter==='relic_slot'    ? 'btn-primary':'btn-ghost'" @click="itemsFilter='relic_slot'">✨ Реликвии</button>
+        <button class="btn btn-sm" :class="itemsFilter==='buff'          ? 'btn-primary':'btn-ghost'" @click="itemsFilter='buff'">🛡️ Бафы</button>
+        <button class="btn btn-sm" :class="itemsFilter==='curse'         ? 'btn-primary':'btn-ghost'" @click="itemsFilter='curse'">🌑 Проклятия</button>
+        <button class="btn btn-sm" :class="itemsFilter==='artifact_relic'? 'btn-primary':'btn-ghost'" @click="itemsFilter='artifact_relic'">🔮 Артефакты</button>
+        <button class="btn btn-sm" :class="itemsFilter==='amulet'        ? 'btn-primary':'btn-ghost'" @click="itemsFilter='amulet'">💎 Амулеты</button>
+        <button class="btn btn-sm" :class="itemsFilter==='egg'           ? 'btn-primary':'btn-ghost'" @click="itemsFilter='egg'">🥚 Яйца</button>
+      </div>
+
+      <!-- Фильтр редкости -->
+      <div class="filter-row" style="margin-bottom:16px;flex-wrap:wrap;gap:6px">
+        <button class="btn btn-sm btn-ghost" :class="itemsRarityFilter==='' ? 'btn-primary':''" @click="itemsRarityFilter=''">Любая</button>
+        <button v-for="rar in ['common','rare','magic','EPIC','PREMIUM','FIRE','YIN','YAN','TSY','MAGIC']"
+                :key="rar"
+                class="btn btn-sm btn-ghost"
+                :class="itemsRarityFilter===rar ? 'btn-primary':''"
+                :style="{ borderColor: rarityColor[rar], color: rarityColor[rar] }"
+                @click="itemsRarityFilter = itemsRarityFilter===rar ? '' : rar">
+          {{ rar }}
+        </button>
+      </div>
+
+      <!-- Спиннер -->
+      <div v-if="itemsLoading" style="text-align:center;padding:40px">
+        <div class="spinner"></div>
+        <p style="margin-top:12px;color:var(--text-muted)">Загрузка каталога…</p>
+      </div>
+
+      <!-- Пустой каталог -->
+      <div v-else-if="itemsCatalog.length === 0" class="empty-state">
+        <p>⚠️ Каталог недоступен — API не ответил</p>
+        <button class="btn btn-primary btn-sm" style="margin-top:8px" @click="fetchItemsCatalog()">Повторить</button>
+      </div>
+
+      <!-- Нет по фильтру -->
+      <div v-else-if="filteredItems.length === 0" class="empty-state">
+        <p>Ничего не найдено по выбранному фильтру</p>
+      </div>
+
+      <!-- Сетка карточек -->
+      <div v-else class="items-grid">
+        <div v-for="item in filteredItems" :key="item.key" class="item-card" :style="{ '--rarity-color': rarityColor[item.rarity] ?? '#aaa' }">
+          <div class="item-card__head">
+            <span class="item-card__icon">{{ itemTypeEmoji[item.slot_type] ?? '📦' }}</span>
+            <div>
+              <div class="item-card__name">{{ item.name }}</div>
+              <div class="item-card__key">{{ item.key }}</div>
+            </div>
+            <span class="item-card__rarity" :style="{ color: rarityColor[item.rarity] ?? '#aaa' }">{{ item.rarity }}</span>
+          </div>
+          <div class="item-card__effect">{{ item.effect }}</div>
+          <!-- Числовые статы -->
+          <div class="item-card__stats">
+            <span v-for="(val, statKey) in item.stat" :key="statKey" class="item-stat-badge"
+                  :style="{ background: val < 0 ? 'rgba(231,76,60,0.2)' : 'rgba(46,204,113,0.2)',
+                             color:      val < 0 ? '#e74c3c' : '#2ecc71' }">
+              {{ formatStat(statKey, val) }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /items -->
 
     <!-- ─── КОМАНДЫ БОТА ─── -->
     <div v-if="activeTab === 'commands'" class="tab-content">

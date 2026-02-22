@@ -203,6 +203,12 @@ const app = createApp({
       zonesLoading: false,
       worldFilter: '',
 
+      /* Каталог предметов (единый источник) */
+      itemsCatalog: [],
+      itemsLoading: false,
+      itemsFilter: '',   // '' | 'relic_slot' | 'buff' | 'curse' | 'artifact_relic' | 'amulet' | 'egg'
+      itemsRarityFilter: '',
+
       /* Чат и XP-прокачка */
       chatMessages: [...MOCK_CHAT],
       chatInput: '',
@@ -329,6 +335,43 @@ const app = createApp({
       return this.zones.filter(z => z.players_online > 0).length;
     },
 
+    /** Предметы с фильтрами по типу слота и редкости */
+    filteredItems() {
+      return this.itemsCatalog.filter(item => {
+        if (this.itemsFilter && item.slot_type !== this.itemsFilter) return false;
+        if (this.itemsRarityFilter && item.rarity !== this.itemsRarityFilter) return false;
+        return true;
+      });
+    },
+
+    /** Иконка-эмодзи по типу предмета */
+    itemTypeEmoji() {
+      return {
+        relic_slot:     '✨',
+        buff:           '🛡️',
+        curse:          '🌑',
+        artifact_relic: '🔮',
+        amulet:         '💎',
+        egg:            '🥚',
+      };
+    },
+
+    /** Цвет редкости */
+    rarityColor() {
+      return {
+        common:  '#aaa',
+        rare:    '#6fa8dc',
+        magic:   '#9b59b6',
+        EPIC:    '#e74c3c',
+        PREMIUM: '#ffd700',
+        FIRE:    '#e84118',
+        YIN:     '#74b9ff',
+        YAN:     '#fd9644',
+        TSY:     '#2ecc71',
+        MAGIC:   '#9b59b6',
+      };
+    },
+
     /** Суммарное количество игроков во всех зонах */
     zonesTotalPlayers() {
       return this.zones.reduce((sum, z) => sum + z.total_players, 0);
@@ -380,6 +423,7 @@ const app = createApp({
     this.fetchActiveEvents();
     this.fetchAssets();
     this.fetchZones();
+    this.fetchItemsCatalog();
     this.checkApiHealth();
 
     setInterval(() => this.checkApiHealth(), 30000);
@@ -457,6 +501,32 @@ const app = createApp({
         }
       } catch { /* fallback: mock-данные уже в data() */ }
       finally { this.zonesLoading = false; }
+    },
+
+    /**
+     * Форматирует числовое значение стата предмета для отображения.
+     * Числа < 1 выводятся как проценты, целые — как есть.
+     */
+    formatStat(key, val) {
+      const prefix = (typeof val === 'number' && val > 0) ? '+' : '';
+      if (typeof val === 'number' && val !== 0 && Math.abs(val) < 1) {
+        return `${key}: ${prefix}${(val * 100).toFixed(0)}%`;
+      }
+      return `${key}: ${prefix}${val}`;
+    },
+
+    /** Загрузить единый каталог предметов с API */
+    async fetchItemsCatalog() {
+      this.itemsLoading = true;
+      try {
+        const { data } = await axios.get(`${API_URL}/items-catalog`);
+        this.itemsCatalog = Array.isArray(data) ? data : (data.items ?? []);
+      } catch {
+        /* fallback — пустой каталог, пользователь увидит placeholder */
+        this.itemsCatalog = [];
+      } finally {
+        this.itemsLoading = false;
+      }
     },
 
     async checkApiHealth() {
@@ -924,9 +994,15 @@ const app = createApp({
     async saveMap() {
       if (!this.editorMapData) { this.notify('Нечего сохранять'); return; }
       try {
-        await axios.post(`${API_URL}/map/save`, this.editorMapData);
+        /* PUT /api/map — стандартный endpoint редактора карты */
+        await axios.put(`${API_URL}/map`, this.editorMapData, {
+          headers: { 'X-API-Key': localStorage.getItem('editor_api_key') || '' }
+        });
         this.notify('✅ Карта сохранена');
-      } catch { this.notify('Ошибка сохранения — проверь подключение'); }
+      } catch (e) {
+        if (e.response?.status === 401) this.notify('❌ Нет прав: укажи Editor API Key в настройках');
+        else this.notify('Ошибка сохранения — проверь подключение');
+      }
     },
 
     exportMap() {

@@ -184,6 +184,15 @@ async def api_map_put(
     return {"ok": True}
 
 
+@app.get("/api/items-catalog")
+@limiter.limit(API_RATE_LIMIT)
+async def api_items_catalog(request: Request):
+    """Единый каталог предметов (реликвии, бафы, проклятия, артефакты, яйца).
+    Используется Tigrit-web и Village Era. Каждый предмет содержит поле stat с числовыми значениями."""
+    data = _load_json("items-catalog.json", {"items": []})
+    return data.get("items", [])
+
+
 @app.get("/api/assets")
 @limiter.limit(API_RATE_LIMIT)
 async def api_assets(request: Request):

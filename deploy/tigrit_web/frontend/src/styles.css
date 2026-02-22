@@ -1763,4 +1763,80 @@ h3 {
   main { padding: 12px; }
   .players-grid { grid-template-columns: 1fr; }
   .commands-grid { grid-template-columns: 1fr; }
+  .items-grid { grid-template-columns: 1fr; }
 }
+
+/* ═══════════ КАТАЛОГ ПРЕДМЕТОВ ═══════════ */
+.filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.item-card {
+  background: linear-gradient(160deg, rgba(28,28,38,0.97), rgba(18,18,28,0.98));
+  border: 1px solid var(--rarity-color, rgba(255,255,255,0.12));
+  border-radius: 14px;
+  overflow: hidden;
+  transition: transform 0.18s, box-shadow 0.18s;
+  box-shadow: 0 3px 14px rgba(0,0,0,0.35);
+}
+.item-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.5), 0 0 10px var(--rarity-color, transparent);
+}
+
+.item-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.item-card__icon { font-size: 32px; line-height: 1; flex-shrink: 0; }
+.item-card__name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.item-card__key  { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px; }
+.item-card__rarity {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.item-card__effect {
+  padding: 10px 14px 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.82);
+  line-height: 1.5;
+}
+
+.item-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 14px 14px;
+}
+.item-stat-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* Спиннер (переиспользуем если уже есть, иначе создаём) */
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
