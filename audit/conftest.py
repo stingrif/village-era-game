@@ -37,13 +37,16 @@ def _game_client():
 
 
 def _tigrit_client():
-    """Клиент к Tigrit API по TIGRIT_API_BASE или skip."""
+    """Клиент к Tigrit API по TIGRIT_API_BASE или skip.
+    Опционально: TIGRIT_HOST — добавляет Host-заголовок (нужен при роутинге через шлюз nginx)."""
     base_url = os.environ.get("TIGRIT_API_BASE", "").strip()
     if not base_url:
         pytest.skip("TIGRIT_API_BASE не задан")
     try:
         import httpx
-        return httpx.Client(base_url=base_url.rstrip("/"), timeout=10.0)
+        host = os.environ.get("TIGRIT_HOST", "").strip()
+        headers = {"Host": host} if host else {}
+        return httpx.Client(base_url=base_url.rstrip("/"), timeout=10.0, headers=headers)
     except ImportError:
         pytest.skip("Для Tigrit нужен httpx")
 

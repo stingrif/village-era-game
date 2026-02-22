@@ -73,14 +73,15 @@ class TestTigritPutMap:
         assert r.status_code in (401, 503)
         assert "detail" in r.json()
 
-    def test_put_map_with_wrong_key_returns_401(self, tigrit_client):
+    def test_put_map_with_wrong_key_returns_401_or_503(self, tigrit_client):
+        """401 — если EDITOR_API_KEY задан, но ключ неверный; 503 — если ключ не настроен вообще."""
         body = {"width": 32, "height": 32, "tiles": [{"x": 0, "y": 0, "type": "grass"}]}
         r = tigrit_client.put(
             "/api/map",
             json=body,
             headers={"X-API-Key": "wrong-key", "Content-Type": "application/json"},
         )
-        assert r.status_code == 401
+        assert r.status_code in (401, 503)
 
     def test_put_map_invalid_body_returns_422(self, tigrit_client, tigrit_editor_headers):
         if not tigrit_editor_headers:
