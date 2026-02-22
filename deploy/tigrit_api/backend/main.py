@@ -122,6 +122,12 @@ async def global_exception_handler(request, exc):
     )
 
 
+@app.get("/api/health")
+async def api_health():
+    """Проверка живучести сервиса — используется фронтом для индикатора «API»."""
+    return {"status": "ok"}
+
+
 @app.get("/api/village")
 @limiter.limit(API_RATE_LIMIT)
 async def api_village(request: Request):

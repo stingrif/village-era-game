@@ -48,6 +48,34 @@ cd /путь/к/Игра/бэкенд
 
 Или через systemd/supervisor для автозапуска.
 
+## Тигрит-клиент (tigrit.stakingphxpw.com)
+
+Статика веб-клиента Тигрит раздаётся по адресу **https://tigrit.stakingphxpw.com** через контейнер `tigrit-web`, прописанный в `docker-compose.149.yml` (в связке с nginx-шлюзом).
+
+После изменений в `deploy/tigrit_web/frontend/` (HTML, JS, CSS) нужно:
+
+```bash
+# из корня проекта (Игра/)
+bash deploy/deploy_docker_on_149.sh
+```
+
+Скрипт выполняет `docker compose -f deploy/docker-compose.149.yml up -d --build` — пересборка образа `tigrit-web` и перезапуск контейнеров уже входят.
+
+Проверка после деплоя:
+
+```bash
+# Фронт Тигрит — ожидается 200
+curl -s -o /dev/null -w "%{http_code}" -H "Host: tigrit.stakingphxpw.com" http://127.0.0.1:8081/
+
+# API village — 200 или 404
+curl -s -o /dev/null -w "%{http_code}" -H "Host: tigrit.stakingphxpw.com" http://127.0.0.1:8081/api/village
+
+# Health — {"status":"ok"}
+curl -s -H "Host: tigrit.stakingphxpw.com" http://127.0.0.1:8081/api/health
+```
+
+---
+
 ## Telegram Web App (кнопка «Игра» в боте)
 
 - **URL в настройках бота (BotFather → Menu Button или web_app-кнопка):** `https://stakingphxpw.com` или `https://stakingphxpw.com/village-era-game-final.html` — тот адрес, по которому открывается игра в браузере.

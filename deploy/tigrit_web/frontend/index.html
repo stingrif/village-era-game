@@ -1,144 +1,934 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Деревня Тигрит</title>
-    <link rel="stylesheet" href="./src/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Деревня Тигрит</title>
+  <link rel="stylesheet" href="./src/styles.css">
 </head>
 <body>
-    <div id="app">
-        <header>
-            <h1>Деревня Тигрит</h1>
-            <nav>
-                <button @click="activeTab = 'village'">Деревня</button>
-                <button @click="activeTab = 'players'">Игроки</button>
-                <button @click="activeTab = 'events'">События</button>
-                <button @click="activeTab = 'editor'">Редактор</button>
-                <button @click="activeTab = 'commands'">Команды бота</button>
-                <a href="https://stakingphxpw.com" target="_blank" rel="noopener" class="nav-link">Village Era</a>
-            </nav>
-        </header>
-        
-        <main>
-            <!-- Вкладка деревни -->
-            <div v-if="activeTab === 'village'" class="tab-content">
-                <div class="village-status">
-                    <h2>Статус деревни</h2>
-                    <p><strong>Уровень:</strong> {{ village.level }}</p>
-                    <p><strong>Активность:</strong> {{ village.activity }}</p>
-                    <p><strong>Ресурсы:</strong> {{ village.resources }}</p>
-                    <p><strong>Население:</strong> {{ village.population }}</p>
-                    <p><strong>Стройка:</strong> {{ village.build_name }} ({{ village.build_progress }}%)</p>
-                </div>
-                
-                <div class="village-map">
-                    <h2>Карта деревни</h2>
-                    <div id="map-container"></div>
-                </div>
-            </div>
-            
-            <!-- Вкладка игроков -->
-            <div v-if="activeTab === 'players'" class="tab-content">
-                <h2>Топ игроков</h2>
-                <div class="players-list">
-                    <div v-for="(player, index) in players" :key="player.user_id" class="player-card">
-                        <div class="player-avatar" :style="{ backgroundColor: getPlayerColor(player) }">
-                            {{ player.username ? player.username[0].toUpperCase() : '?' }}
-                        </div>
-                        <div class="player-info">
-                            <h3>{{ index + 1 }}. @{{ player.username || 'anon' }}</h3>
-                            <p><strong>Раса:</strong> {{ player.race }} | <strong>Класс:</strong> {{ player.clazz }}</p>
-                            <p><strong>XP:</strong> {{ player.xp }} | <strong>Уровень:</strong> {{ player.level }}</p>
-                            <p><strong>Дом:</strong> {{ player.house }} | <strong>Работа:</strong> {{ player.job }} | <strong>Друзья:</strong> {{ player.friends }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Вкладка событий -->
-            <div v-if="activeTab === 'events'" class="tab-content">
-                <section class="active-events-section">
-                    <h2>Активные ивенты</h2>
-                    <div v-if="activeEvents.length === 0" class="events-empty">Нет активных ивентов</div>
-                    <div v-else class="events-list">
-                        <div v-for="ev in activeEvents" :key="ev.id" class="event-card active-event">
-                            <div class="event-title">{{ ev.title }}</div>
-                            <div class="event-meta">До: {{ formatTime(ev.end_ts) }}</div>
-                            <!-- Ссылка только на белый список бота (ev.id — id ивента, не chat_id из БД) -->
-                            <a :href="botEventLink(ev.id)" target="_blank" rel="noopener" class="btn-bot">В бот</a>
-                        </div>
-                    </div>
-                </section>
-                <h2>Команды бота</h2>
-                <ul class="bot-commands-list">
-                    <li v-for="item in botCommands" :key="item.cmd"><code>{{ item.cmd }}</code> — {{ item.desc }}</li>
-                </ul>
-                <h2>Последние события</h2>
-                <div class="events-list">
-                    <div v-for="event in events" :key="event.id" class="event-card">
-                        <div class="event-time">{{ formatTime(event.ts) }}</div>
-                        <div class="event-content">
-                            <span class="event-type">{{ getEventType(event.kind) }}:</span>
-                            {{ event.payload }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Редактор -->
-            <div v-if="activeTab === 'editor'" class="tab-content">
-                <h2>Редактор деревни</h2>
-                <div class="editor-container">
-                    <div class="editor-sidebar">
-                        <h3>Доступные ассеты</h3>
-                        <div class="asset-category">
-                            <h4>Тайлы</h4>
-                            <div class="asset-items">
-                                <div v-for="t in assets.tiles" :key="t.id || t" class="asset-item" :style="t.color ? { borderColor: t.color } : {}" @click="selectAsset('tile', t)">
-                                    {{ typeof t === 'object' ? (t.name || t.id) : t }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="asset-category">
-                            <h4>Здания</h4>
-                            <div class="asset-items">
-                                <div class="asset-item" @click="selectAsset('building', { id: 'center', name: 'Площадь' })">Площадь</div>
-                                <div v-for="b in assets.buildings" :key="b.id || b" class="asset-item" :style="b.color ? { borderColor: b.color } : {}" @click="selectAsset('building', b)">
-                                    {{ typeof b === 'object' ? (b.name || b.id) : b }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="asset-category">
-                            <h4>Персонажи</h4>
-                            <div class="asset-items">
-                                <div v-for="c in assets.characters" :key="c.id || c" class="asset-item" :style="c.color ? { borderColor: c.color } : {}" @click="selectAsset('character', c)">
-                                    {{ typeof c === 'object' ? (c.name || c.id) : c }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div id="editor-canvas"></div>
-                    
-                    <div class="editor-controls">
-                        <button @click="saveMap">Сохранить карту</button>
-                        <button @click="exportMap">Экспорт JSON</button>
-                        <button @click="importMap">Импорт JSON</button>
-                        <input type="file" id="import-map" style="display: none;" @change="handleImport">
-                    </div>
-                </div>
-            </div>
-            <!-- Команды бота (отдельная вкладка) -->
-            <div v-if="activeTab === 'commands'" class="tab-content">
-                <h2>Команды бота</h2>
-                <ul class="bot-commands-list">
-                    <li v-for="item in botCommands" :key="item.cmd"><code>{{ item.cmd }}</code> — {{ item.desc }}</li>
-                </ul>
-            </div>
-        </main>
+<div id="app">
+
+  <!-- ══════════════════════════════════════════
+       ШАПКА
+       ══════════════════════════════════════════ -->
+  <header>
+    <div class="header-logo">
+      <span>🐯 ТИГРИТ</span>
     </div>
 
-    <script type="module" src="./src/main.js"></script>
+    <nav>
+      <button class="nav-btn" :class="{ active: activeTab === 'village' }"  @click="activeTab = 'village'">🏘️ Деревня</button>
+      <button class="nav-btn" :class="{ active: activeTab === 'players' }"  @click="activeTab = 'players'">👥 Игроки</button>
+      <button class="nav-btn" :class="{ active: activeTab === 'events' }"   @click="activeTab = 'events'">⚡ События</button>
+      <button class="nav-btn" :class="{ active: activeTab === 'world' }"    @click="activeTab = 'world'">🌍 Мир</button>
+      <button class="nav-btn" :class="{ active: activeTab === 'chat' }"     @click="activeTab = 'chat'">💬 Общение</button>
+      <button class="nav-btn" :class="{ active: activeTab === 'editor' }"   @click="activeTab = 'editor'">🗺️ Редактор</button>
+      <button class="nav-btn" :class="{ active: activeTab === 'commands' }" @click="activeTab = 'commands'">🤖 Команды</button>
+    </nav>
+
+    <div class="header-actions">
+      <div class="api-status">
+        <div class="status-dot" :style="{ background: apiOnline ? '#5a8a3c' : '#8a3c3c', boxShadow: apiOnline ? '0 0 6px #5a8a3c' : '0 0 6px #8a3c3c' }"></div>
+        <span>{{ apiOnline ? 'API' : 'Офлайн' }}</span>
+      </div>
+      <button class="btn-instructions" @click="openInstructions">📖 Инструкция</button>
+      <a href="https://stakingphxpw.com" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Village Era ↗</a>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════
+       ОСНОВНОЙ КОНТЕНТ
+       ══════════════════════════════════════════ -->
+  <main>
+
+    <!-- ─── ДЕРЕВНЯ ─── -->
+    <div v-if="activeTab === 'village'" class="tab-content">
+      <div class="village-layout">
+
+        <!-- Левая панель: карточки статистики -->
+        <div class="village-stats-panel">
+
+          <!-- Уровень деревни -->
+          <div class="card">
+            <div class="card-title">🏰 Деревня</div>
+            <div class="card-value">Ур. {{ village.level }}</div>
+            <div class="card-sub">{{ village.name || 'Тигрит' }}</div>
+            <div class="progress-wrap" style="margin-top:10px">
+              <div class="progress-label">
+                <span>Прогресс до Ур.{{ village.level + 1 }}</span>
+                <span>{{ village.xp || 0 }} / {{ (village.level || 1) * 1000 }}</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: villageXpPercent + '%' }"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Строительство -->
+          <div class="card build-card" v-if="village.build_name">
+            <div class="card-title">🔨 Стройка</div>
+            <div style="font-weight:600;font-size:14px;color:var(--text-primary);margin-bottom:8px">
+              {{ village.build_name }}
+            </div>
+            <div class="progress-wrap">
+              <div class="progress-label">
+                <span>Прогресс</span>
+                <span>{{ village.build_progress || 0 }}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: (village.build_progress || 0) + '%' }"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ресурсы -->
+          <div class="card">
+            <div class="card-title">📦 Ресурсы</div>
+            <div class="resources-row">
+              <div class="resource-item" v-for="res in resourceList" :key="res.key">
+                <div class="resource-name"><span>{{ res.icon }}</span>{{ res.label }}</div>
+                <div class="resource-val" :class="res.cls">{{ res.value }}</div>
+              </div>
+              <div class="resource-item" v-if="!resourceList.length" style="color:var(--text-muted)">Нет данных</div>
+            </div>
+          </div>
+
+          <!-- Население -->
+          <div class="card">
+            <div class="card-title">👥 Население</div>
+            <div class="card-value">{{ village.population }} <span style="font-size:16px;color:var(--text-muted)">/ {{ village.population_max || '—' }}</span></div>
+            <div class="progress-wrap" v-if="village.population_max" style="margin-top:8px">
+              <div class="progress-bar">
+                <div class="progress-fill" :class="populationCls" :style="{ width: populationPercent + '%' }"></div>
+              </div>
+            </div>
+            <div class="card-sub" style="margin-top:4px">Активность: {{ village.activity }}</div>
+          </div>
+
+        </div>
+
+        <!-- Карта (PIXI) -->
+        <div class="village-map-panel">
+          <div id="map-container"></div>
+          <div v-if="mapLoading" class="empty-state">
+            <div class="skeleton" style="width:80px;height:80px;border-radius:8px"></div>
+            <div class="empty-state-text">Загрузка карты…</div>
+          </div>
+        </div>
+
+        <!-- Лог событий -->
+        <div class="village-log-panel card">
+          <div class="card-title" style="margin-bottom:10px">📜 Последние события</div>
+          <div class="event-log-strip" v-if="events.length">
+            <div class="log-item" v-for="ev in events.slice(0, 10)" :key="ev.id">
+              <div class="log-item-time">{{ formatRelative(ev.ts) }}</div>
+              <div class="log-item-text">
+                <span style="color:var(--accent-gold)">{{ getEventType(ev.kind) }}</span>:
+                {{ truncate(ev.payload || ev.title || '', 60) }}
+              </div>
+            </div>
+          </div>
+          <div class="empty-state" v-else>
+            <div class="empty-state-icon">📭</div>
+            <div class="empty-state-text">Нет событий</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─── ИГРОКИ ─── -->
+    <div v-if="activeTab === 'players'" class="tab-content">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <h2>👥 Игроки деревни</h2>
+        <div class="players-filters">
+          <select class="filter-select" v-model="playerSort">
+            <option value="xp">По XP</option>
+            <option value="level">По уровню</option>
+            <option value="online">Онлайн сначала</option>
+          </select>
+          <select class="filter-select" v-model="playerFilterRace">
+            <option value="">Все расы</option>
+            <option value="Human">Люди</option>
+            <option value="Elf">Эльфы</option>
+            <option value="Dwarf">Дворфы</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Скелетоны при загрузке -->
+      <div class="players-grid" v-if="playersLoading">
+        <div class="card skeleton" style="height:140px" v-for="i in 6" :key="i"></div>
+      </div>
+
+      <div class="players-grid" v-else>
+        <div
+          class="player-card"
+          v-for="(player, idx) in filteredPlayers"
+          :key="player.user_id || player.id"
+          @click="openPlayerProfile(player)"
+        >
+          <div class="player-card-header">
+            <div class="player-rank" :class="rankClass(idx)">
+              #{{ idx + 1 }}
+            </div>
+            <div class="player-avatar" :style="{ background: playerColor(player) }">
+              {{ (player.username || '?')[0].toUpperCase() }}
+            </div>
+            <div style="flex:1;min-width:0">
+              <div class="player-name">@{{ player.username || 'anon' }}</div>
+              <div class="player-sub">{{ player.race || '—' }} · {{ player.clazz || '—' }}</div>
+            </div>
+            <span class="badge" :class="player.is_online ? 'badge-online' : 'badge-offline'">
+              {{ player.is_online ? '● Онлайн' : '○ Офлайн' }}
+            </span>
+          </div>
+
+          <!-- XP-бар -->
+          <div class="progress-wrap">
+            <div class="progress-label">
+              <span>Ур. {{ player.level || 1 }}</span>
+              <span>{{ player.xp || 0 }} XP</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill teal" :style="{ width: playerXpPercent(player) + '%' }"></div>
+            </div>
+          </div>
+
+          <div class="player-stats-row">
+            <div class="player-stat" v-if="player.job">🔧 <strong>{{ player.job }}</strong></div>
+            <div class="player-stat" v-if="player.friends_count != null">👥 <strong>{{ player.friends_count }}</strong></div>
+            <div class="player-stat" v-if="player.house">🏠 <strong>{{ player.house.name || `(${player.house.x},${player.house.y})` }}</strong></div>
+            <div class="player-stat" v-if="player.token_balance != null">
+              <span style="color:var(--token-color)">💎 {{ player.token_balance }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-state" v-if="!filteredPlayers.length">
+          <div class="empty-state-icon">👤</div>
+          <div class="empty-state-text">Нет игроков</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── СОБЫТИЯ ─── -->
+    <div v-if="activeTab === 'events'" class="tab-content">
+
+      <!-- Сводка -->
+      <div class="events-summary-bar">
+        <div class="summary-item">⚡ <strong>{{ activeEvents.length }}</strong> активных</div>
+        <div class="summary-item">👥 <strong>{{ onlinePlayers }}</strong> онлайн</div>
+        <div class="summary-item">📋 <strong>{{ events.length }}</strong> в журнале</div>
+      </div>
+
+      <!-- Активные ивенты -->
+      <h2>Активные ивенты</h2>
+      <div class="active-events-row" v-if="activeEvents.length">
+        <div
+          class="event-card-active"
+          :class="ev.type || ev.kind"
+          v-for="ev in activeEvents"
+          :key="ev.id"
+        >
+          <div class="event-header" style="display:flex;align-items:center;justify-content:space-between">
+            <span class="badge" :class="eventBadgeClass(ev.type || ev.kind)">
+              {{ getEventTypeLabel(ev.type || ev.kind) }}
+            </span>
+          </div>
+          <div class="event-title">{{ ev.name || ev.title }}</div>
+          <div class="event-desc">{{ ev.description || '' }}</div>
+          <div class="event-countdown" v-if="ev.end_ts">
+            ⏱ {{ formatCountdown(ev.end_ts) }}
+          </div>
+          <div class="event-reward" v-if="ev.reward">
+            💎 Награда: {{ ev.reward }}
+          </div>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <a
+              :href="'https://t.me/PHXPW?start=evt_' + ev.id"
+              target="_blank" rel="noopener"
+              class="btn btn-telegram btn-sm"
+            >В бот →</a>
+            <span v-if="ev.entry_cost" class="btn btn-token btn-sm">
+              💎 {{ ev.entry_cost }} токенов
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="empty-state" v-else>
+        <div class="empty-state-icon">🎯</div>
+        <div class="empty-state-text">Нет активных ивентов</div>
+      </div>
+
+      <!-- Журнал -->
+      <h2 style="margin-top:24px">📜 Журнал деревни</h2>
+
+      <div class="journal-filters">
+        <button class="btn btn-sm" :class="journalFilter === '' ? 'btn-primary' : 'btn-ghost'" @click="journalFilter = ''">Все</button>
+        <button class="btn btn-sm" :class="journalFilter === 'event' ? 'btn-primary' : 'btn-ghost'" @click="journalFilter = 'event'">Системные</button>
+        <button class="btn btn-sm" :class="journalFilter === 'dialogue' ? 'btn-primary' : 'btn-ghost'" @click="journalFilter = 'dialogue'">Диалоги</button>
+        <button class="btn btn-sm" :class="journalFilter === 'external' ? 'btn-primary' : 'btn-ghost'" @click="journalFilter = 'external'">Внешние</button>
+      </div>
+
+      <div class="journal-list">
+        <div class="journal-item" v-for="ev in filteredJournal" :key="ev.id">
+          <div class="journal-time">{{ formatRelative(ev.ts) }}</div>
+          <div class="journal-icon">{{ eventIcon(ev.kind) }}</div>
+          <div class="journal-text">
+            <strong v-if="ev.title">{{ ev.title }} — </strong>{{ ev.payload || '' }}
+          </div>
+        </div>
+        <div class="empty-state" v-if="!filteredJournal.length">
+          <div class="empty-state-icon">📭</div>
+          <div class="empty-state-text">Нет записей</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ─── МИР (ЗОНЫ) ─── -->
+    <div v-if="activeTab === 'world'" class="tab-content">
+
+      <!-- Сводка мира -->
+      <div class="world-summary">
+        <div class="summary-item">🌍 <strong>{{ zones.length }}</strong> зон подключено</div>
+        <div class="summary-item">🟢 <strong>{{ zonesOnline }}</strong> активны</div>
+        <div class="summary-item">👥 <strong>{{ zonesTotalPlayers }}</strong> игроков в мире</div>
+        <div class="summary-item" style="margin-left:auto">
+          <span style="font-size:11px;color:var(--text-muted)">Зона с максимальным XP:</span>
+          <strong style="color:var(--accent-gold);margin-left:6px">{{ bestXpZone?.name || '—' }}</strong>
+          <span v-if="bestXpZone" class="zone-xp-badge" style="margin-left:6px">×{{ bestXpZone.xp_multiplier }}</span>
+        </div>
+      </div>
+
+      <div class="world-layout">
+
+        <!-- Левая колонка: список зон -->
+        <div class="zones-list-panel">
+          <div class="zones-filter-row">
+            <button class="btn btn-sm" :class="worldFilter === '' ? 'btn-primary' : 'btn-ghost'" @click="worldFilter = ''">Все</button>
+            <button class="btn btn-sm" :class="worldFilter === 'starter' ? 'btn-primary' : 'btn-ghost'" @click="worldFilter = 'starter'">⭐ Стартовые</button>
+            <button class="btn btn-sm" :class="worldFilter === 'community' ? 'btn-primary' : 'btn-ghost'" @click="worldFilter = 'community'">👥 Сообщества</button>
+          </div>
+
+          <!-- Скелетоны загрузки -->
+          <template v-if="zonesLoading">
+            <div class="card skeleton" style="height:110px" v-for="i in 4" :key="i"></div>
+          </template>
+
+          <div
+            class="zone-card"
+            :class="[zone.type, { selected: activeZoneId === zone.id }]"
+            v-for="zone in filteredZones"
+            :key="zone.id"
+            @click="selectZone(zone.id)"
+          >
+            <div class="zone-card-header">
+              <div class="zone-name">{{ zone.name }}</div>
+              <span class="zone-type-badge" :class="zone.type">
+                {{ zone.type === 'starter' ? '⭐ Стартовая' : '👥 Сообщество' }}
+              </span>
+            </div>
+
+            <div class="zone-desc">{{ zone.description }}</div>
+
+            <div class="zone-stats-row">
+              <div class="zone-stat">
+                🟢 <strong>{{ zone.players_online }}</strong> онлайн
+              </div>
+              <div class="zone-stat">
+                👥 <strong>{{ zone.total_players }}</strong> всего
+              </div>
+              <div class="zone-xp-mult" :class="xpMultClass(zone.xp_multiplier)">
+                XP ×{{ zone.xp_multiplier }}
+              </div>
+            </div>
+
+            <div style="display:flex;gap:6px;margin-top:2px">
+              <button
+                class="btn btn-sm"
+                :class="activeZoneId === zone.id ? 'btn-primary' : 'btn-secondary'"
+                @click.stop="selectZone(zone.id); activeTab = 'chat'"
+              >
+                {{ activeZoneId === zone.id ? '✓ Выбрана' : '💬 Войти в чат' }}
+              </button>
+              <a
+                :href="joinZoneLink(zone)"
+                target="_blank" rel="noopener"
+                class="btn btn-telegram btn-sm"
+                @click.stop
+              >↗ В бот</a>
+            </div>
+          </div>
+
+          <div class="empty-state" v-if="!zonesLoading && !filteredZones.length">
+            <div class="empty-state-icon">🌍</div>
+            <div class="empty-state-text">Нет зон по фильтру</div>
+          </div>
+        </div>
+
+        <!-- Правая колонка: карта зон -->
+        <div class="zone-map-panel">
+          <div class="zone-map-title">🗺️ Карта мира Тигрит</div>
+          <div class="zone-map" ref="zoneMapEl">
+            <!-- SVG линии-связи -->
+            <svg>
+              <line
+                v-for="link in zoneLinks"
+                :key="link.id"
+                :x1="link.x1 + '%'" :y1="link.y1 + '%'"
+                :x2="link.x2 + '%'" :y2="link.y2 + '%'"
+                class="zone-link"
+                :class="{ active: link.active }"
+              />
+            </svg>
+            <!-- Узлы зон -->
+            <div
+              class="zone-node"
+              :class="[zone.type, { 'active-zone': activeZoneId === zone.id }]"
+              v-for="zone in zonesWithCoords"
+              :key="zone.id"
+              :style="{ left: zone.mapX + '%', top: zone.mapY + '%' }"
+              @click="selectZone(zone.id)"
+              :title="zone.name"
+            >
+              <div class="zone-node-circle">
+                {{ zone.type === 'starter' ? '⭐' : '👥' }}
+              </div>
+              <div class="zone-node-label">{{ zone.name }}</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);text-align:center;padding-top:4px">
+            Кликни на зону чтобы войти в чат • Пунктир = связь между зонами
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─── ОБЩЕНИЕ + XP-ПРОКАЧКА ─── -->
+    <div v-if="activeTab === 'chat'" class="tab-content">
+      <div class="chat-layout">
+
+        <!-- Чат-панель -->
+        <div class="chat-panel">
+
+          <!-- Селектор зоны -->
+          <div class="zone-selector-bar">
+            <div class="zone-selector">
+              <span class="zone-selector-label">Зона:</span>
+              <select class="zone-select-dropdown" v-model="activeZoneId" @change="onZoneChange">
+                <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.name }}</option>
+                <option v-if="!zones.length" value="">Загрузка зон…</option>
+              </select>
+              <span class="zone-xp-badge" v-if="activeZone">XP ×{{ activeZone.xp_multiplier }}</span>
+            </div>
+            <div class="zone-info-row" v-if="activeZone">
+              <div class="zone-info-item">🟢 <strong>{{ activeZone.players_online }}</strong> онлайн</div>
+              <div class="zone-info-item">
+                <span class="zone-type-badge" :class="activeZone.type" style="font-size:9px">
+                  {{ activeZone.type === 'starter' ? '⭐ Стартовая' : '👥 Сообщество' }}
+                </span>
+              </div>
+              <div class="zone-info-item" style="margin-left:auto">
+                {{ activeZone.description }}
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-header">
+            <div class="chat-header-title">
+              💬 {{ activeZone ? activeZone.name : 'Чат деревни' }}
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" :class="chatFilter === '' ? 'btn-primary' : ''" @click="chatFilter = ''">Все</button>
+              <button class="btn btn-ghost btn-sm" :class="chatFilter === 'quest' ? 'btn-primary' : ''" @click="chatFilter = 'quest'">Игровые</button>
+              <button class="btn btn-ghost btn-sm" :class="chatFilter === 'question' ? 'btn-primary' : ''" @click="chatFilter = 'question'">Вопросы</button>
+            </div>
+          </div>
+
+          <div class="chat-messages" ref="chatMessages">
+            <div
+              class="chat-msg"
+              :class="{ mine: msg.mine }"
+              v-for="msg in filteredChatMessages"
+              :key="msg.id"
+            >
+              <div class="chat-avatar" :style="{ background: playerColor({ username: msg.author }) }">
+                {{ (msg.author || '?')[0].toUpperCase() }}
+              </div>
+              <div class="chat-bubble">
+                <div class="chat-bubble-header">
+                  <span class="chat-bubble-name">{{ msg.author }}</span>
+                  <span class="chat-bubble-time">{{ formatTime(msg.ts) }}</span>
+                  <span class="chat-bubble-xp" v-if="msg.xp">+{{ msg.xp }} XP</span>
+                </div>
+                <div class="chat-bubble-text">{{ msg.text }}</div>
+              </div>
+            </div>
+            <div class="empty-state" v-if="!filteredChatMessages.length">
+              <div class="empty-state-icon">💬</div>
+              <div class="empty-state-text">Начни общение — зарабатывай XP</div>
+            </div>
+          </div>
+
+          <div class="chat-input-area">
+            <textarea
+              class="chat-textarea"
+              v-model="chatInput"
+              :placeholder="`Написать в «${activeZone?.name || 'деревне'}»… (${calcXpLabel(chatInput || 'x')} за сообщение)`"
+              @keydown.enter.exact.prevent="sendChatMessage"
+              rows="1"
+            ></textarea>
+            <button class="btn btn-primary btn-sm" @click="sendChatMessage" :disabled="!chatInput.trim()">
+              Отправить {{ calcXpLabel(chatInput) }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Правая панель: персонаж -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+
+          <!-- Карточка персонажа -->
+          <div class="char-panel">
+            <div class="char-panel-title">🐯 Мой персонаж</div>
+
+            <div class="char-level">
+              <div class="char-level-num">{{ chatLevel }}</div>
+              <div class="char-level-label">уровень</div>
+            </div>
+
+            <div class="char-class">{{ charClassName }}</div>
+
+            <div class="progress-wrap">
+              <div class="progress-label">
+                <span>{{ chatXp }} / {{ xpForNextLevel }} XP</span>
+                <span style="color:var(--accent-gold)">{{ xpProgressPercent }}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: xpProgressPercent + '%' }"></div>
+              </div>
+            </div>
+
+            <div class="char-stats-row">
+              <div class="char-stat">
+                <div class="char-stat-label">Сообщений</div>
+                <div class="char-stat-value">{{ totalMessages }}</div>
+              </div>
+              <div class="char-stat">
+                <div class="char-stat-label">Всего XP</div>
+                <div class="char-stat-value">{{ chatXpTotal }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Текущая зона -->
+          <div class="card" v-if="activeZone" style="background:linear-gradient(135deg,rgba(200,146,42,0.06),rgba(200,146,42,0.02));border-color:var(--border-gold)">
+            <div class="card-title" style="margin-bottom:8px">📍 Текущая зона</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">{{ activeZone.name }}</div>
+            <span class="zone-type-badge" :class="activeZone.type">
+              {{ activeZone.type === 'starter' ? '⭐ Стартовая' : '👥 Сообщество' }}
+            </span>
+            <div style="margin-top:10px;display:flex;gap:10px;font-size:12px">
+              <div style="color:var(--text-secondary)">🟢 {{ activeZone.players_online }} онлайн</div>
+              <div style="color:var(--accent-gold-bright);font-weight:700">XP ×{{ activeZone.xp_multiplier }}</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%" @click="activeTab = 'world'">🌍 Сменить зону</button>
+          </div>
+
+          <!-- Правила XP -->
+          <div class="card">
+            <div class="card-title" style="margin-bottom:10px">✨ XP за общение</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px" v-if="activeZone && activeZone.xp_multiplier > 1">
+              Множитель зоны ×{{ activeZone.xp_multiplier }} применён
+            </div>
+            <div class="xp-rules">
+              <div class="xp-rule">
+                <div class="xp-rule-label">Сообщение</div>
+                <div class="xp-rule-value">+{{ Math.round(2 * (activeZone?.xp_multiplier || 1)) }} XP</div>
+              </div>
+              <div class="xp-rule">
+                <div class="xp-rule-label">Вопрос (?)</div>
+                <div class="xp-rule-value">+{{ Math.round(3 * (activeZone?.xp_multiplier || 1)) }} XP</div>
+              </div>
+              <div class="xp-rule">
+                <div class="xp-rule-label">Ответ (@user)</div>
+                <div class="xp-rule-value">+{{ Math.round(4 * (activeZone?.xp_multiplier || 1)) }} XP</div>
+              </div>
+              <div class="xp-rule">
+                <div class="xp-rule-label">Рейд/Ярмарка</div>
+                <div class="xp-rule-value">+{{ Math.round(5 * (activeZone?.xp_multiplier || 1)) }} XP</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Топ по общению -->
+          <div class="card">
+            <div class="card-title" style="margin-bottom:10px">🏆 Топ болтунов</div>
+            <div v-for="(p, i) in chatTopPlayers" :key="p.author" style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-subtle)">
+              <span class="player-rank" :class="rankClass(i)">#{{ i + 1 }}</span>
+              <span style="flex:1;font-size:13px">{{ p.author }}</span>
+              <span style="font-size:12px;color:var(--accent-gold-bright);font-weight:700">{{ p.totalXp }} XP</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── РЕДАКТОР ─── -->
+    <div v-if="activeTab === 'editor'" class="tab-content">
+      <div class="editor-layout">
+
+        <!-- Панель ассетов -->
+        <div class="editor-sidebar">
+          <div>
+            <div class="asset-section-title" @click="assetSections.tiles = !assetSections.tiles">
+              🌿 Земля <span>{{ assetSections.tiles ? '▲' : '▼' }}</span>
+            </div>
+            <div class="asset-items" v-show="assetSections.tiles">
+              <div
+                class="asset-item"
+                :class="{ selected: selectedAsset.type === 'tile' && selectedAsset.id === (t.id || t) }"
+                v-for="t in assets.tiles"
+                :key="t.id || t"
+                @click="selectAsset('tile', t)"
+                :title="typeof t === 'object' ? (t.name || t.id) : t"
+              >
+                <span>{{ typeof t === 'object' ? (t.name || t.id) : t }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="asset-section-title" @click="assetSections.buildings = !assetSections.buildings">
+              🏠 Здания <span>{{ assetSections.buildings ? '▲' : '▼' }}</span>
+            </div>
+            <div class="asset-items" v-show="assetSections.buildings" style="grid-template-columns:repeat(2,1fr)">
+              <div
+                class="asset-item"
+                :class="{ selected: selectedAsset.type === 'building' && selectedAsset.id === (b.id || b) }"
+                v-for="b in assets.buildings"
+                :key="b.id || b"
+                @click="selectAsset('building', b)"
+                :title="typeof b === 'object' ? (b.name || b.id) : b"
+              >
+                <span style="font-size:9px;text-align:center">{{ typeof b === 'object' ? (b.name || b.id) : b }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="asset-section-title" @click="assetSections.characters = !assetSections.characters">
+              👤 Персонажи <span>{{ assetSections.characters ? '▲' : '▼' }}</span>
+            </div>
+            <div class="asset-items" v-show="assetSections.characters">
+              <div
+                class="asset-item"
+                :class="{ selected: selectedAsset.type === 'character' && selectedAsset.id === (c.id || c) }"
+                v-for="c in assets.characters"
+                :key="c.id || c"
+                @click="selectAsset('character', c)"
+              >
+                <span>{{ typeof c === 'object' ? (c.name || c.id) : c }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Канвас PIXI -->
+        <div class="editor-canvas-wrap">
+          <div id="editor-canvas"></div>
+        </div>
+
+        <!-- Панель свойств -->
+        <div class="editor-props-panel">
+          <h3>Свойства тайла</h3>
+          <div v-if="selectedTileProps">
+            <div class="props-row"><span class="props-label">Тип</span><span class="props-value">{{ selectedTileProps.type }}</span></div>
+            <div class="props-row"><span class="props-label">Имя</span><span class="props-value">{{ selectedTileProps.name || '—' }}</span></div>
+            <div class="props-row"><span class="props-label">Координаты</span><span class="props-value">({{ selectedTileProps.x }}, {{ selectedTileProps.y }})</span></div>
+          </div>
+          <div class="empty-state" v-else>
+            <div class="empty-state-icon">🖱️</div>
+            <div class="empty-state-text">Кликни на тайл</div>
+          </div>
+
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:6px">
+            <button class="btn btn-primary" @click="saveMap">💾 Сохранить карту</button>
+            <button class="btn btn-ghost btn-sm" @click="exportMap">↓ Экспорт JSON</button>
+            <button class="btn btn-ghost btn-sm" @click="importMap">↑ Импорт JSON</button>
+            <input type="file" id="import-map" style="display:none" @change="handleImport">
+          </div>
+        </div>
+
+        <!-- Тулбар -->
+        <div class="editor-toolbar">
+          <button class="btn btn-ghost btn-sm" title="Отменить (Ctrl+Z)">↩ Undo</button>
+          <button class="btn btn-ghost btn-sm" title="Повторить (Ctrl+Y)">↪ Redo</button>
+          <div class="toolbar-sep"></div>
+          <button class="btn btn-ghost btn-sm" :class="editorTool === 'brush' ? 'btn-primary' : ''" @click="editorTool = 'brush'">🖌 Кисть</button>
+          <button class="btn btn-ghost btn-sm" :class="editorTool === 'select' ? 'btn-primary' : ''" @click="editorTool = 'select'">🖱 Выбор</button>
+          <button class="btn btn-ghost btn-sm" :class="editorTool === 'fill' ? 'btn-primary' : ''" @click="editorTool = 'fill'">🪣 Заливка</button>
+          <div class="toolbar-sep"></div>
+          <button class="btn btn-ghost btn-sm" @click="editorZoom(1.2)">+ Zoom</button>
+          <button class="btn btn-ghost btn-sm" @click="editorZoom(0.8)">- Zoom</button>
+          <div class="toolbar-coords">
+            Курсор: ({{ cursorCoords.x }}, {{ cursorCoords.y }}) |
+            Выбран: <span style="color:var(--accent-gold)">{{ selectedAsset.name || 'нет' }}</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─── КОМАНДЫ БОТА ─── -->
+    <div v-if="activeTab === 'commands'" class="tab-content">
+      <div class="commands-header">
+        <h2>🤖 Команды бота</h2>
+        <a href="https://t.me/PHXPW" target="_blank" rel="noopener" class="btn btn-telegram">
+          ✈ Открыть бота
+        </a>
+      </div>
+
+      <div class="commands-grid">
+        <div class="command-card" v-for="cmd in botCommands" :key="cmd.cmd">
+          <div class="command-header">
+            <span class="badge" :class="cmdBadgeClass(cmd.type)">{{ cmd.type || 'game' }}</span>
+            <span class="badge badge-paid" v-if="cmd.token_cost">💎 {{ cmd.token_cost }}</span>
+          </div>
+          <div class="command-name">{{ cmd.cmd }}</div>
+          <div class="command-desc">{{ cmd.desc }}</div>
+          <div class="command-actions">
+            <button class="btn btn-ghost btn-sm" @click="copyCommand(cmd.cmd)">📋 Копировать</button>
+            <a :href="'https://t.me/PHXPW?start=' + cmd.code" target="_blank" rel="noopener" class="btn btn-telegram btn-sm">↗ Открыть</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ══════════════════════════════════════════
+       МОДАЛЬ: ИНСТРУКЦИЯ
+       ══════════════════════════════════════════ -->
+  <div class="modal-overlay" :class="{ open: showInstructions }" @click.self="showInstructions = false">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">📖 Инструкция Тигрит</div>
+        <button class="modal-close" @click="showInstructions = false">×</button>
+      </div>
+
+      <div class="modal-tabs">
+        <button class="modal-tab" :class="{ active: instrTab === 'tigrit' }"   @click="instrTab = 'tigrit'">🐯 Тигрит</button>
+        <button class="modal-tab" :class="{ active: instrTab === 'zones' }"    @click="instrTab = 'zones'">🌍 Зоны мира</button>
+        <button class="modal-tab" :class="{ active: instrTab === 'levelup' }"  @click="instrTab = 'levelup'">⬆ Прокачка</button>
+        <button class="modal-tab" :class="{ active: instrTab === 'village' }"  @click="instrTab = 'village'">🏘️ Деревня</button>
+        <button class="modal-tab" :class="{ active: instrTab === 'events' }"   @click="instrTab = 'events'">⚡ Ивенты</button>
+        <button class="modal-tab" :class="{ active: instrTab === 'commands' }" @click="instrTab = 'commands'">🤖 Команды</button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Тигрит -->
+        <div v-if="instrTab === 'tigrit'">
+          <div class="instruction-section">
+            <h4>🐯 Что такое Тигрит?</h4>
+            <p>Тигрит — общий мир MMORPG-игры в экосистеме Phoenix. Это деревня, в которой живут все игроки. Здесь строятся здания, проходят события, торгуются ресурсы, заводятся друзья.</p>
+            <p>Тигрит — не одиночная игра. Это социальное пространство: чем активнее ты участвуешь в жизни деревни, тем сильнее твой персонаж.</p>
+          </div>
+          <div class="instruction-section">
+            <h4>🌍 Как устроен мир</h4>
+            <ul>
+              <li>Деревня растёт вместе с активностью игроков — у неё есть уровень и XP</li>
+              <li>У каждого игрока есть <strong>Дом</strong> на карте — координата (X, Y)</li>
+              <li>Игроки выбирают расу (Люди, Эльфы, Дворфы) и класс (Воин, Маг, Ремесленник)</li>
+              <li>Профессия определяет бонусы к ресурсам и зданиям</li>
+              <li>Telegram-бот (@PHXPW) — основной интерфейс управления</li>
+            </ul>
+          </div>
+          <div class="instruction-section">
+            <h4>🪙 Токены (PHOEX)</h4>
+            <p>Внутриигровая валюта — PHOEX (PHXPW). Зарабатывается в событиях, тратится на ускорение стройки, премиум-объекты и команды бота.</p>
+          </div>
+          <div class="instruction-section">
+            <h4>🔗 Полезные ссылки</h4>
+            <ul>
+              <li>Основная игра: <a href="https://stakingphxpw.com" target="_blank" rel="noopener">stakingphxpw.com</a></li>
+              <li>Telegram-бот: <a href="https://t.me/PHXPW" target="_blank" rel="noopener">@PHXPW</a></li>
+              <li>Веб-клиент Тигрит: <a href="https://tigrit.stakingphxpw.com" target="_blank" rel="noopener">tigrit.stakingphxpw.com</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Зоны мира -->
+        <div v-if="instrTab === 'zones'">
+          <div class="instruction-section">
+            <h4>🌍 Открытый мир Тигрит</h4>
+            <p>Мир Тигрит — это большое пространство, разделённое на <strong>зоны</strong>. Каждая зона = Telegram-чат, который подключил бота <code>@PHXPW</code> к себе. Чем больше чатов подключили бота — тем больше мир.</p>
+          </div>
+          <div class="instruction-section">
+            <h4>📌 Типы зон</h4>
+            <ul>
+              <li><strong>⭐ Стартовые</strong> — официальные чаты проекта Phoenix. Всегда существуют, не исчезают. Это «материк» мира Тигрит.</li>
+              <li><strong>👥 Сообщества</strong> — чаты игроков, которые сами подключили бота. Появляются как новые зоны на карте мира.</li>
+            </ul>
+          </div>
+          <div class="instruction-section">
+            <h4>⚡ Множитель XP по зонам</h4>
+            <p>Каждая зона имеет множитель XP — бонус к опыту за общение именно в этой зоне:</p>
+            <table class="xp-table">
+              <thead><tr><th>Зона</th><th>Тип</th><th>Множитель XP</th></tr></thead>
+              <tbody>
+                <tr><td>Деревня Тигрит</td><td>Стартовая</td><td>×1.0</td></tr>
+                <tr><td>Торговые ряды</td><td>Стартовая</td><td>×1.2</td></tr>
+                <tr><td>Военный лагерь</td><td>Стартовая</td><td>×1.5</td></tr>
+                <tr><td>Зоны сообществ</td><td>Сообщество</td><td>×1.0</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="instruction-section">
+            <h4>🗺️ Карта мира</h4>
+            <p>На вкладке <strong>«🌍 Мир»</strong> видна карта всех подключённых зон. Стартовые зоны — в центре, зоны сообществ — вокруг. Кликни на зону → перейдёшь в её чат.</p>
+            <p style="font-size:12px;color:var(--text-muted)">Список зон подгружается с API (<code>GET /api/zones</code>); пока эндпоинт не реализован — отображаются демо-зоны для ознакомления с интерфейсом.</p>
+          </div>
+          <div class="instruction-section">
+            <h4>➕ Как добавить свою зону</h4>
+            <ul>
+              <li>Добавь бота <code>@PHXPW</code> в свой Telegram-чат как администратора</li>
+              <li>Напиши <code>/start</code> в чате</li>
+              <li>Чат автоматически станет новой зоной в мире Тигрит</li>
+              <li>Игроки из других зон смогут увидеть твою зону на карте</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Прокачка -->
+        <div v-if="instrTab === 'levelup'">
+          <div class="instruction-section">
+            <h4>⬆ Прокачка через общение</h4>
+            <p>Главный способ прокачать персонажа в Тигрит — активно общаться в чате деревни. Каждое сообщение приносит XP, которые повышают уровень персонажа.</p>
+            <p>Итоговый XP = <strong>базовое значение × множитель зоны</strong>. В стандартных зонах множитель ×1.0, в специальных (Торговые ряды, Военный лагерь) — до ×1.5.</p>
+          </div>
+          <div class="instruction-section">
+            <h4>📊 Таблица XP за общение</h4>
+            <table class="xp-table">
+              <thead>
+                <tr>
+                  <th>Действие</th>
+                  <th>Описание</th>
+                  <th>XP (база)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Сообщение</td><td>Любой текст в чате</td><td>+2 XP</td></tr>
+                <tr><td>Вопрос</td><td>Сообщение содержит «?»</td><td>+3 XP</td></tr>
+                <tr><td>Ответ игроку</td><td>Начинается с @username</td><td>+4 XP</td></tr>
+                <tr><td>Игровая тема</td><td>Упоминает рейд, ярмарку, стройку, осаду</td><td>+5 XP</td></tr>
+              </tbody>
+            </table>
+            <p style="margin-top:8px;font-size:12px;color:var(--text-muted)">* В зонах с множителем &gt;1 все значения умножаются. Актуальный множитель виден в чате рядом с выбранной зоной (XP ×N).</p>
+          </div>
+          <div class="instruction-section">
+            <h4>🎯 Уровни персонажа</h4>
+            <ul>
+              <li>Ур. 1–5 — Новобранец (1 000 XP на уровень)</li>
+              <li>Ур. 6–10 — Следопыт (2 000 XP на уровень)</li>
+              <li>Ур. 11–20 — Ветеран (5 000 XP на уровень)</li>
+              <li>Ур. 21+ — Легенда деревни (10 000 XP на уровень)</li>
+            </ul>
+            <p style="margin-top:8px">При повышении уровня открываются новые здания, бонусы к доходу и особые привилегии в событиях.</p>
+          </div>
+          <div class="instruction-section">
+            <h4>💾 Прогресс сохраняется</h4>
+            <p>XP и уровень сохраняются в localStorage браузера и не сбрасываются при перезагрузке страницы.</p>
+          </div>
+        </div>
+
+        <!-- Деревня -->
+        <div v-if="instrTab === 'village'">
+          <div class="instruction-section">
+            <h4>🏘️ Карта деревни</h4>
+            <p>Интерактивная изометрическая карта показывает все дома игроков и общественные здания. Наведи на дом — увидишь владельца и уровень.</p>
+          </div>
+          <div class="instruction-section">
+            <h4>📦 Ресурсы</h4>
+            <ul>
+              <li>🪵 Дерево — строительный материал</li>
+              <li>🪨 Камень — для апгрейдов</li>
+              <li>🪙 Монеты — основная валюта</li>
+              <li>🌾 Еда — содержание армии и населения</li>
+              <li>🔮 Влияние — политический ресурс</li>
+            </ul>
+          </div>
+          <div class="instruction-section">
+            <h4>🔨 Строительство</h4>
+            <p>Здания строятся через бота командой <code>/build</code>. Прогресс виден на вкладке «Деревня». Ускорить стройку можно за PHOEX-токены.</p>
+          </div>
+        </div>
+
+        <!-- Ивенты -->
+        <div v-if="instrTab === 'events'">
+          <div class="instruction-section">
+            <h4>⚡ Типы событий</h4>
+            <ul>
+              <li>⚔ <strong>Рейд</strong> — атака на внешние земли, командное событие</li>
+              <li>🏪 <strong>Ярмарка</strong> — торговые бонусы +25%, выгодные обмены</li>
+              <li>🏰 <strong>Осада</strong> — защита или атака крепости</li>
+              <li>📜 <strong>Квест</strong> — цепочка заданий с нарративом</li>
+              <li>🔨 <strong>Стройка</strong> — общественное здание всей деревни</li>
+              <li>💬 <strong>Диалог</strong> — история и лор мира Тигрит</li>
+            </ul>
+          </div>
+          <div class="instruction-section">
+            <h4>🎁 Награды</h4>
+            <p>За участие в ивентах выдаются: PHOEX-токены, редкие реликвии, титулы, бонусы к зданиям и XP для деревни.</p>
+          </div>
+          <div class="instruction-section">
+            <h4>⏱ Таймеры</h4>
+            <p>Каждый активный ивент имеет дедлайн. Следи за таймером на вкладке «События» — опоздавшие не получают награду.</p>
+          </div>
+        </div>
+
+        <!-- Команды -->
+        <div v-if="instrTab === 'commands'">
+          <div class="instruction-section">
+            <h4>🤖 Команды Telegram-бота @PHXPW</h4>
+            <ul>
+              <li><code>/start</code> — главное меню</li>
+              <li><code>/village</code> — статус деревни, ресурсы, стройка</li>
+              <li><code>/me</code> — твой профиль, уровень, XP, дом</li>
+              <li><code>/top</code> — топ игроков по XP</li>
+              <li><code>/balance</code> — баланс PHOEX</li>
+              <li><code>/map</code> — карта деревни</li>
+              <li><code>/friends</code> — список друзей</li>
+              <li><code>/build</code> — начать строительство</li>
+              <li><code>/boost</code> — ускорить стройку (50 PHOEX)</li>
+              <li><code>/events</code> — текущие ивенты</li>
+            </ul>
+          </div>
+          <div class="instruction-section">
+            <h4>💎 Платные команды</h4>
+            <p>Команды с пометкой 💎 требуют PHOEX-токены. Токены можно получить в ивентах или купить через StonFi.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- XP-тост -->
+  <div class="xp-toast" :class="{ show: xpToastVisible }">✨ {{ xpToastText }}</div>
+
+  <!-- Уведомления -->
+  <div class="notif-area">
+    <div class="notif-item" v-for="n in notifications" :key="n.id">{{ n.text }}</div>
+  </div>
+
+</div>
+
+<script type="module" src="./src/main.js"></script>
 </body>
 </html>

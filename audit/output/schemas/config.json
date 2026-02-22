@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Game Config",
+  "type": "object",
+  "required": ["field", "mine"],
+  "properties": {
+    "field": { "type": "object" },
+    "mine": { "type": "object" },
+    "eggs": { "type": "object" },
+    "economy": { "type": "object" }
+  },
+  "additionalProperties": true
+}

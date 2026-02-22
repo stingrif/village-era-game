@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Game State",
+  "type": "object",
+  "properties": {
+    "d": { "type": "object" },
+    "era": { "type": ["number", "string"] },
+    "vLevel": { "type": "number" }
+  },
+  "additionalProperties": true
+}
