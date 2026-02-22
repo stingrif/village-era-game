@@ -72,6 +72,9 @@ curl -s -o /dev/null -w "%{http_code}" -H "Host: tigrit.stakingphxpw.com" http:/
 
 # Health — {"status":"ok"}
 curl -s -H "Host: tigrit.stakingphxpw.com" http://127.0.0.1:8081/api/health
+
+# Единый каталог предметов — массив из 122+ объектов
+curl -s -H "Host: tigrit.stakingphxpw.com" http://127.0.0.1:8081/api/items-catalog | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d), 'предметов')"
 ```
 
 ---
