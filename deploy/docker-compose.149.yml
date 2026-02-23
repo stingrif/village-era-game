@@ -161,11 +161,6 @@ services:
     container_name: stakingphxpw-tigrit-api
     env_file:
       - ../бэкенд/.env
-    environment:
-      - DATABASE_URL=${DATABASE_URL:-}
-      # Явная передача ключей Тигрит — перезапишет env_file только если задано в shell
-      - EDITOR_API_KEY=${EDITOR_API_KEY:-}
-      - TIGRIT_ADMIN_API_KEY=${TIGRIT_ADMIN_API_KEY:-}
     depends_on:
       app:
         condition: service_started
