@@ -2,18 +2,19 @@
 Веб-API Тигрит: данные из PostgreSQL через tigrit_shared (village, users, events).
 Карта и ассеты — из JSON в backend/data/.
 """
+import datetime
 import json
 import logging
 import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -31,10 +32,12 @@ limiter = Limiter(key_func=get_remote_address)
 API_RATE_LIMIT = "120/minute"
 API_RATE_LIMIT_STRICT = "10/minute"  # для PUT /api/map
 
-# Импорт tigrit_shared из той же папки tigrit_api (deploy)
-_root = Path(__file__).resolve().parents[1]
-if str(_root) not in sys.path:
-    sys.path.insert(0, str(_root))
+# Импорт tigrit_shared и backend-модулей: добавляем оба пути в sys.path
+_root    = Path(__file__).resolve().parents[1]   # /app
+_backend = Path(__file__).resolve().parent        # /app/backend
+for _p in (_root, _backend):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 from tigrit_shared import db as shared_db
 from tigrit_shared.read import (
@@ -43,6 +46,7 @@ from tigrit_shared.read import (
     get_recent_events,
     get_active_events,
 )
+from admin_routes import router as admin_router
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -90,8 +94,54 @@ async def verify_editor_key(x_api_key: Optional[str] = Header(None, alias="X-API
         raise HTTPException(status_code=401, detail="Неверный или отсутствующий X-API-Key")
 
 
+# Статические зоны — fallback если tigrit_interactions пустой или недоступен
+STATIC_ZONES: List[Dict[str, Any]] = [
+    {"id":"zone_1","name":"Деревня Тигрит","type":"starter","players_online":0,"total_players":0,
+     "xp_multiplier":1.0,"description":"Главная стартовая зона проекта Phoenix","active":True,
+     "bot_code":"zone_1","mapX":50,"mapY":35},
+    {"id":"zone_2","name":"Торговые ряды","type":"starter","players_online":0,"total_players":0,
+     "xp_multiplier":1.2,"description":"Зона торговли. Бонус к XP","active":True,
+     "bot_code":"zone_2","mapX":30,"mapY":25},
+    {"id":"zone_3","name":"Военный лагерь","type":"starter","players_online":0,"total_players":0,
+     "xp_multiplier":1.5,"description":"Зона боя и рейдов. XP ×1.5","active":True,
+     "bot_code":"zone_3","mapX":70,"mapY":22},
+    {"id":"zone_4","name":"Гильдия Северного Ветра","type":"community","players_online":0,"total_players":0,
+     "xp_multiplier":1.0,"description":"Сообщество игроков","active":True,
+     "bot_code":"zone_4","mapX":20,"mapY":55},
+    {"id":"zone_5","name":"Клан Железного Кулака","type":"community","players_online":0,"total_players":0,
+     "xp_multiplier":1.0,"description":"Новая зона","active":True,
+     "bot_code":"zone_5","mapX":75,"mapY":60},
+    {"id":"zone_6","name":"Академия Магии","type":"community","players_online":0,"total_players":0,
+     "xp_multiplier":1.2,"description":"Чат магов и алхимиков","active":True,
+     "bot_code":"zone_6","mapX":45,"mapY":70},
+]
+
+
+class ChatMessagePayload(BaseModel):
+    text:    str = Field(..., min_length=1, max_length=2000)
+    xp:      int = Field(0, ge=0, le=100)
+    zone_id: str = Field("zone_1", max_length=64)
+
+    @field_validator("zone_id")
+    @classmethod
+    def zone_id_safe(cls, v: str) -> str:
+        """Только буквы/цифры/подчёркивание — защита от инъекций."""
+        import re
+        if not re.match(r'^[\w\-]+$', v):
+            raise ValueError("zone_id содержит недопустимые символы")
+        return v
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Запускает миграции при старте, закрывает пул при остановке."""
+    try:
+        from run_migrations import run_migrations
+        await run_migrations()
+    except ImportError:
+        logger.warning("run_migrations.py не найден — миграции пропущены")
+    except Exception as e:
+        logger.error("Ошибка миграций при старте: %s", e)
     yield
     await shared_db.close_pool()
 
@@ -108,6 +158,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Подключаем Admin API
+app.include_router(admin_router)
 
 
 @app.exception_handler(Exception)
@@ -211,6 +264,51 @@ async def api_assets(request: Request):
         "buildings": buildings_data.get("buildings", []),
         "characters": characters,
     }
+
+
+@app.get("/api/zones")
+@limiter.limit(API_RATE_LIMIT)
+async def api_zones(request: Request):
+    """Список игровых зон. Попытка читать из tigrit_interactions, fallback к статике."""
+    import copy
+    zones = copy.deepcopy(STATIC_ZONES)
+    try:
+        rows = await shared_db.query_all(
+            "SELECT actor_id, COUNT(*) as msgs FROM tigrit_interactions "
+            "WHERE kind = 'msg' GROUP BY actor_id ORDER BY msgs DESC LIMIT 6"
+        )
+        if rows:
+            for i, row in enumerate(rows):
+                if i < len(zones):
+                    zones[i]["players_online"] = int(row["msgs"])
+    except Exception as e:
+        logger.warning("api_zones: БД недоступна, возвращаем статику: %s", e)
+    return zones
+
+
+@app.post("/api/chat/message", status_code=201)
+@limiter.limit("30/minute")
+async def api_chat_message(request: Request, body: ChatMessagePayload):
+    """Записать сообщение чата в tigrit_interactions. Graceful fallback при ошибке БД."""
+    import asyncpg
+    payload_json = json.dumps(
+        {"text": body.text, "xp": body.xp, "zone_id": body.zone_id},
+        ensure_ascii=False,
+    )
+    try:
+        inserted_id = await shared_db.fetchval(
+            "INSERT INTO tigrit_interactions (ts, kind, actor_id, payload) "
+            "VALUES (now(), 'msg', 0, $1) RETURNING id",
+            payload_json,
+        )
+        return {"ok": True, "saved": True, "id": inserted_id}
+    except asyncpg.UndefinedTableError:
+        logger.warning("api_chat_message: таблица tigrit_interactions не существует")
+        return {"ok": True, "saved": False, "reason": "table_missing",
+                "hint": "Выполните миграцию 002_tigrit_interactions_ensure.sql"}
+    except Exception as e:
+        logger.warning("api_chat_message: ошибка БД: %s", e)
+        return {"ok": True, "saved": False, "reason": "db_error"}
 
 
 if __name__ == "__main__":

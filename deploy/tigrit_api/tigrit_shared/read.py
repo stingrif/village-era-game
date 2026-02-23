@@ -8,13 +8,29 @@ from . import db
 
 
 async def get_village_row() -> Optional[Dict[str, Any]]:
-    """Строка tigrit_village (id=1). Для API — dict с полями level, activity, resources, population, build_name, build_progress."""
-    row = await db.query_one(
-        "SELECT level, activity, resources, population, build_name, build_progress FROM tigrit_village WHERE id = 1"
-    )
+    """Строка tigrit_village (id=1). Включает name с COALESCE; fallback если колонки нет."""
+    try:
+        row = await db.query_one(
+            """SELECT COALESCE(name, 'Тигрит') AS name,
+                      level, COALESCE(xp, 0) AS xp,
+                      activity, resources, population,
+                      COALESCE(population_max, 50) AS population_max,
+                      build_name, COALESCE(build_progress, 0) AS build_progress
+               FROM tigrit_village WHERE id = 1"""
+        )
+    except Exception:
+        # Fallback на SELECT без новых колонок если миграция ещё не выполнена
+        row = await db.query_one(
+            "SELECT level, activity, resources, population, build_name, build_progress "
+            "FROM tigrit_village WHERE id = 1"
+        )
     if not row:
         return None
-    return dict(row)
+    result = dict(row)
+    result.setdefault("name", "Тигрит")
+    result.setdefault("xp", 0)
+    result.setdefault("population_max", 50)
+    return result
 
 
 async def get_top_users(limit: int = 10) -> List[Dict[str, Any]]:

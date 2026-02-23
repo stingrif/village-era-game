@@ -235,6 +235,54 @@ const app = createApp({
       /* Уведомления */
       notifications: [],
       notifCounter: 0,
+
+      /* ──────── Режим вида ────────
+         viewModeTest: true  — кнопка видна всем (тест-режим).
+         После подключения подписки: установить viewModeTest = false
+         и вместо него читать this.hasSubscription из профиля. */
+      viewMode: 'top',        // 'top' | 'third'
+      viewModeTest: true,
+      hasSubscription: false,
+
+      /* ──────── Персонаж (3-е лицо) ──────── */
+      playerChar: { tileX: 15, tileY: 15, moving: false, dir: 'S', anim: 'idle' },
+      playerHP: 100, playerMaxHP: 100,
+      playerMana: 50, playerMaxMana: 50,
+      skills: [
+        { id:'attack', name:'Атака',   key:'Q', cd:0, maxCd:2,  icon:'⚔️' },
+        { id:'heal',   name:'Лечение', key:'E', cd:0, maxCd:8,  icon:'💚' },
+        { id:'dash',   name:'Рывок',   key:'R', cd:0, maxCd:5,  icon:'💨' },
+      ],
+      combatLog: [],
+      pixiWorldContainer: null,
+      pixiCharSprite: null,
+
+      /* ──────── Редактор карты ──────── */
+      editorApiKey: '',
+      editorSaving: false,
+
+      /* ──────── Статус API деревни ──────── */
+      villageApiError: false,
+
+      /* ──────── Админ-панель Тигрит ──────── */
+      adminApiKey: '',
+      adminMsg: '',
+      adminMsgOk: true,
+      adminLoading: false,
+      adminStatus: null,          // результат GET /api/admin/status
+      _adminVillageLoaded: false,  // guard — загружены ли реальные данные
+      _adminLoadingInProgress: false, // debounce двойной загрузки
+      adminVillage: {
+        name: 'Тигрит', level: 1, xp: 0, activity: 0,
+        population: 0, population_max: 50,
+        build_name: '', build_progress: 0,
+        resources: { wood:0, stone:0, gold:0, food:0, influence:0 },
+      },
+      adminUser: { userId: null, xp: 0, level: 1, race: '', clazz: '' },
+      adminUserSearch: '',
+      adminUserResults: [],
+      adminUserInfo: null,   // текущие данные выбранного игрока
+      _userSearchTimer: null,
     };
   },
 
@@ -426,19 +474,52 @@ const app = createApp({
     this.fetchItemsCatalog();
     this.checkApiHealth();
 
+    /* Загружаем ключи из localStorage */
+    this.editorApiKey = localStorage.getItem('editor_api_key') || '';
+    this.adminApiKey  = localStorage.getItem('tigrit_admin_key') || '';
+
+    /* WASD / горячие клавиши для режима 3-го лица */
+    this._onKeyDown = (e) => this.handleGameKey(e);
+    window.addEventListener('keydown', this._onKeyDown);
+
     setInterval(() => this.checkApiHealth(), 30000);
     setInterval(() => { this.fetchVillageData(); this.fetchEvents(); this.fetchActiveEvents(); }, 10000);
 
-    /* При переключении вкладок — инициализировать PIXI */
+    /* При первой загрузке инициализируем карту если активна вкладка village */
+    this.$nextTick(() => {
+      if (this.activeTab === 'village') this.initVillageScene('map-container');
+    });
+
+    /* Мана восстанавливается в 3-м лице */
+    setInterval(() => {
+      if (this.viewMode === 'third') {
+        this.playerMana = Math.min(this.playerMaxMana, this.playerMana + 5);
+      }
+    }, 3000);
+
+    /* При переключении вкладок — инициализировать PIXI, автозагрузка в Админ */
     this.$watch('activeTab', (newTab) => {
-      if (newTab === 'village' && !this.pixiApp) {
-        this.$nextTick(() => this.initializeMap('map-container'));
+      if (newTab === 'village') {
+        this.$nextTick(() => this.initVillageScene('map-container'));
       }
       if (newTab === 'editor') {
         this.$nextTick(() => this.initializeEditor('editor-canvas'));
       }
       if (newTab === 'chat') {
         this.$nextTick(() => this.scrollChatToBottom());
+      }
+      if (newTab === 'admin') {
+        this.$nextTick(() => this.adminOpenTab());
+      }
+      if (newTab === 'players') {
+        this.$nextTick(() => this.fetchPlayers());
+      }
+    });
+
+    /* Следим за сменой режима вида — перерисовываем сцену */
+    this.$watch('viewMode', () => {
+      if (this.activeTab === 'village') {
+        this.$nextTick(() => this.initVillageScene('map-container'));
       }
     });
   },
@@ -450,8 +531,22 @@ const app = createApp({
     async fetchVillageData() {
       try {
         const r = await axios.get(`${API_URL}/village`);
-        if (r.data) this.village = { ...MOCK_VILLAGE, ...r.data };
-      } catch { /* fallback к mock уже в data() */ }
+        if (r.data) {
+          this.village = { ...MOCK_VILLAGE, ...r.data };
+          this.villageApiError = false;
+          /* Кэш — восстановим при следующем старте если API недоступен */
+          try { localStorage.setItem('tigrit_last_village', JSON.stringify(this.village)); } catch {}
+        }
+      } catch (e) {
+        this.villageApiError = true;
+        /* Восстанавливаем из кэша если первый раз */
+        if (JSON.stringify(this.village) === JSON.stringify(MOCK_VILLAGE)) {
+          try {
+            const cached = localStorage.getItem('tigrit_last_village');
+            if (cached) this.village = JSON.parse(cached);
+          } catch {}
+        }
+      }
     },
 
     async fetchPlayers() {
@@ -801,6 +896,7 @@ const app = createApp({
           chatXpTotal:  this.chatXpTotal,
           chatLevel:    this.chatLevel,
           totalMessages:this.totalMessages,
+          viewMode:     this.viewMode,
         }));
       } catch {}
     },
@@ -814,6 +910,7 @@ const app = createApp({
         this.chatXpTotal   = data.chatXpTotal   || 0;
         this.chatLevel     = data.chatLevel     || 1;
         this.totalMessages = data.totalMessages || 0;
+        if (data.viewMode) this.viewMode = data.viewMode;
       } catch {}
     },
 
@@ -864,19 +961,52 @@ const app = createApp({
       return 0x3d3320;
     },
 
+    /**
+     * Инициализирует или переключает сцену деревни (вид сверху / 3-е лицо).
+     * @param {string} containerId
+     */
+    initVillageScene(containerId) {
+      if (this.viewMode === 'third') {
+        this.initThirdPersonScene(containerId);
+      } else {
+        this.initializeMap(containerId);
+      }
+    },
+
+    /** Показывает кнопку смены вида. В тест-режиме — всем. */
+    canToggleViewMode() {
+      return this.viewModeTest || this.hasSubscription;
+    },
+
+    /** Переключает режим вида (вид сверху ↔ 3-е лицо). */
+    toggleViewMode() {
+      this.viewMode = this.viewMode === 'top' ? 'third' : 'top';
+    },
+
     initializeMap(containerId) {
       const container = document.getElementById(containerId);
-      if (!container || this.pixiApp) return;
+      if (!container) return;
       this.mapLoading = true;
 
-      this.pixiApp = new PIXI.Application({
-        width:           container.offsetWidth  || 640,
-        height:          container.offsetHeight || 480,
-        backgroundColor: 0x1a1610,
-        antialias:       true,
-        resizeTo:        container,
-      });
-      container.appendChild(this.pixiApp.view);
+      /* Уничтожаем 3D-режим если был */
+      if (this.pixiApp && this.pixiApp._thirdPerson) {
+        this.pixiApp.destroy(true);
+        this.pixiApp = null;
+        this.pixiWorldContainer = null;
+        this.pixiCharSprite = null;
+      }
+
+      if (!this.pixiApp) {
+        this.pixiApp = new PIXI.Application({
+          width:           container.offsetWidth  || 640,
+          height:          container.offsetHeight || 480,
+          backgroundColor: 0x1a1610,
+          antialias:       true,
+          resizeTo:        container,
+        });
+        this.pixiApp._thirdPerson = false;
+        container.appendChild(this.pixiApp.view);
+      }
 
       axios.get(`${API_URL}/map`).then(r => {
         this.mapData = r.data;
@@ -888,6 +1018,9 @@ const app = createApp({
 
     renderMap() {
       if (!this.pixiApp || !this.mapData) return;
+      /* Чистим старые слои перед перерисовкой */
+      this.pixiApp.stage.removeChildren();
+
       const cont  = new PIXI.Container();
       const tileW = 64, tileH = 32;
 
@@ -895,7 +1028,7 @@ const app = createApp({
         const color = this.getColorForTileType(tile.type);
         const g = new PIXI.Graphics();
         g.beginFill(color, 0.85);
-        /* изометрический ромб */
+        g.lineStyle(1, 0x000000, 0.2);
         g.drawPolygon([
           tileW/2, 0,
           tileW,   tileH/2,
@@ -905,6 +1038,12 @@ const app = createApp({
         g.endFill();
         g.x = (tile.x - tile.y) * tileW/2;
         g.y = (tile.x + tile.y) * tileH/2;
+        /* Tooltip при наведении */
+        if (tile.name) {
+          g.eventMode = 'static';
+          g.cursor = 'help';
+          g.on('pointerover', () => this.notify(`📍 ${tile.name}`));
+        }
         cont.addChild(g);
       });
 
@@ -916,14 +1055,226 @@ const app = createApp({
     /** Рисует заглушку карты когда API недоступен. */
     renderFallbackMap() {
       if (!this.pixiApp) return;
+      this.pixiApp.stage.removeChildren();
       const g = new PIXI.Graphics();
       g.beginFill(0x2e2618);
       g.drawRect(0, 0, this.pixiApp.screen.width, this.pixiApp.screen.height);
       g.endFill();
-      const text = new PIXI.Text('Карта недоступна', { fontSize:16, fill:0x9a8a6a });
+      const text = new PIXI.Text('Карта недоступна — проверь подключение к API', { fontSize:14, fill:0x9a8a6a, align:'center' });
       text.x = this.pixiApp.screen.width  / 2 - text.width  / 2;
       text.y = this.pixiApp.screen.height / 2 - text.height / 2;
       this.pixiApp.stage.addChild(g, text);
+    },
+
+    /* ══════════════════════════════════════
+       РЕЖИМ ОТ 3-ГО ЛИЦА
+       ══════════════════════════════════════ */
+
+    /**
+     * Инициализирует PIXI-сцену в режиме 3-го лица.
+     * Камера следует за персонажем; клик по тайлу / WASD — движение.
+     * @param {string} containerId
+     */
+    initThirdPersonScene(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      /* Пересоздаём приложение если переключились с top-down */
+      if (this.pixiApp && !this.pixiApp._thirdPerson) {
+        this.pixiApp.destroy(true);
+        this.pixiApp = null;
+      }
+
+      if (!this.pixiApp) {
+        this.pixiApp = new PIXI.Application({
+          width:           container.offsetWidth  || 640,
+          height:          container.offsetHeight || 480,
+          backgroundColor: 0x0d1117,
+          antialias:       true,
+          resizeTo:        container,
+        });
+        this.pixiApp._thirdPerson = true;
+        container.appendChild(this.pixiApp.view);
+      }
+
+      /* Загружаем карту и рисуем 3D-сцену */
+      const draw = (tiles) => {
+        this.pixiApp.stage.removeChildren();
+        this.pixiWorldContainer = new PIXI.Container();
+        this.pixiApp.stage.addChild(this.pixiWorldContainer);
+        this._thirdPersonTiles = tiles;
+        this.renderThirdPersonScene();
+      };
+
+      if (this.mapData) {
+        draw(this.mapData.tiles || []);
+      } else {
+        this.mapLoading = true;
+        axios.get(`${API_URL}/map`).then(r => {
+          this.mapData = r.data;
+          draw(r.data.tiles || []);
+        }).catch(() => draw([])).finally(() => { this.mapLoading = false; });
+      }
+    },
+
+    /**
+     * Рисует мир и персонажа в режиме 3-го лица.
+     * Контейнер мира сдвигается так, чтобы персонаж был в центре экрана.
+     */
+    renderThirdPersonScene() {
+      if (!this.pixiApp || !this.pixiWorldContainer) return;
+      this.pixiWorldContainer.removeChildren();
+
+      const tileW = 80, tileH = 40;
+      const tiles = this._thirdPersonTiles || [];
+      const { tileX: cx, tileY: cy } = this.playerChar;
+
+      /* Рисуем тайлы вокруг персонажа (в радиусе 12 тайлов) */
+      tiles.forEach(tile => {
+        const color = this.getColorForTileType(tile.type);
+        const g = new PIXI.Graphics();
+        const dist = Math.abs(tile.x - cx) + Math.abs(tile.y - cy);
+        g.beginFill(color, dist < 6 ? 0.95 : 0.6);
+        g.lineStyle(1, 0x000000, 0.15);
+        g.drawPolygon([ tileW/2,0, tileW,tileH/2, tileW/2,tileH, 0,tileH/2 ]);
+        g.endFill();
+        g.x = (tile.x - tile.y) * tileW/2;
+        g.y = (tile.x + tile.y) * tileH/2;
+        /* Клик по тайлу = переместить персонажа */
+        g.eventMode = 'static';
+        g.cursor = 'pointer';
+        g.on('pointerdown', () => this.moveCharToTile(tile.x, tile.y));
+        if (tile.name) {
+          const lbl = new PIXI.Text(tile.name, { fontSize:9, fill:0xdddddd });
+          lbl.x = g.x + tileW/2 - lbl.width/2;
+          lbl.y = g.y + tileH/2 - lbl.height/2;
+          this.pixiWorldContainer.addChild(lbl);
+        }
+        this.pixiWorldContainer.addChild(g);
+      });
+
+      /* Спрайт персонажа */
+      const charX = (cx - cy) * tileW/2;
+      const charY = (cx + cy) * tileH/2;
+      const charG = new PIXI.Graphics();
+      charG.beginFill(0xf59e0b);
+      charG.lineStyle(2, 0xffd700, 1);
+      charG.drawPolygon([ tileW/2,0, tileW,tileH/2, tileW/2,tileH, 0,tileH/2 ]);
+      charG.endFill();
+      charG.x = charX;
+      charG.y = charY;
+      this.pixiCharSprite = charG;
+
+      /* Индикатор HP над персонажем */
+      const hpBar = new PIXI.Graphics();
+      const hpW = 40, hpH = 5;
+      hpBar.beginFill(0x333333);
+      hpBar.drawRect(0, 0, hpW, hpH);
+      hpBar.endFill();
+      hpBar.beginFill(0x22c55e);
+      hpBar.drawRect(0, 0, Math.round(hpW * this.playerHP / this.playerMaxHP), hpH);
+      hpBar.endFill();
+      hpBar.x = charX + tileW/2 - hpW/2;
+      hpBar.y = charY - 10;
+
+      /* Метка направления над персонажем */
+      const dirLabel = new PIXI.Text(this.playerChar.dir || 'S', { fontSize: 10, fill: 0xffd700, fontWeight: 'bold' });
+      dirLabel.x = charX + tileW / 2 - dirLabel.width / 2;
+      dirLabel.y = charY - 22;
+
+      this.pixiWorldContainer.addChild(charG, hpBar, dirLabel);
+
+      /* Смещаем контейнер мира так, чтобы персонаж был в центре */
+      const sc = this.pixiApp.screen;
+      this.pixiWorldContainer.x = sc.width  / 2 - charX - tileW/2;
+      this.pixiWorldContainer.y = sc.height / 2 - charY - tileH/2;
+    },
+
+    /**
+     * Перемещает персонажа на тайл (tx, ty) и перерисовывает сцену.
+     * @param {number} tx
+     * @param {number} ty
+     */
+    moveCharToTile(tx, ty) {
+      this.playerChar.tileX = tx;
+      this.playerChar.tileY = ty;
+      this.playerChar.moving = true;
+      this.renderThirdPersonScene();
+      setTimeout(() => { this.playerChar.moving = false; }, 300);
+    },
+
+    /**
+     * Обрабатывает клавиши WASD / горячие клавиши скиллов в 3-м лице.
+     * @param {KeyboardEvent} e
+     */
+    handleGameKey(e) {
+      if (this.viewMode !== 'third' || this.activeTab !== 'village') return;
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+      const { tileX, tileY } = this.playerChar;
+      /* Направление + новые координаты */
+      const moves = {
+        'w':          [tileX - 1, tileY,     'N'],
+        'ArrowUp':    [tileX - 1, tileY,     'N'],
+        's':          [tileX + 1, tileY,     'S'],
+        'ArrowDown':  [tileX + 1, tileY,     'S'],
+        'a':          [tileX,     tileY - 1, 'W'],
+        'ArrowLeft':  [tileX,     tileY - 1, 'W'],
+        'd':          [tileX,     tileY + 1, 'E'],
+        'ArrowRight': [tileX,     tileY + 1, 'E'],
+      };
+      if (moves[e.key]) {
+        const [nx, ny, dir] = moves[e.key];
+        this.playerChar.dir = dir;
+        if (nx >= 0 && ny >= 0 && nx < 32 && ny < 32) this.moveCharToTile(nx, ny);
+        return;
+      }
+      /* Горячие клавиши скиллов */
+      const skill = this.skills.find(s => s.key === e.key.toUpperCase());
+      if (skill) this.activateSkill(skill.id);
+    },
+
+    /**
+     * Активирует скилл с проверкой кулдауна.
+     * @param {string} skillId
+     */
+    activateSkill(skillId) {
+      const skill = this.skills.find(s => s.id === skillId);
+      if (!skill || skill.cd > 0) return;
+
+      /* Стоимость маны */
+      const manaCost = { attack: 10, heal: 15, dash: 8 };
+      const cost = manaCost[skillId] ?? 10;
+      if (this.playerMana < cost) {
+        this.notify(`❌ Нет маны (нужно ${cost}, есть ${this.playerMana})`);
+        return;
+      }
+      this.playerMana = Math.max(0, this.playerMana - cost);
+      skill.cd = skill.maxCd;
+
+      if (skillId === 'attack') {
+        const dmg = 10 + Math.floor(Math.random() * 10);
+        this.addCombatLog(`${skill.icon} Атака: −${dmg} HP врагу`);
+      } else if (skillId === 'heal') {
+        const heal = Math.min(30, this.playerMaxHP - this.playerHP);
+        this.playerHP += heal;
+        this.addCombatLog(`${skill.icon} Лечение: +${heal} HP`);
+        if (this.viewMode === 'third') this.renderThirdPersonScene();
+      } else if (skillId === 'dash') {
+        this.addCombatLog(`${skill.icon} Рывок!`);
+      }
+      this.notify(`${skill.icon} ${skill.name}`);
+
+      /* Кулдаун — уменьшаем каждую секунду */
+      const tick = setInterval(() => {
+        skill.cd = Math.max(0, skill.cd - 1);
+        if (skill.cd === 0) clearInterval(tick);
+      }, 1000);
+    },
+
+    /** Добавляет запись в лог боя (максимум 10 строк). */
+    addCombatLog(text) {
+      this.combatLog.unshift({ id: Date.now(), text });
+      if (this.combatLog.length > 10) this.combatLog.pop();
     },
 
     initializeEditor(containerId) {
@@ -947,19 +1298,33 @@ const app = createApp({
       axios.get(`${API_URL}/map`).then(r => {
         this.editorMapData = JSON.parse(JSON.stringify(r.data));
         this.renderEditorMap();
-      }).catch(() => this.renderEditorGrid());
+      }).catch(() => this.renderEditorMap());
     },
 
-    renderEditorGrid() {
+    /**
+     * Рисует сетку редактора с уже размещёнными тайлами.
+     * Очищает stage перед каждой перерисовкой — без дублирования слоёв.
+     */
+    renderEditorMap() {
       if (!this.editorApp) return;
-      const cont   = new PIXI.Container();
-      const tileW  = 64, tileH = 32, cols = 16, rows = 16;
+      this.editorApp.stage.removeChildren();
+
+      if (!this.editorMapData) this.editorMapData = { tiles: [], width: 16, height: 16 };
+      const tileW = 64, tileH = 32;
+      const cols = this.editorMapData.width  || 16;
+      const rows = this.editorMapData.height || 16;
+      const cont = new PIXI.Container();
 
       for (let x = 0; x < cols; x++) {
         for (let y = 0; y < rows; y++) {
+          const placed = this.editorMapData.tiles.find(t => t.x === x && t.y === y);
           const g = new PIXI.Graphics();
-          g.lineStyle(1, 0x3d3320, 0.6);
-          g.beginFill(0x2e2618);
+          g.lineStyle(1, 0x3d3320, placed ? 0.8 : 0.4);
+          if (placed) {
+            g.beginFill(this.getColorForTileType(placed.type), 0.92);
+          } else {
+            g.beginFill(0x2e2618, 0.7);
+          }
           g.drawPolygon([ tileW/2,0, tileW,tileH/2, tileW/2,tileH, 0,tileH/2 ]);
           g.endFill();
           g.x = (x - y) * tileW/2;
@@ -969,6 +1334,14 @@ const app = createApp({
           g.on('pointerdown', () => this.placeTile(x, y));
           g.on('pointermove', () => { this.cursorCoords = { x, y }; });
           cont.addChild(g);
+
+          /* Подпись имени размещённого тайла */
+          if (placed?.name) {
+            const lbl = new PIXI.Text(placed.name, { fontSize:8, fill:0xffd700 });
+            lbl.x = g.x + tileW/2 - lbl.width/2;
+            lbl.y = g.y + tileH/2 - lbl.height/2;
+            cont.addChild(lbl);
+          }
         }
       }
 
@@ -977,32 +1350,51 @@ const app = createApp({
       this.editorApp.stage.addChild(cont);
     },
 
-    renderEditorMap() {
-      if (!this.editorApp || !this.editorMapData) return;
-      this.renderEditorGrid();
+    /** Синоним для обратной совместимости (раньше вызывался отдельно). */
+    renderEditorGrid() {
+      this.renderEditorMap();
     },
 
     placeTile(x, y) {
-      if (!this.selectedAsset.type) { this.notify('Выберите ассет из панели слева'); return; }
       if (!this.editorMapData) this.editorMapData = { tiles: [], width: 16, height: 16 };
       const idx = this.editorMapData.tiles.findIndex(t => t.x === x && t.y === y);
-      if (idx !== -1) this.editorMapData.tiles.splice(idx, 1);
-      this.editorMapData.tiles.push({ x, y, type: this.selectedAsset.id, name: this.selectedAsset.name });
-      this.selectedTileProps = { x, y, type: this.selectedAsset.id, name: this.selectedAsset.name };
+      if (this.editorTool === 'erase') {
+        /* Режим ластика — только удалять */
+        if (idx !== -1) this.editorMapData.tiles.splice(idx, 1);
+        this.selectedTileProps = null;
+      } else {
+        if (!this.selectedAsset.type) { this.notify('Выберите ассет из панели слева'); return; }
+        if (idx !== -1) this.editorMapData.tiles.splice(idx, 1);
+        this.editorMapData.tiles.push({ x, y, type: this.selectedAsset.id, name: this.selectedAsset.name });
+        this.selectedTileProps = { x, y, type: this.selectedAsset.id, name: this.selectedAsset.name };
+      }
+      this.renderEditorMap();
     },
 
     async saveMap() {
       if (!this.editorMapData) { this.notify('Нечего сохранять'); return; }
+      if (!this.editorApiKey) { this.notify('❌ Укажи Editor API Key в панели справа'); return; }
+      const count = this.editorMapData.tiles?.length ?? 0;
+      if (!confirm(`Сохранить карту из ${count} тайлов на сервер?`)) return;
+      this.editorSaving = true;
       try {
-        /* PUT /api/map — стандартный endpoint редактора карты */
         await axios.put(`${API_URL}/map`, this.editorMapData, {
-          headers: { 'X-API-Key': localStorage.getItem('editor_api_key') || '' }
+          headers: { 'X-API-Key': this.editorApiKey }
         });
         this.notify('✅ Карта сохранена');
       } catch (e) {
-        if (e.response?.status === 401) this.notify('❌ Нет прав: укажи Editor API Key в настройках');
-        else this.notify('Ошибка сохранения — проверь подключение');
+        if (e.response?.status === 401) this.notify('❌ Неверный Editor API Key');
+        else if (e.response?.status === 503) this.notify('❌ Сохранение отключено — задай EDITOR_API_KEY на сервере');
+        else this.notify('❌ Ошибка сохранения — проверь подключение к API');
+      } finally {
+        this.editorSaving = false;
       }
+    },
+
+    /** Сохраняет Editor API Key в localStorage. */
+    saveEditorApiKey() {
+      localStorage.setItem('editor_api_key', this.editorApiKey);
+      this.notify('✅ Editor API Key сохранён');
     },
 
     exportMap() {
@@ -1036,6 +1428,229 @@ const app = createApp({
       if (!this.editorApp) return;
       const stage = this.editorApp.stage;
       stage.scale.set(Math.min(3, Math.max(0.5, stage.scale.x * factor)));
+    },
+
+    /* ══════════════════════════════════════
+       АДМИН-ПАНЕЛЬ ТИГРИТ
+       ══════════════════════════════════════ */
+
+    /** Сохраняет Admin API Key в localStorage. */
+    saveAdminApiKey() {
+      localStorage.setItem('tigrit_admin_key', this.adminApiKey);
+      this.adminMsg = '✅ Admin API Key сохранён';
+      this.adminMsgOk = true;
+      setTimeout(() => { this.adminMsg = ''; }, 3000);
+    },
+
+    /** Открытие вкладки Админ — автозагрузка данных и статус API. Debounce двойного вызова. */
+    async adminOpenTab() {
+      if (this._adminLoadingInProgress) return;
+      this._adminLoadingInProgress = true;
+      await Promise.all([this.adminLoadVillage(), this.adminCheckStatus()]);
+      this._adminLoadingInProgress = false;
+    },
+
+    /** Проверяет статус Admin API (db_connected, admin_key_configured). */
+    async adminCheckStatus() {
+      try {
+        const r = await axios.get(`${API_URL}/admin/status`, {
+          headers: this.adminApiKey ? { 'X-Admin-Key': this.adminApiKey } : {},
+        });
+        this.adminStatus = r.data;
+      } catch (e) {
+        this.adminStatus = { ok: false, db_connected: false, admin_key_configured: false };
+      }
+    },
+
+    /** Загружает текущие данные деревни из Admin API (полный SELECT с name). */
+    async adminLoadVillage() {
+      this.adminLoading = true;
+      try {
+        const headers = this.adminApiKey ? { 'X-Admin-Key': this.adminApiKey } : {};
+        const r = await axios.get(`${API_URL}/admin/village/1`, { headers });
+        const v = r.data || {};
+        this.adminVillage = {
+          name:           v.name          || 'Тигрит',
+          level:          v.level         || 1,
+          xp:             v.xp            || 0,
+          activity:       v.activity      || 0,
+          population:     v.population    || 0,
+          population_max: v.population_max || 50,
+          build_name:     v.build_name    || '',
+          build_progress: v.build_progress || 0,
+          resources:      { wood:0, stone:0, gold:0, food:0, influence:0, ...(v.resources || {}) },
+        };
+        this._adminVillageLoaded = true;
+        this.adminMsg = '✅ Данные деревни загружены';
+        this.adminMsgOk = true;
+      } catch (e) {
+        const status = e.response?.status;
+        const detail = e.response?.data?.error || e.response?.data?.detail || e.message;
+        if (status === 401 || status === 503) {
+          this.adminMsg = '⚠️ Данные без ключа — введите Admin API Key для загрузки';
+          this.adminMsgOk = false;
+          /* Fallback на публичный /api/village */
+          try {
+            const fb = await axios.get(`${API_URL}/village`);
+            if (fb.data) {
+              const v = fb.data;
+              this.adminVillage = {
+                name: v.name || 'Тигрит', level: v.level || 1, xp: v.xp || 0,
+                activity: v.activity || 0, population: v.population || 0,
+                population_max: v.population_max || 50,
+                build_name: v.build_name || '', build_progress: v.build_progress || 0,
+                resources: { wood:0, stone:0, gold:0, food:0, influence:0, ...(v.resources || {}) },
+              };
+            }
+          } catch {}
+        } else if (status === 404) {
+          this.adminMsg = '❌ Деревня не найдена — INSERT INTO tigrit_village(id) VALUES(1)';
+          this.adminMsgOk = false;
+        } else {
+          this.adminMsg = `❌ Нет связи с API: ${detail}`;
+          this.adminMsgOk = false;
+        }
+      } finally {
+        this.adminLoading = false;
+        setTimeout(() => { this.adminMsg = ''; }, 5000);
+      }
+    },
+
+    /**
+     * Сохраняет изменения деревни через Admin API.
+     * Использует PATCH /api/admin/village/1 с заголовком X-Admin-Key.
+     */
+    async adminSaveVillage() {
+      if (!this.adminApiKey) {
+        this.adminMsg = '❌ Укажи Admin API Key в поле выше'; this.adminMsgOk = false; return;
+      }
+      this.adminLoading = true;
+      try {
+        const r = await axios.patch(`${API_URL}/admin/village/1`, this.adminVillage, {
+          headers: { 'X-Admin-Key': this.adminApiKey }
+        });
+        /* Обновляем вид деревни свежими данными с сервера */
+        await this.fetchVillageData();
+        if (r.data?.village) {
+          const v = r.data.village;
+          this.adminVillage = { ...this.adminVillage, ...v };
+        }
+        this.adminMsg = '✅ Деревня обновлена'; this.adminMsgOk = true;
+      } catch (e) {
+        const status = e.response?.status;
+        const err = e.response?.data?.error || e.response?.data?.detail || e.message;
+        if (status === 401)      this.adminMsg = '❌ Неверный Admin API Key';
+        else if (status === 503) this.adminMsg = '❌ БД недоступна — tigrit-api не подключён к PostgreSQL';
+        else if (status === 422) this.adminMsg = `❌ Миграция нужна: ${err}. Запустите run_migrations.py`;
+        else if (status === 404) this.adminMsg = '❌ Деревня не найдена в БД — создайте запись id=1';
+        else if (!status)        this.adminMsg = '❌ Нет связи с API — проверь что tigrit-api запущен';
+        else                     this.adminMsg = `❌ Ошибка ${status}: ${err}`;
+        this.adminMsgOk = false;
+      } finally {
+        this.adminLoading = false;
+        setTimeout(() => { this.adminMsg = ''; }, 6000);
+      }
+    },
+
+    /**
+     * Сохраняет XP/level игрока через Admin API.
+     * PATCH /api/admin/user/{userId}
+     */
+    async adminSaveUser() {
+      if (!this.adminApiKey) { this.adminMsg = '❌ Укажи Admin API Key'; this.adminMsgOk = false; return; }
+      if (!this.adminUser.userId) { this.adminMsg = '❌ Укажи User ID'; this.adminMsgOk = false; return; }
+      this.adminLoading = true;
+      try {
+        const body = {};
+        if (this.adminUser.xp    !== undefined) body.xp    = this.adminUser.xp;
+        if (this.adminUser.level !== undefined) body.level = this.adminUser.level;
+        if (this.adminUser.race)                body.race  = this.adminUser.race;
+        if (this.adminUser.clazz)               body.clazz = this.adminUser.clazz;
+        const r = await axios.patch(`${API_URL}/admin/user/${this.adminUser.userId}`, body, {
+          headers: { 'X-Admin-Key': this.adminApiKey }
+        });
+        /* Обновляем форму актуальными данными с сервера */
+        if (r.data?.user) this.adminUserInfo = r.data.user;
+        this.adminMsg = `✅ Игрок ${this.adminUser.userId} обновлён`;
+        this.adminMsgOk = true;
+      } catch (e) {
+        const status = e.response?.status;
+        const err = e.response?.data?.error || e.response?.data?.detail || e.message;
+        if (status === 401)      this.adminMsg = '❌ Неверный Admin API Key';
+        else if (status === 503) this.adminMsg = '❌ БД недоступна';
+        else if (status === 422) this.adminMsg = `❌ Ошибка валидации: ${err}`;
+        else if (status === 404) this.adminMsg = `❌ Игрок ${this.adminUser.userId} не найден в tigrit_user_profile`;
+        else if (!status)        this.adminMsg = '❌ Нет связи с API';
+        else                     this.adminMsg = `❌ Ошибка ${status}: ${err}`;
+        this.adminMsgOk = false;
+      } finally {
+        this.adminLoading = false;
+        setTimeout(() => { this.adminMsg = ''; }, 5000);
+      }
+    },
+
+    /**
+     * Быстрые активации: завершить стройку, залить ресурсы и т.д.
+     * @param {string} action
+     */
+    async adminQuickAction(action) {
+      if (!this.adminApiKey) {
+        this.adminMsg = '❌ Укажи Admin API Key'; this.adminMsgOk = false; return;
+      }
+      /* Guard: если данные деревни ещё не загружены — сначала загрузить */
+      if (!this._adminVillageLoaded) {
+        await this.adminLoadVillage();
+      }
+      this.adminLoading = true;
+      try {
+        const r = await axios.post(`${API_URL}/admin/village/1/activate`, { action }, {
+          headers: { 'X-Admin-Key': this.adminApiKey }
+        });
+        if (r.data?.village) {
+          const v = r.data.village;
+          this.adminVillage = { ...this.adminVillage, ...v };
+        }
+        await this.fetchVillageData();
+        this.notify(`⚡ Выполнено: ${action}`);
+        this.adminMsg = `✅ Активация: ${action}`; this.adminMsgOk = true;
+      } catch (e) {
+        const status = e.response?.status;
+        const err = e.response?.data?.error || e.response?.data?.detail || e.message;
+        if (status === 400) this.adminMsg = `❌ Неизвестное действие: ${action}`;
+        else if (status === 401) this.adminMsg = '❌ Неверный Admin API Key';
+        else this.adminMsg = `❌ Ошибка: ${err}`;
+        this.adminMsgOk = false;
+      } finally {
+        this.adminLoading = false;
+        setTimeout(() => { this.adminMsg = ''; }, 5000);
+      }
+    },
+
+    /** Поиск игрока по username с debounce 300мс. */
+    adminSearchUsers() {
+      clearTimeout(this._userSearchTimer);
+      if (!this.adminUserSearch.trim()) { this.adminUserResults = []; return; }
+      this._userSearchTimer = setTimeout(async () => {
+        try {
+          const r = await axios.get(`${API_URL}/admin/users`, {
+            params: { search: this.adminUserSearch, limit: 10 },
+            headers: this.adminApiKey ? { 'X-Admin-Key': this.adminApiKey } : {},
+          });
+          this.adminUserResults = r.data?.players || [];
+        } catch { this.adminUserResults = []; }
+      }, 300);
+    },
+
+    /** Выбрать игрока из результатов поиска и заполнить форму. */
+    adminSelectUser(player) {
+      this.adminUser.userId = player.user_id;
+      this.adminUser.xp     = player.xp    || 0;
+      this.adminUser.level  = player.level  || 1;
+      this.adminUser.race   = player.race   || '';
+      this.adminUser.clazz  = player.clazz  || '';
+      this.adminUserInfo    = player;
+      this.adminUserResults = [];
+      this.adminUserSearch  = player.username || '';
     },
   },
 });

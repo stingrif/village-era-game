@@ -26,6 +26,7 @@
       <button class="nav-btn" :class="{ active: activeTab === 'editor' }"   @click="activeTab = 'editor'">🗺️ Редактор</button>
       <button class="nav-btn" :class="{ active: activeTab === 'items' }"    @click="activeTab = 'items'">🎒 Предметы</button>
       <button class="nav-btn" :class="{ active: activeTab === 'commands' }" @click="activeTab = 'commands'">🤖 Команды</button>
+      <button class="nav-btn nav-admin" :class="{ active: activeTab === 'admin' }"  @click="activeTab = 'admin'">🛡️ Админ</button>
     </nav>
 
     <div class="header-actions">
@@ -42,6 +43,13 @@
        ОСНОВНОЙ КОНТЕНТ
        ══════════════════════════════════════════ -->
   <main>
+
+    <!-- Баннер недоступности API -->
+    <div v-if="villageApiError"
+      style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:6px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:#ef4444;display:flex;align-items:center;gap:8px">
+      ⚠️ API деревни недоступен — отображаются кэшированные данные.
+      <button class="btn btn-ghost btn-sm" @click="fetchVillageData" style="margin-left:auto">Повторить</button>
+    </div>
 
     <!-- ─── ДЕРЕВНЯ ─── -->
     <div v-if="activeTab === 'village'" class="tab-content">
@@ -111,11 +119,80 @@
 
         <!-- Карта (PIXI) -->
         <div class="village-map-panel">
+
+          <!-- Панель переключения режима вида -->
+          <div class="view-mode-bar">
+            <span style="font-size:12px;color:var(--text-muted)">
+              {{ viewMode === 'top' ? '🗺️ Вид сверху' : '🎮 Вид от 3-го лица' }}
+            </span>
+            <!-- TEST-MODE: кнопка видна всем. Позже заменить canToggleViewMode() на hasSubscription -->
+            <button
+              class="btn btn-sm"
+              :class="viewMode === 'third' ? 'btn-primary' : 'btn-ghost'"
+              @click="toggleViewMode"
+              :title="viewModeTest ? 'Тест-режим: доступно всем' : (hasSubscription ? 'Премиум: смена режима' : 'Только для Premium-подписчиков')"
+            >
+              {{ viewMode === 'top' ? '🎮 3-е лицо' : '🗺️ Вид сверху' }}
+              <span v-if="viewModeTest" style="font-size:9px;opacity:0.6;margin-left:4px">TEST</span>
+            </button>
+          </div>
+
           <div id="map-container"></div>
-          <div v-if="mapLoading" class="empty-state">
+
+          <div v-if="mapLoading" class="empty-state" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">
             <div class="skeleton" style="width:80px;height:80px;border-radius:8px"></div>
             <div class="empty-state-text">Загрузка карты…</div>
           </div>
+
+          <!-- HUD режима 3-го лица -->
+          <div v-if="viewMode === 'third'" class="third-person-hud">
+
+            <!-- HP и Мана -->
+            <div class="hud-bars">
+              <div class="hud-bar-row">
+                <span class="hud-bar-label">❤️</span>
+                <div class="hud-bar">
+                  <div class="hud-bar-fill hud-hp" :style="{ width: Math.round(playerHP / playerMaxHP * 100) + '%' }"></div>
+                </div>
+                <span class="hud-bar-val">{{ playerHP }}/{{ playerMaxHP }}</span>
+              </div>
+              <div class="hud-bar-row">
+                <span class="hud-bar-label">💧</span>
+                <div class="hud-bar">
+                  <div class="hud-bar-fill hud-mana" :style="{ width: Math.round(playerMana / playerMaxMana * 100) + '%' }"></div>
+                </div>
+                <span class="hud-bar-val">{{ playerMana }}/{{ playerMaxMana }}</span>
+              </div>
+            </div>
+
+            <!-- Панель скиллов -->
+            <div class="hud-skills">
+              <div
+                class="hud-skill"
+                v-for="skill in skills"
+                :key="skill.id"
+                :class="{ 'on-cooldown': skill.cd > 0 }"
+                @click="activateSkill(skill.id)"
+                :title="skill.name + ' [' + skill.key + ']'"
+              >
+                <div class="hud-skill-icon">{{ skill.icon }}</div>
+                <div class="hud-skill-key">{{ skill.key }}</div>
+                <div v-if="skill.cd > 0" class="hud-skill-cd">{{ skill.cd }}</div>
+              </div>
+            </div>
+
+            <!-- WASD-подсказка и лог боя -->
+            <div class="hud-info">
+              <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px">WASD / ↑↓←→ — движение · Клик по тайлу</div>
+              <div class="hud-combat-log">
+                <div v-for="entry in combatLog.slice(0,4)" :key="entry.id" class="hud-log-entry">
+                  {{ entry.text }}
+                </div>
+              </div>
+            </div>
+
+          </div>
+
         </div>
 
         <!-- Лог событий -->
@@ -657,8 +734,28 @@
             <div class="empty-state-text">Кликни на тайл</div>
           </div>
 
+          <!-- Editor API Key -->
+          <div style="margin-top:12px">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">🔑 Editor API Key</div>
+            <div style="display:flex;gap:4px">
+              <input
+                type="password"
+                v-model="editorApiKey"
+                placeholder="Ключ из EDITOR_API_KEY"
+                style="flex:1;background:rgba(0,0,0,0.3);border:1px solid rgba(245,158,11,0.3);color:#fff;border-radius:6px;padding:5px 8px;font-size:12px"
+                @keydown.enter="saveEditorApiKey"
+              >
+              <button class="btn btn-ghost btn-sm" @click="saveEditorApiKey" title="Сохранить ключ">✓</button>
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Без ключа сохранение на сервер недоступно</div>
+          </div>
+
           <div style="margin-top:auto;display:flex;flex-direction:column;gap:6px">
-            <button class="btn btn-primary" @click="saveMap">💾 Сохранить карту</button>
+            <button class="btn btn-primary" @click="saveMap"
+              :disabled="!editorApiKey || editorSaving"
+              :title="!editorApiKey ? 'Укажи Editor API Key выше' : ''">
+              {{ editorSaving ? '⏳ Сохранение...' : '💾 Сохранить карту' }}
+            </button>
             <button class="btn btn-ghost btn-sm" @click="exportMap">↓ Экспорт JSON</button>
             <button class="btn btn-ghost btn-sm" @click="importMap">↑ Импорт JSON</button>
             <input type="file" id="import-map" style="display:none" @change="handleImport">
@@ -673,12 +770,14 @@
           <button class="btn btn-ghost btn-sm" :class="editorTool === 'brush' ? 'btn-primary' : ''" @click="editorTool = 'brush'">🖌 Кисть</button>
           <button class="btn btn-ghost btn-sm" :class="editorTool === 'select' ? 'btn-primary' : ''" @click="editorTool = 'select'">🖱 Выбор</button>
           <button class="btn btn-ghost btn-sm" :class="editorTool === 'fill' ? 'btn-primary' : ''" @click="editorTool = 'fill'">🪣 Заливка</button>
+          <button class="btn btn-ghost btn-sm" :class="editorTool === 'erase' ? 'btn-primary' : ''" @click="editorTool = 'erase'" title="Удалить тайл (E)">🧹 Ластик</button>
           <div class="toolbar-sep"></div>
           <button class="btn btn-ghost btn-sm" @click="editorZoom(1.2)">+ Zoom</button>
           <button class="btn btn-ghost btn-sm" @click="editorZoom(0.8)">- Zoom</button>
           <div class="toolbar-coords">
             Курсор: ({{ cursorCoords.x }}, {{ cursorCoords.y }}) |
-            Выбран: <span style="color:var(--accent-gold)">{{ selectedAsset.name || 'нет' }}</span>
+            Тайлов: <span style="color:#22c55e">{{ editorMapData?.tiles?.length ?? 0 }}</span> |
+            Выбран: <span style="color:var(--accent-gold)">{{ editorTool === 'erase' ? '🧹 Ластик' : (selectedAsset.name || 'нет') }}</span>
           </div>
         </div>
 
@@ -760,6 +859,195 @@
       </div>
 
     </div><!-- /items -->
+
+    <!-- ─── АДМИН-ПАНЕЛЬ ДЕРЕВНИ ─── -->
+    <div v-if="activeTab === 'admin'" class="tab-content">
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <h2>🛡️ Управление деревней</h2>
+        <span class="admin-badge-test">TEST MODE — доступ без проверки прав</span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <label style="font-size:12px;color:var(--text-muted)">Admin API Key:</label>
+          <input type="password" v-model="adminApiKey" placeholder="TIGRIT_ADMIN_API_KEY"
+            style="background:rgba(0,0,0,0.35);border:1px solid rgba(239,68,68,0.4);color:#fff;border-radius:6px;padding:5px 10px;font-size:12px;width:200px">
+          <button class="btn btn-ghost btn-sm" @click="saveAdminApiKey">✓</button>
+        </div>
+      </div>
+
+      <div v-if="adminMsg" :class="adminMsgOk ? 'msg ok' : 'msg err'" style="margin-bottom:12px;padding:8px 12px;border-radius:6px;background:rgba(0,0,0,0.3)">{{ adminMsg }}</div>
+
+      <div class="admin-layout">
+
+        <!-- Левая колонка: правка деревни -->
+        <div class="card">
+          <div class="admin-section-title">🏰 Параметры деревни (id=1)</div>
+
+          <div class="admin-field">
+            <label>Название</label>
+            <input type="text" v-model="adminVillage.name" placeholder="Тигрит">
+          </div>
+          <div class="admin-field">
+            <label>Уровень (level)</label>
+            <input type="number" v-model.number="adminVillage.level" min="1" max="100">
+          </div>
+          <div class="admin-field">
+            <label>XP деревни</label>
+            <input type="number" v-model.number="adminVillage.xp" min="0">
+          </div>
+          <div class="admin-field">
+            <label>Активность (activity)</label>
+            <input type="number" v-model.number="adminVillage.activity" min="0">
+          </div>
+          <div class="admin-field">
+            <label>Население (population)</label>
+            <input type="number" v-model.number="adminVillage.population" min="0">
+          </div>
+          <div class="admin-field">
+            <label>Макс. население (population_max)</label>
+            <input type="number" v-model.number="adminVillage.population_max" min="0">
+          </div>
+
+          <div class="admin-section-title" style="margin-top:12px">🔨 Строительство</div>
+          <div class="admin-field">
+            <label>Название стройки (build_name)</label>
+            <input type="text" v-model="adminVillage.build_name" placeholder="Рыночная площадь">
+          </div>
+          <div class="admin-field">
+            <label>Прогресс стройки % (0–100)</label>
+            <input type="number" v-model.number="adminVillage.build_progress" min="0" max="100">
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="btn btn-ghost btn-sm" @click="adminVillage.build_progress = 0">Сбросить</button>
+              <button class="btn btn-ghost btn-sm" @click="adminVillage.build_progress = 100">✅ Завершить</button>
+            </div>
+          </div>
+
+          <div class="admin-section-title" style="margin-top:12px">📦 Ресурсы (без проверки стоимости)</div>
+          <div class="admin-field" v-for="resKey in ['wood','stone','gold','food','influence']" :key="resKey">
+            <label>{{ {wood:'🪵 Дерево',stone:'🪨 Камень',gold:'🪙 Монеты',food:'🌾 Еда',influence:'🔮 Влияние'}[resKey] }}</label>
+            <input type="number" v-model.number="adminVillage.resources[resKey]" min="0">
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+            <button class="btn btn-primary" @click="adminSaveVillage"
+              :disabled="!adminApiKey || adminLoading"
+              :title="!adminApiKey ? 'Укажи Admin API Key выше' : ''">
+              {{ adminLoading ? '⏳ Сохранение...' : '💾 Сохранить деревню' }}
+            </button>
+            <button class="btn btn-ghost btn-sm" @click="adminLoadVillage" :disabled="adminLoading">
+              🔄 Загрузить текущие
+            </button>
+          </div>
+        </div>
+
+        <!-- Правая колонка: правка игроков и активации -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+
+          <!-- Прокачка игрока -->
+          <div class="card">
+            <div class="admin-section-title">👤 Прокачка игрока</div>
+            <!-- Поиск по username -->
+            <div class="admin-field" style="position:relative">
+              <label>Поиск по username</label>
+              <input type="text" v-model="adminUserSearch" placeholder="Введите ник..."
+                @input="adminSearchUsers"
+                style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:6px;padding:5px 8px;font-size:13px">
+              <div v-if="adminUserResults.length > 0"
+                style="position:absolute;top:100%;left:0;right:0;background:#1a1a2e;border:1px solid rgba(255,255,255,0.2);border-radius:6px;z-index:50;max-height:180px;overflow-y:auto">
+                <div v-for="p in adminUserResults" :key="p.user_id"
+                  @click="adminSelectUser(p)"
+                  style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.07)"
+                  class="user-search-row">
+                  <span style="color:#f59e0b;font-weight:600">{{ p.username }}</span>
+                  <span style="color:#aaa;margin-left:8px">Ур.{{ p.level }} | XP:{{ p.xp }}</span>
+                  <span style="color:#888;margin-left:6px">{{ p.race }} {{ p.clazz }}</span>
+                </div>
+              </div>
+            </div>
+            <!-- Мини-карточка выбранного игрока -->
+            <div v-if="adminUserInfo" style="font-size:11px;color:#aaa;margin-bottom:6px;padding:4px 8px;background:rgba(0,0,0,0.2);border-radius:4px">
+              Текущее: Ур.{{ adminUserInfo.level }}, XP:{{ adminUserInfo.xp }}, {{ adminUserInfo.race }} {{ adminUserInfo.clazz }}
+            </div>
+            <div class="admin-field">
+              <label>User ID (из tigrit_user_profile)</label>
+              <input type="number" v-model.number="adminUser.userId" placeholder="12345">
+            </div>
+            <div class="admin-field">
+              <label>XP (без проверки ресурсов)</label>
+              <input type="number" v-model.number="adminUser.xp" min="0">
+            </div>
+            <div class="admin-field">
+              <label>Уровень</label>
+              <input type="number" v-model.number="adminUser.level" min="1">
+            </div>
+            <div class="admin-field">
+              <label>Расa (race)</label>
+              <select v-model="adminUser.race">
+                <option value="">— не менять —</option>
+                <option>Human</option><option>Elf</option><option>Dwarf</option><option>Orc</option>
+              </select>
+            </div>
+            <div class="admin-field">
+              <label>Класс (clazz)</label>
+              <select v-model="adminUser.clazz">
+                <option value="">— не менять —</option>
+                <option>Warrior</option><option>Mage</option><option>Craftsman</option><option>Ranger</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-sm" @click="adminSaveUser" style="margin-top:4px"
+              :disabled="!adminApiKey || adminLoading"
+              :title="!adminApiKey ? 'Укажи Admin API Key выше' : ''">
+              {{ adminLoading ? '⏳...' : '💾 Сохранить игрока' }}
+            </button>
+          </div>
+
+          <!-- Статус Admin API -->
+          <div class="card" v-if="adminStatus">
+            <div class="admin-section-title">📡 Статус Admin API</div>
+            <div style="font-size:12px;display:flex;flex-direction:column;gap:4px">
+              <div>БД: <span :style="{color: adminStatus.db_connected ? '#22c55e' : '#ef4444'}">{{ adminStatus.db_connected ? '✅ подключена' : '❌ недоступна' }}</span></div>
+              <div>Ключ: <span :style="{color: adminStatus.admin_key_configured ? '#22c55e' : '#ef4444'}">{{ adminStatus.admin_key_configured ? '✅ задан' : '❌ TIGRIT_ADMIN_API_KEY не задан' }}</span></div>
+              <div v-if="adminStatus.village_exists !== undefined">Деревня: <span :style="{color: adminStatus.village_exists ? '#22c55e' : '#ef4444'}">{{ adminStatus.village_exists ? '✅ есть' : '❌ нет записи id=1' }}</span></div>
+              <div v-if="adminStatus.server_time" style="color:#888;font-size:10px">{{ adminStatus.server_time }}</div>
+            </div>
+          </div>
+
+          <!-- Активации -->
+          <div class="card">
+            <div class="admin-section-title">⚡ Быстрые активации</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn btn-ghost btn-sm" @click="adminQuickAction('build_complete')"
+                :disabled="!adminApiKey || adminLoading" :title="!adminApiKey ? 'Укажи Admin API Key' : ''">✅ Завершить стройку (→ 100%)</button>
+              <button class="btn btn-ghost btn-sm" @click="adminQuickAction('build_reset')"
+                :disabled="!adminApiKey || adminLoading" :title="!adminApiKey ? 'Укажи Admin API Key' : ''">🔄 Сбросить стройку (→ 0%)</button>
+              <button class="btn btn-ghost btn-sm" @click="adminQuickAction('resources_fill')"
+                :disabled="!adminApiKey || adminLoading" :title="!adminApiKey ? 'Укажи Admin API Key' : ''">📦 Заполнить все ресурсы</button>
+              <button class="btn btn-ghost btn-sm" @click="adminQuickAction('activity_reset')"
+                :disabled="!adminApiKey || adminLoading" :title="!adminApiKey ? 'Укажи Admin API Key' : ''">📊 Сбросить активность</button>
+              <button class="btn btn-ghost btn-sm" @click="adminQuickAction('level_up')"
+                :disabled="!adminApiKey || adminLoading" :title="!adminApiKey ? 'Укажи Admin API Key' : ''">⬆️ Повысить уровень деревни</button>
+            </div>
+          </div>
+
+          <!-- Карта редактора -->
+          <div class="card">
+            <div class="admin-section-title">🗺️ Карта деревни</div>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+              Для редактирования карты перейди на вкладку <strong>🗺️ Редактор</strong>.
+              Укажи Editor API Key в панели справа и нажми «Сохранить карту».
+            </p>
+            <div style="font-size:12px;color:var(--text-muted)">
+              <strong>EDITOR_API_KEY</strong> задаётся в env файле tigrit_api.
+              Текущий статус ключа в редакторе: 
+              <span :style="{ color: editorApiKey ? '#22c55e' : '#ef4444' }">
+                {{ editorApiKey ? '✅ задан' : '❌ не задан' }}
+              </span>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="margin-top:8px" @click="activeTab = 'editor'">→ Перейти в редактор</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
 
     <!-- ─── КОМАНДЫ БОТА ─── -->
     <div v-if="activeTab === 'commands'" class="tab-content">

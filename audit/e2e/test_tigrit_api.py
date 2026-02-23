@@ -1,7 +1,10 @@
 """
 E2E тесты Tigrit API: GET /api/health, /api/village, /api/users, /api/events,
-/api/events/active, /api/map, /api/assets; PUT /api/map (с ключом и без).
+/api/events/active, /api/map, /api/assets, /api/zones, /api/admin/*;
+PUT /api/map (с ключом и без); POST /api/chat/message.
 """
+import os
+
 import pytest
 
 
@@ -107,3 +110,84 @@ class TestTigritPutMap:
         r = tigrit_client.put("/api/map", json=body, headers=tigrit_editor_headers)
         assert r.status_code == 200
         assert r.json().get("ok") is True
+
+
+@pytest.mark.e2e
+class TestTigritZones:
+    """GET /api/zones — всегда 200, массив с id и name."""
+
+    def test_zones_returns_list(self, tigrit_client):
+        r = tigrit_client.get("/api/zones")
+        assert r.status_code == 200, f"Ожидалось 200, получено {r.status_code}: {r.text}"
+        data = r.json()
+        assert isinstance(data, list), "Ответ /api/zones должен быть массивом"
+        assert len(data) >= 1, "Массив зон не должен быть пустым"
+        for zone in data:
+            assert "id" in zone, f"У зоны нет поля 'id': {zone}"
+            assert "name" in zone, f"У зоны нет поля 'name': {zone}"
+
+
+@pytest.mark.e2e
+class TestTigritChatMessage:
+    """POST /api/chat/message — 200/201 при валидных данных, не 500 при любых."""
+
+    def test_chat_message_ok(self, tigrit_client):
+        body = {"text": "e2e test message", "xp": 1, "zone_id": "zone_1"}
+        r = tigrit_client.post("/api/chat/message", json=body)
+        assert r.status_code in (200, 201), f"Ожидалось 200/201, получено {r.status_code}: {r.text}"
+        data = r.json()
+        assert data.get("ok") is True, f"Поле 'ok' должно быть true: {data}"
+
+    def test_chat_message_invalid_text_returns_422(self, tigrit_client):
+        r = tigrit_client.post("/api/chat/message", json={"text": "", "xp": 0, "zone_id": "z"})
+        assert r.status_code == 422, f"Пустой text должен давать 422: {r.status_code}"
+
+    def test_chat_message_no_500_on_errors(self, tigrit_client):
+        """При любых ошибках БД — не должно быть 500."""
+        body = {"text": "stress test", "xp": 5, "zone_id": "zone_3"}
+        r = tigrit_client.post("/api/chat/message", json=body)
+        assert r.status_code != 500, f"500 недопустим: {r.text}"
+
+
+@pytest.mark.e2e
+class TestTigritAdminStatus:
+    """GET /api/admin/status — 200 для всех, правильная структура."""
+
+    def test_admin_status_no_key_returns_200(self, tigrit_client):
+        """Status без ключа всё равно возвращает 200 (db_connected без ключа)."""
+        r = tigrit_client.get("/api/admin/status")
+        assert r.status_code == 200, f"Ожидалось 200, получено {r.status_code}: {r.text}"
+        data = r.json()
+        assert "admin_key_configured" in data
+        assert "db_connected" in data
+
+    def test_admin_status_with_wrong_key(self, tigrit_client):
+        """С неверным ключом — key_valid: false, но ответ 200."""
+        r = tigrit_client.get("/api/admin/status", headers={"X-Admin-Key": "wrong-key"})
+        assert r.status_code == 200
+        data = r.json()
+        assert data.get("key_valid") is False
+
+    def test_admin_status_with_correct_key(self, tigrit_client):
+        """С правильным ключом — key_valid: true."""
+        key = os.environ.get("TIGRIT_ADMIN_API_KEY", "")
+        if not key:
+            pytest.skip("TIGRIT_ADMIN_API_KEY не задан")
+        r = tigrit_client.get("/api/admin/status", headers={"X-Admin-Key": key})
+        assert r.status_code == 200
+        data = r.json()
+        assert data.get("key_valid") is True
+        assert "server_time" in data
+
+    def test_admin_village_get_not_500(self, tigrit_client):
+        """GET /api/admin/village/1 с ключом — не 500 (200 или 404 или 401/503)."""
+        key = os.environ.get("TIGRIT_ADMIN_API_KEY", "")
+        if not key:
+            pytest.skip("TIGRIT_ADMIN_API_KEY не задан")
+        r = tigrit_client.get("/api/admin/village/1", headers={"X-Admin-Key": key})
+        assert r.status_code in (200, 404), f"Ожидалось 200/404, получено {r.status_code}: {r.text}"
+
+    def test_admin_village_no_key_returns_401_or_503(self, tigrit_client):
+        """GET /api/admin/village/1 без ключа — 401 или 503."""
+        r = tigrit_client.get("/api/admin/village/1")
+        assert r.status_code in (401, 503), f"Ожидалось 401/503, получено {r.status_code}"
