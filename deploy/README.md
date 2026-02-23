@@ -1,5 +1,39 @@
 # Деплой на stakingphxpw.com
 
+## Микросервисы (февраль 2026 — Фазы 1–3)
+
+Три новых сервиса в docker-compose.149.yml:
+
+| Сервис | Порт | Назначение |
+|--------|------|------------|
+| `secrets` | 8003 | Выдача секретов по ключу: GET /secret?key= + X-Internal-Token |
+| `auth` | 8001 | Проверка Telegram initData → user_id: POST /verify |
+| `sessions` | 8002 | Сессии в Redis: POST /session, /session/validate, /refresh, /invalidate |
+
+### Конфиг микросервисов: `deploy/.env.secrets`
+
+```bash
+cp deploy/env.secrets.example deploy/.env.secrets
+# Заполнить:
+# INTERNAL_TOKEN=<случайный hex-32>
+# SECRET_KEYS=INTERNAL_API_SECRET,TELEGRAM_BOT_TOKEN,SESSION_SIGNING_KEY
+# TELEGRAM_BOT_TOKEN=<реальный токен бота Тигрит>
+# SESSION_SIGNING_KEY=<случайный hex-32>
+# INTERNAL_API_SECRET=<внутренний секрет app>
+```
+
+Генерация токенов: `python3 -c "import secrets; print(secrets.token_hex(32))"`
+
+### Smoke-проверка микросервисов
+
+```bash
+curl http://127.0.0.1:8003/health  # → {"status":"ok"}
+curl http://127.0.0.1:8001/health  # → {"status":"ok"}
+curl http://127.0.0.1:8002/health  # → {"status":"ok"}
+```
+
+---
+
 ## Новые возможности (февраль 2026)
 
 ### Новые переменные окружения

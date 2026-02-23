@@ -1,12 +1,13 @@
 #!/bin/bash
-# Проверка после деплоя: smoke-тесты всех эндпоинтов Тигрит и Village Era.
+# Проверка после деплоя: smoke-тесты всех эндпоинтов Тигрит, Village Era
+# и микросервисов secrets/auth/sessions.
 # Запуск на сервере: cd /home/kim/stakingphxpw && bash deploy/verify_after_deploy.sh
 
 set -euo pipefail
 GATEWAY="${GATEWAY:-http://127.0.0.1:8081}"
 TIGRIT_HOST="tigrit.stakingphxpw.com"
-# Admin-ключ из env (не хардкодить)
 ADMIN_KEY="${TIGRIT_ADMIN_API_KEY:-}"
+SECRETS_TOKEN="${SECRETS_INTERNAL_TOKEN:-}"
 FAIL=0
 
 ok()   { echo "[OK]   $1 — $2"; }
@@ -77,6 +78,56 @@ else
   echo "       Задайте TIGRIT_ADMIN_API_KEY=... перед запуском скрипта"
 fi
 
+# ─── Микросервисы: secrets, auth, sessions ───────────────────────
+echo ""
+echo "--- Микросервисы ---"
+
+# secrets /health (прямой порт 8003)
+CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8003/health 2>/dev/null || echo "000")
+if [ "$CODE" = "200" ]; then ok "GET :8003/health (secrets)" "$CODE"
+else fail "GET :8003/health (secrets)" "$CODE" "200"; fi
+
+# auth /health (прямой порт 8001)
+CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/health 2>/dev/null || echo "000")
+if [ "$CODE" = "200" ]; then ok "GET :8001/health (auth)" "$CODE"
+else fail "GET :8001/health (auth)" "$CODE" "200"; fi
+
+# sessions /health (прямой порт 8002)
+CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8002/health 2>/dev/null || echo "000")
+if [ "$CODE" = "200" ]; then ok "GET :8002/health (sessions)" "$CODE"
+else fail "GET :8002/health (sessions)" "$CODE" "200"; fi
+
+# secrets /secret с токеном
+if [ -n "$SECRETS_TOKEN" ]; then
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "X-Internal-Token: $SECRETS_TOKEN" \
+    "http://127.0.0.1:8003/secret?key=TELEGRAM_BOT_TOKEN" 2>/dev/null || echo "000")
+  if [ "$CODE" = "200" ]; then ok "GET :8003/secret (с токеном)" "$CODE"
+  else fail "GET :8003/secret (с токеном)" "$CODE" "200"; fi
+else
+  skip "GET :8003/secret — SECRETS_INTERNAL_TOKEN не задан"
+fi
+
+# auth /verify с фейковым init_data → 401
+CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://127.0.0.1:8001/verify \
+  -H "Content-Type: application/json" \
+  -d '{"init_data":"fake=data&hash=aaabbbccc"}' 2>/dev/null || echo "000")
+if [ "$CODE" = "401" ]; then ok "POST :8001/verify (невалидный → 401)" "$CODE"
+else fail "POST :8001/verify (невалидный → 401)" "$CODE" "401"; fi
+
+# sessions create + validate
+SID=$(curl -s -X POST http://127.0.0.1:8002/session \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": 1}' 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin).get("session_id",""))' 2>/dev/null || echo "")
+if [ -n "$SID" ]; then
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    "http://127.0.0.1:8002/session/validate?session_id=$SID" 2>/dev/null || echo "000")
+  if [ "$CODE" = "200" ]; then ok "POST+GET :8002/session (create+validate)" "$CODE"
+  else fail "POST+GET :8002/session (create+validate)" "$CODE" "200"; fi
+else
+  fail "POST :8002/session (create)" "no session_id" "session_id in response"
+fi
+
 # ─── Итог ───────────────────────────────────────────────────────
 echo ""
 if [ $FAIL -eq 0 ]; then
@@ -84,6 +135,6 @@ if [ $FAIL -eq 0 ]; then
   exit 0
 else
   echo "❌ Часть проверок не пройдена."
-  echo "   Логи: docker compose -f deploy/docker-compose.149.yml logs --tail=50 tigrit-api"
+  echo "   Логи: docker compose -f deploy/docker-compose.149.yml logs --tail=50 <service>"
   exit 1
 fi

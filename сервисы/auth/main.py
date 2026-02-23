@@ -126,7 +126,8 @@ async def _ensure_user(telegram_id: int) -> Optional[int]:
 @app.post("/verify")
 async def verify(body: VerifyBody):
     """
-    Проверяет init_data (Telegram) или token (заглушка JWT). Возвращает {"user_id": int} или 401.
+    Проверяет init_data (Telegram Web App). Возвращает {"user_id": int} или 401.
+    Поле token принимается, но не поддерживается (авторизация только через Telegram).
     """
     telegram_id = None
     if body.init_data:
@@ -141,8 +142,8 @@ async def verify(body: VerifyBody):
         if telegram_id is None:
             raise HTTPException(status_code=401, detail="unauthorized")
     elif body.token:
-        # Заглушка JWT: пока не реализовано — 401
-        raise HTTPException(status_code=401, detail="token not supported")
+        # JWT не используется: авторизация только через Telegram init_data
+        raise HTTPException(status_code=401, detail="JWT не поддерживается — используйте Telegram init_data")
     else:
         raise HTTPException(status_code=400, detail="init_data or token required")
 

@@ -2,7 +2,11 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1610">
   <title>Деревня Тигрит</title>
   <link rel="stylesheet" href="./src/styles.css">
 </head>
@@ -18,15 +22,15 @@
     </div>
 
     <nav>
-      <button class="nav-btn" :class="{ active: activeTab === 'village' }"  @click="activeTab = 'village'">🏘️ Деревня</button>
-      <button class="nav-btn" :class="{ active: activeTab === 'players' }"  @click="activeTab = 'players'">👥 Игроки</button>
-      <button class="nav-btn" :class="{ active: activeTab === 'events' }"   @click="activeTab = 'events'">⚡ События</button>
-      <button class="nav-btn" :class="{ active: activeTab === 'world' }"    @click="activeTab = 'world'">🌍 Мир</button>
-      <button class="nav-btn" :class="{ active: activeTab === 'chat' }"     @click="activeTab = 'chat'">💬 Общение</button>
-      <button class="nav-btn" :class="{ active: activeTab === 'editor' }"   @click="activeTab = 'editor'">🗺️ Редактор</button>
-      <button class="nav-btn" :class="{ active: activeTab === 'items' }"    @click="activeTab = 'items'">🎒 Предметы</button>
-      <button class="nav-btn" :class="{ active: activeTab === 'commands' }" @click="activeTab = 'commands'">🤖 Команды</button>
-      <button class="nav-btn nav-admin" :class="{ active: activeTab === 'admin' }"  @click="activeTab = 'admin'">🛡️ Админ</button>
+      <button class="nav-btn" :class="{ active: activeTab === 'village' }"  @click="activeTab = 'village'">🏘️<span class="nav-label"> Деревня</span></button>
+      <button class="nav-btn" :class="{ active: activeTab === 'players' }"  @click="activeTab = 'players'">👥<span class="nav-label"> Игроки</span></button>
+      <button class="nav-btn" :class="{ active: activeTab === 'events' }"   @click="activeTab = 'events'">⚡<span class="nav-label"> События</span></button>
+      <button class="nav-btn" :class="{ active: activeTab === 'world' }"    @click="activeTab = 'world'">🌍<span class="nav-label"> Мир</span></button>
+      <button class="nav-btn" :class="{ active: activeTab === 'chat' }"     @click="activeTab = 'chat'">💬<span class="nav-label"> Чат</span></button>
+      <button class="nav-btn" :class="{ active: activeTab === 'editor' }"   @click="activeTab = 'editor'">🗺️<span class="nav-label"> Карта</span></button>
+      <button class="nav-btn" :class="{ active: activeTab === 'items' }"    @click="activeTab = 'items'">🎒<span class="nav-label"> Предметы</span></button>
+      <button class="nav-btn" :class="{ active: activeTab === 'commands' }" @click="activeTab = 'commands'">🤖<span class="nav-label"> Команды</span></button>
+      <button class="nav-btn nav-admin" :class="{ active: activeTab === 'admin' }"  @click="activeTab = 'admin'">🛡️<span class="nav-label"> Админ</span></button>
     </nav>
 
     <div class="header-actions">
