@@ -1,7 +1,7 @@
 """
 Микросервис Health Check: liveness и readiness для оркестрации и мониторинга.
-GET /health — всегда 200 (liveness).
-GET /ready — 200 только если доступны БД и Redis (readiness).
+GET /health — всегда 200 (liveness). GET /ready — 200 только если доступны БД и Redis (readiness).
+Не зависит от других сервисов приложения (auth, sessions, secrets, app) — только DATABASE_URL и REDIS_URL.
 """
 import os
 from contextlib import asynccontextmanager

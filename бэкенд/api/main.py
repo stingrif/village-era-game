@@ -12,6 +12,7 @@ from api.admin_routes import router as admin_router
 from api.admin_panel_routes import router as admin_panel_router
 from api.internal_routes import router as internal_router
 from api.routes import router
+from api.auth_middleware import AuthInitMiddleware
 from api.session_middleware import SessionResolveMiddleware
 from infrastructure.database import init_db, close_db
 
@@ -122,6 +123,7 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
+app.add_middleware(AuthInitMiddleware)  # опционально: initData → Auth /verify → X-Telegram-User-Id
 app.add_middleware(SessionResolveMiddleware)
 app.include_router(router)
 app.include_router(internal_router)

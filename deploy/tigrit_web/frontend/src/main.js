@@ -202,6 +202,25 @@ const app = createApp({
       activeZoneId: MOCK_ZONES[0].id,
       zonesLoading: false,
       worldFilter: '',
+      currentUserId: Number(localStorage.getItem('tigrit_user_id') || 1),
+      homeZoneId: null,
+      characterState: 'alive',
+      trustScore: 50,
+      playerBase: null,
+      allBases: [],
+      locations: [],
+      locationsLoading: false,
+      travelCurrent: null,
+      travelTimer: null,
+      selectedLocationId: null,
+      locationLootLast: null,
+      clanInfo: null,
+      clanCreateName: '',
+      clanCreateZoneId: 'zone_1',
+      clanTargetId: null,
+      clanContributeAmount: 10,
+      raidTargetUserId: null,
+      raidCombatId: null,
 
       /* Каталог предметов (единый источник) */
       itemsCatalog: [],
@@ -435,6 +454,16 @@ const app = createApp({
       return this.zones;
     },
 
+    /** Базы игроков на карте мира */
+    basesWithCoords() {
+      return (this.allBases || []).filter(b => Number.isFinite(Number(b.map_x)) && Number.isFinite(Number(b.map_y)));
+    },
+
+    /** Локации survival на карте мира */
+    locationsWithCoords() {
+      return (this.locations || []).filter(l => Number.isFinite(Number(l.mapX ?? l.map_x)) && Number.isFinite(Number(l.mapY ?? l.map_y)));
+    },
+
     /** Линии-связи с координатами для SVG */
     zoneLinks() {
       return ZONE_LINKS.map(link => {
@@ -471,6 +500,10 @@ const app = createApp({
     this.fetchActiveEvents();
     this.fetchAssets();
     this.fetchZones();
+    this.fetchLocations();
+    this.fetchBases();
+    this.fetchSurvivalStatus();
+    this.fetchTravelCurrent();
     this.fetchItemsCatalog();
     this.checkApiHealth();
 
@@ -484,6 +517,7 @@ const app = createApp({
 
     setInterval(() => this.checkApiHealth(), 30000);
     setInterval(() => { this.fetchVillageData(); this.fetchEvents(); this.fetchActiveEvents(); }, 10000);
+    this.travelTimer = setInterval(() => this.fetchTravelCurrent(), 5000);
 
     /* При первой загрузке инициализируем карту если активна вкладка village */
     this.$nextTick(() => {
@@ -522,6 +556,11 @@ const app = createApp({
         this.$nextTick(() => this.initVillageScene('map-container'));
       }
     });
+  },
+
+  unmounted() {
+    if (this._onKeyDown) window.removeEventListener('keydown', this._onKeyDown);
+    if (this.travelTimer) clearInterval(this.travelTimer);
   },
 
   methods: {
@@ -582,8 +621,9 @@ const app = createApp({
     async fetchZones() {
       this.zonesLoading = true;
       try {
-        /* Пробуем /api/zones, затем /api/chats */
-        let r = await axios.get(`${API_URL}/zones`).catch(() => null);
+        /* Приоритет: survival/zones, затем /zones, затем /chats */
+        let r = await axios.get(`${API_URL}/survival/zones`).catch(() => null);
+        if (!r?.data?.length) r = await axios.get(`${API_URL}/zones`).catch(() => null);
         if (!r?.data?.length) r = await axios.get(`${API_URL}/chats`).catch(() => null);
         if (r?.data?.length) {
           /* Дополняем серверные данные координатами карты из mock если их нет */
@@ -596,6 +636,148 @@ const app = createApp({
         }
       } catch { /* fallback: mock-данные уже в data() */ }
       finally { this.zonesLoading = false; }
+    },
+
+    apiHeaders() {
+      return { 'X-User-Id': String(this.currentUserId || 1) };
+    },
+
+    async fetchSurvivalStatus() {
+      try {
+        const r = await axios.get(`${API_URL}/survival/player/status`, { headers: this.apiHeaders() });
+        const data = r.data || {};
+        this.homeZoneId = data.home_zone_id || null;
+        this.characterState = data.character_state || 'alive';
+        this.trustScore = Number(data.trust_score ?? 50);
+        this.playerBase = (data.base_x != null && data.base_y != null)
+          ? { map_x: data.base_x, map_y: data.base_y, base_level: data.base_level, base_name: data.base_name, user_id: this.currentUserId }
+          : null;
+      } catch {}
+    },
+
+    async bindHomeZone(zoneId) {
+      try {
+        const payload = { zone_id: zoneId, user_id: this.currentUserId, tg_user_id: this.currentUserId };
+        const r = await axios.post(`${API_URL}/survival/zone/bind`, payload, { headers: this.apiHeaders() });
+        if (r.data?.ok) {
+          this.homeZoneId = zoneId;
+          await this.fetchSurvivalStatus();
+          await this.fetchBases();
+          this.notify('🏕️ Домашняя зона установлена');
+        }
+      } catch (e) {
+        const msg = e?.response?.data?.detail?.error || e?.response?.data?.detail || 'Не удалось привязать зону';
+        this.notify(`❌ ${msg}`);
+      }
+    },
+
+    async changeHomeZone(zoneId) {
+      try {
+        const r = await axios.post(
+          `${API_URL}/survival/zone/change`,
+          { zone_id: zoneId, user_id: this.currentUserId },
+          { headers: this.apiHeaders() },
+        );
+        if (r.data?.ok) {
+          this.homeZoneId = zoneId;
+          this.notify(`🔁 Домашняя зона сменена (−${r.data.price} PHOEX)`);
+          await this.fetchSurvivalStatus();
+        }
+      } catch (e) {
+        const msg = e?.response?.data?.detail || 'Не удалось сменить зону';
+        this.notify(`❌ ${typeof msg === 'string' ? msg : 'Ошибка API'}`);
+      }
+    },
+
+    async fetchLocations() {
+      this.locationsLoading = true;
+      try {
+        const r = await axios.get(`${API_URL}/survival/locations`);
+        if (Array.isArray(r.data)) this.locations = r.data;
+      } catch {}
+      finally { this.locationsLoading = false; }
+    },
+
+    async fetchBases() {
+      try {
+        const r = await axios.get(`${API_URL}/survival/bases`);
+        if (Array.isArray(r.data)) this.allBases = r.data;
+      } catch {}
+    },
+
+    async fetchTravelCurrent() {
+      try {
+        const r = await axios.get(`${API_URL}/survival/travel/current`, { headers: this.apiHeaders() });
+        if (r.data?.travel === null) this.travelCurrent = null;
+        else if (r.data?.id) this.travelCurrent = r.data;
+      } catch {}
+    },
+
+    travelProgressPercent() {
+      if (!this.travelCurrent?.start_ts || !this.travelCurrent?.arrive_ts) return 0;
+      const start = new Date(this.travelCurrent.start_ts).getTime();
+      const end = new Date(this.travelCurrent.arrive_ts).getTime();
+      const now = Date.now();
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+      return Math.max(0, Math.min(100, Math.round(((now - start) / (end - start)) * 100)));
+    },
+
+    canArriveTravel() {
+      if (!this.travelCurrent?.arrive_ts) return false;
+      return Date.now() >= new Date(this.travelCurrent.arrive_ts).getTime();
+    },
+
+    async startTravel(locationId) {
+      try {
+        const r = await axios.post(
+          `${API_URL}/survival/travel/start`,
+          { to_id: locationId, user_id: this.currentUserId },
+          { headers: this.apiHeaders() },
+        );
+        if (r.data?.ok) {
+          this.selectedLocationId = locationId;
+          this.notify('🧭 Путешествие началось');
+          await this.fetchTravelCurrent();
+        }
+      } catch (e) {
+        const msg = e?.response?.data?.detail || 'Не удалось начать путешествие';
+        this.notify(`❌ ${typeof msg === 'string' ? msg : 'Ошибка API'}`);
+      }
+    },
+
+    async arriveTravel() {
+      if (!this.travelCurrent?.id) return;
+      try {
+        const r = await axios.post(
+          `${API_URL}/survival/travel/arrive`,
+          { travel_id: this.travelCurrent.id, user_id: this.currentUserId },
+          { headers: this.apiHeaders() },
+        );
+        if (r.data?.ok) {
+          this.selectedLocationId = r.data.location_id;
+          this.notify(`📍 Прибытие: ${r.data.location_id}`);
+          await this.fetchTravelCurrent();
+        }
+      } catch (e) {
+        const msg = e?.response?.data?.detail || 'Не удалось подтвердить прибытие';
+        this.notify(`❌ ${typeof msg === 'string' ? msg : 'Ошибка API'}`);
+      }
+    },
+
+    async lootCurrentLocation() {
+      if (!this.selectedLocationId) return;
+      try {
+        const r = await axios.post(
+          `${API_URL}/survival/location/loot`,
+          { location_id: this.selectedLocationId, user_id: this.currentUserId },
+          { headers: this.apiHeaders() },
+        );
+        this.locationLootLast = r.data;
+        this.notify(`🎁 Лут: ${r.data.item_key} ×${r.data.qty}`);
+      } catch (e) {
+        const msg = e?.response?.data?.detail || 'Не удалось получить лут';
+        this.notify(`❌ ${typeof msg === 'string' ? msg : 'Ошибка API'}`);
+      }
     },
 
     /**
@@ -784,6 +966,117 @@ const app = createApp({
       return 'x1';
     },
 
+    async createClan() {
+      if (!this.clanCreateName?.trim()) {
+        this.notify('❌ Введите название клана');
+        return;
+      }
+      try {
+        const r = await axios.post(
+          `${API_URL}/survival/clan/create`,
+          {
+            clan_name: this.clanCreateName.trim(),
+            zone_id: this.clanCreateZoneId || this.activeZoneId || 'zone_1',
+            user_id: this.currentUserId,
+          },
+          { headers: this.apiHeaders() },
+        );
+        if (r.data?.ok) {
+          this.notify(`🏰 Клан создан #${r.data.clan_id}`);
+          this.clanTargetId = r.data.clan_id;
+          await this.fetchClanInfo();
+          await this.fetchSurvivalStatus();
+        }
+      } catch (e) {
+        this.notify(`❌ ${e?.response?.data?.detail || 'Не удалось создать клан'}`);
+      }
+    },
+
+    async joinClan(clanId = null) {
+      const target = Number(clanId || this.clanTargetId);
+      if (!target) return this.notify('❌ Укажите clan_id');
+      try {
+        const r = await axios.post(
+          `${API_URL}/survival/clan/join`,
+          { clan_id: target, user_id: this.currentUserId, tg_user_id: this.currentUserId },
+          { headers: this.apiHeaders() },
+        );
+        if (r.data?.ok) {
+          this.notify('✅ Вступление в клан выполнено');
+          this.clanTargetId = target;
+          await this.fetchClanInfo();
+          await this.fetchSurvivalStatus();
+        }
+      } catch (e) {
+        this.notify(`❌ ${e?.response?.data?.detail || 'Не удалось вступить в клан'}`);
+      }
+    },
+
+    async clanContribute() {
+      const clanId = Number(this.clanTargetId);
+      const amount = Number(this.clanContributeAmount || 0);
+      if (!clanId || amount <= 0) return this.notify('❌ Укажите clan_id и сумму');
+      try {
+        const r = await axios.post(
+          `${API_URL}/survival/clan/contribute`,
+          { clan_id: clanId, amount, user_id: this.currentUserId },
+          { headers: this.apiHeaders() },
+        );
+        if (r.data?.ok) {
+          this.notify(`💰 Вклад в клан: ${amount}`);
+          await this.fetchClanInfo();
+        }
+      } catch (e) {
+        this.notify(`❌ ${e?.response?.data?.detail || 'Не удалось внести вклад'}`);
+      }
+    },
+
+    async clanBetray() {
+      const clanId = Number(this.clanTargetId);
+      if (!clanId) return this.notify('❌ Укажите clan_id');
+      try {
+        const r = await axios.post(
+          `${API_URL}/survival/clan/betray`,
+          { clan_id: clanId, percent: 20, user_id: this.currentUserId },
+          { headers: this.apiHeaders() },
+        );
+        if (r.data?.ok) {
+          this.notify(`🗡️ Предательство: украдено ${r.data.stolen} PHOEX`);
+          await this.fetchClanInfo();
+          await this.fetchSurvivalStatus();
+        }
+      } catch (e) {
+        this.notify(`❌ ${e?.response?.data?.detail || 'Предательство не удалось'}`);
+      }
+    },
+
+    async fetchClanInfo(clanId = null) {
+      const target = Number(clanId || this.clanTargetId);
+      if (!target) return;
+      try {
+        const r = await axios.get(`${API_URL}/survival/clan/${target}`);
+        this.clanInfo = r.data;
+      } catch {}
+    },
+
+    async startRaid() {
+      const defenderId = Number(this.raidTargetUserId);
+      if (!defenderId) return this.notify('❌ Укажите user_id цели для рейда');
+      try {
+        const start = await axios.post(
+          `${API_URL}/survival/combat/start`,
+          { defender_id: defenderId, location_id: this.selectedLocationId, user_id: this.currentUserId },
+          { headers: this.apiHeaders() },
+        );
+        if (start.data?.ok) {
+          this.raidCombatId = start.data.combat_id;
+          this.notify(`⚔️ Рейд начат, combat #${this.raidCombatId}`);
+        }
+      } catch (e) {
+        this.notify(`❌ ${e?.response?.data?.detail || 'Не удалось начать рейд'}`);
+      }
+    },
+
     /* ── Инструкция ── */
 
     openInstructions() {
@@ -845,6 +1138,7 @@ const app = createApp({
           text,
           xp,
           zone_id: this.activeZoneId,
+          user_id: this.currentUserId,
         });
       } catch { /* backend необязателен */ }
     },
@@ -1237,7 +1531,7 @@ const app = createApp({
      * Активирует скилл с проверкой кулдауна.
      * @param {string} skillId
      */
-    activateSkill(skillId) {
+    async activateSkill(skillId) {
       const skill = this.skills.find(s => s.id === skillId);
       if (!skill || skill.cd > 0) return;
 
@@ -1251,7 +1545,25 @@ const app = createApp({
       this.playerMana = Math.max(0, this.playerMana - cost);
       skill.cd = skill.maxCd;
 
-      if (skillId === 'attack') {
+      if (this.raidCombatId) {
+        try {
+          const r = await axios.post(
+            `${API_URL}/survival/combat/action`,
+            { combat_id: this.raidCombatId, skill_id: skillId, user_id: this.currentUserId },
+            { headers: this.apiHeaders() },
+          );
+          if (r.data?.ok) {
+            this.playerHP = Number(r.data.attacker_hp ?? this.playerHP);
+            this.addCombatLog(`${skill.icon} ${r.data.log_entry || skill.name} (HP: ${r.data.attacker_hp}/${r.data.defender_hp})`);
+            if (r.data.status === 'finished') {
+              this.notify('🏁 Рейд завершён');
+              this.raidCombatId = null;
+            }
+          }
+        } catch (e) {
+          this.notify(`❌ ${e?.response?.data?.detail || 'Ошибка боевого API'}`);
+        }
+      } else if (skillId === 'attack') {
         const dmg = 10 + Math.floor(Math.random() * 10);
         this.addCombatLog(`${skill.icon} Атака: −${dmg} HP врагу`);
       } else if (skillId === 'heal') {

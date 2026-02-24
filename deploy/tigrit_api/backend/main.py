@@ -2,7 +2,7 @@
 Веб-API Тигрит: данные из PostgreSQL через tigrit_shared (village, users, events).
 Карта и ассеты — из JSON в backend/data/.
 """
-import datetime
+import asyncio
 import json
 import logging
 import os
@@ -47,6 +47,9 @@ from tigrit_shared.read import (
     get_active_events,
 )
 from admin_routes import router as admin_router
+from survival_routes import router as survival_router
+from survival_routes import admin_router as survival_admin_router
+from survival_cron import run_periodic_jobs
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -121,6 +124,7 @@ class ChatMessagePayload(BaseModel):
     text:    str = Field(..., min_length=1, max_length=2000)
     xp:      int = Field(0, ge=0, le=100)
     zone_id: str = Field("zone_1", max_length=64)
+    user_id: Optional[int] = Field(None, ge=1)
 
     @field_validator("zone_id")
     @classmethod
@@ -135,6 +139,8 @@ class ChatMessagePayload(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Запускает миграции при старте, закрывает пул при остановке."""
+    stop_event = asyncio.Event()
+    bg_task: Optional[asyncio.Task] = None
     try:
         from run_migrations import run_migrations
         await run_migrations()
@@ -142,7 +148,17 @@ async def lifespan(app: FastAPI):
         logger.warning("run_migrations.py не найден — миграции пропущены")
     except Exception as e:
         logger.error("Ошибка миграций при старте: %s", e)
+    try:
+        bg_task = asyncio.create_task(run_periodic_jobs(stop_event))
+    except Exception as e:
+        logger.warning("survival_cron не запущен: %s", e)
     yield
+    stop_event.set()
+    if bg_task:
+        try:
+            await asyncio.wait_for(bg_task, timeout=3)
+        except Exception:
+            pass
     await shared_db.close_pool()
 
 
@@ -161,6 +177,8 @@ app.add_middleware(
 
 # Подключаем Admin API
 app.include_router(admin_router)
+app.include_router(survival_router)
+app.include_router(survival_admin_router)
 
 
 @app.exception_handler(Exception)
@@ -269,18 +287,68 @@ async def api_assets(request: Request):
 @app.get("/api/zones")
 @limiter.limit(API_RATE_LIMIT)
 async def api_zones(request: Request):
-    """Список игровых зон. Попытка читать из tigrit_interactions, fallback к статике."""
+    """Список игровых зон. Источник — таблица zones, fallback к статике."""
     import copy
     zones = copy.deepcopy(STATIC_ZONES)
     try:
-        rows = await shared_db.query_all(
-            "SELECT actor_id, COUNT(*) as msgs FROM tigrit_interactions "
-            "WHERE kind = 'msg' GROUP BY actor_id ORDER BY msgs DESC LIMIT 6"
+        zone_rows = await shared_db.query_all(
+            """
+            SELECT zone_id AS id, name, type, xp_multiplier, entry_cost_tokens,
+                   map_x AS "mapX", map_y AS "mapY", active, description, bot_code
+            FROM zones
+            WHERE active = TRUE
+            ORDER BY type, zone_id
+            """
         )
-        if rows:
-            for i, row in enumerate(rows):
-                if i < len(zones):
-                    zones[i]["players_online"] = int(row["msgs"])
+        if zone_rows:
+            zones = []
+            for row in zone_rows:
+                z = dict(row)
+                z.setdefault("players_online", 0)
+                z.setdefault("total_players", 0)
+                zones.append(z)
+
+            online_rows = await shared_db.query_all(
+                """
+                SELECT zone_id, COUNT(DISTINCT actor_id) AS online_cnt
+                FROM (
+                    SELECT actor_id,
+                           CASE
+                               WHEN payload ~ '^\s*\{' THEN (payload::jsonb->>'zone_id')
+                               ELSE NULL
+                           END AS zone_id
+                    FROM tigrit_interactions
+                    WHERE kind='msg'
+                      AND ts > NOW() - INTERVAL '15 minutes'
+                      AND payload IS NOT NULL
+                ) q
+                WHERE zone_id IS NOT NULL
+                GROUP BY zone_id
+                """
+            )
+            total_rows = await shared_db.query_all(
+                """
+                SELECT zone_id, COUNT(DISTINCT actor_id) AS total_cnt
+                FROM (
+                    SELECT actor_id,
+                           CASE
+                               WHEN payload ~ '^\s*\{' THEN (payload::jsonb->>'zone_id')
+                               ELSE NULL
+                           END AS zone_id
+                    FROM tigrit_interactions
+                    WHERE kind='msg'
+                      AND payload IS NOT NULL
+                ) q
+                WHERE zone_id IS NOT NULL
+                GROUP BY zone_id
+                """
+            )
+            online_map = {str(r["zone_id"]): int(r["online_cnt"] or 0) for r in online_rows}
+            total_map = {str(r["zone_id"]): int(r["total_cnt"] or 0) for r in total_rows}
+            for z in zones:
+                zid = str(z.get("id", ""))
+                z["players_online"] = online_map.get(zid, 0)
+                z["total_players"] = total_map.get(zid, 0)
     except Exception as e:
         logger.warning("api_zones: БД недоступна, возвращаем статику: %s", e)
     return zones
@@ -296,11 +364,39 @@ async def api_chat_message(request: Request, body: ChatMessagePayload):
         ensure_ascii=False,
     )
     try:
+        actor_id = int(body.user_id or 0)
         inserted_id = await shared_db.fetchval(
             "INSERT INTO tigrit_interactions (ts, kind, actor_id, payload) "
-            "VALUES (now(), 'msg', 0, $1) RETURNING id",
+            "VALUES (now(), 'msg', $1, $2) RETURNING id",
+            actor_id,
             payload_json,
         )
+        if body.user_id:
+            try:
+                await shared_db.execute(
+                    """
+                    UPDATE tigrit_user_profile
+                    SET home_zone_first_activity_at = COALESCE(home_zone_first_activity_at, NOW()),
+                        trust_score = GREATEST(-100, LEAST(100, COALESCE(trust_score, 50) + 2))
+                    WHERE user_id = $1
+                      AND home_zone_id = $2
+                    """,
+                    body.user_id,
+                    body.zone_id,
+                )
+            except Exception:
+                pass
+            try:
+                await shared_db.execute(
+                    """
+                    INSERT INTO game_events (user_id, event_type, reason_code, payload, created_at)
+                    VALUES ($1, 'trust_change', 'zone_chat_activity', $2::jsonb, NOW())
+                    """,
+                    body.user_id,
+                    json.dumps({"delta": 2, "zone_id": body.zone_id}, ensure_ascii=False),
+                )
+            except Exception:
+                pass
         return {"ok": True, "saved": True, "id": inserted_id}
     except asyncpg.UndefinedTableError:
         logger.warning("api_chat_message: таблица tigrit_interactions не существует")

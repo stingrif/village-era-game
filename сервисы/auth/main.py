@@ -27,7 +27,13 @@ class VerifyBody(BaseModel):
 
 
 def _get_bot_token() -> str:
-    """Запрашивает TELEGRAM_BOT_TOKEN у сервиса секретов."""
+    """
+    Токен бота для проверки подписи Telegram initData.
+    Сначала из env (TELEGRAM_BOT_TOKEN), иначе из сервиса Secrets — независимость при падении Secrets.
+    """
+    token = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    if token:
+        return token
     if not INTERNAL_TOKEN:
         return ""
     try:
@@ -155,4 +161,8 @@ async def verify(body: VerifyBody):
 
 @app.get("/health")
 def health():
+    """
+    Проверка живости. 200 — процесс работает.
+    При наличии TELEGRAM_BOT_TOKEN (env или Secrets) сервис готов к /verify независимо от Secrets.
+    """
     return {"status": "ok"}

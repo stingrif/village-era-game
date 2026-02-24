@@ -128,6 +128,13 @@ else
   fail "POST :8002/session (create)" "no session_id" "session_id in response"
 fi
 
+# ─── Survival API ────────────────────────────────────────────────
+echo ""
+echo "--- Survival API ---"
+check "GET /api/survival/zones" "200" -H "Host: $TIGRIT_HOST" "$GATEWAY/api/survival/zones"
+check "GET /api/survival/locations" "200" -H "Host: $TIGRIT_HOST" "$GATEWAY/api/survival/locations"
+check "GET /api/survival/telegram/health" "200" -H "Host: $TIGRIT_HOST" "$GATEWAY/api/survival/telegram/health"
+
 # ─── Итог ───────────────────────────────────────────────────────
 echo ""
 if [ $FAIL -eq 0 ]; then

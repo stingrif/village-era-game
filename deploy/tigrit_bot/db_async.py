@@ -32,22 +32,30 @@ GAME_API_BASE = os.environ.get("GAME_API_BASE", "http://app:8000").rstrip("/")
 INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET", "")
 
 
-async def get_user_id(telegram_id: int) -> int:
-    """Возвращает user_id (users.id) по telegram_id. Вызов ensure-user API Игра."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        r = await client.post(
-            f"{GAME_API_BASE}/internal/ensure-user",
-            json={"telegram_id": telegram_id},
-            headers={"X-Internal-Secret": INTERNAL_API_SECRET} if INTERNAL_API_SECRET else {},
-        )
-        r.raise_for_status()
-        data = r.json()
-        return int(data["user_id"])
+async def get_user_id(telegram_id: int) -> Optional[int]:
+    """
+    Возвращает user_id (users.id) по telegram_id через ensure-user API Игра.
+    При недоступности бэкенда (таймаут, 5xx) возвращает None — бот не падает, вызывающий может сообщить пользователю.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.post(
+                f"{GAME_API_BASE}/internal/ensure-user",
+                json={"telegram_id": telegram_id},
+                headers={"X-Internal-Secret": INTERNAL_API_SECRET} if INTERNAL_API_SECRET else {},
+            )
+            r.raise_for_status()
+            data = r.json()
+            return int(data["user_id"])
+    except (httpx.HTTPError, ValueError, KeyError):
+        return None
 
 
-async def ensure_tigrit_profile(telegram_id: int, username: Optional[str] = None) -> int:
-    """Создаёт/обновляет запись в tigrit_user_profile. Возвращает user_id."""
+async def ensure_tigrit_profile(telegram_id: int, username: Optional[str] = None) -> Optional[int]:
+    """Создаёт/обновляет запись в tigrit_user_profile. Возвращает user_id или None при недоступности ensure-user API."""
     user_id = await get_user_id(telegram_id)
+    if user_id is None:
+        return None
     pool = await get_pool()
     username = username or ""
     async with pool.acquire() as conn:
@@ -107,8 +115,10 @@ async def upsert_chat(
 
 
 async def get_profile(telegram_id: int) -> Optional[Dict[str, Any]]:
-    """Профиль из tigrit_user_profile по telegram_id."""
+    """Профиль из tigrit_user_profile по telegram_id. None если ensure-user недоступен или профиль не найден."""
     user_id = await get_user_id(telegram_id)
+    if user_id is None:
+        return None
     row = await query_one(
         """SELECT username, race, clazz, xp, level, house, job, friends,
                   job_name, job_expires_at, job_xp_per_hour
@@ -133,8 +143,10 @@ async def get_profile(telegram_id: int) -> Optional[Dict[str, Any]]:
 
 
 async def get_feathers_balance(telegram_id: int) -> int:
-    """Баланс FEATHERS из user_balances (общая таблица Игра)."""
+    """Баланс FEATHERS из user_balances (общая таблица Игра). При недоступности ensure-user — 0."""
     user_id = await get_user_id(telegram_id)
+    if user_id is None:
+        return 0
     row = await query_one(
         "SELECT balance FROM user_balances WHERE user_id = $1 AND currency = 'FEATHERS'",
         user_id,
@@ -161,9 +173,11 @@ async def can_gain_xp(user_id: int) -> bool:
 
 
 async def gain_xp_and_level(telegram_id: int) -> Optional[Tuple[int, int]]:
-    """Начисляет XP за сообщение. Возвращает (new_xp, new_level) или None если кулдаун."""
+    """Начисляет XP за сообщение. Возвращает (new_xp, new_level) или None если кулдаун или ensure-user недоступен."""
     import math
     user_id = await get_user_id(telegram_id)
+    if user_id is None:
+        return None
     if not await can_gain_xp(user_id):
         return None
     row = await query_one(

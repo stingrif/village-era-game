@@ -1,6 +1,6 @@
 """
 Сервис сессий: создание, продление, инвалидация, проверка.
-Хранение в Redis. Ключ подписи (опционально) — из сервиса Secrets.
+Хранение в Redis (обязательная зависимость). Ключ подписи — опционально из Secrets или env SESSION_SIGNING_KEY.
 """
 import json
 import os
@@ -30,7 +30,13 @@ def _redis() -> redis.Redis:
 
 
 def _get_signing_key() -> str:
-    """Опционально: ключ подписи из Secrets (пока не используем в session_id)."""
+    """
+    Ключ подписи сессий: сначала env SESSION_SIGNING_KEY, иначе Secrets.
+    Пока не используется в session_id — зарезервировано для будущей подписи.
+    """
+    key = (os.environ.get("SESSION_SIGNING_KEY") or "").strip()
+    if key:
+        return key
     if not INTERNAL_TOKEN:
         return ""
     try:
@@ -152,9 +158,12 @@ def validate_session(session_id: Optional[str] = Query(None)):
 
 @app.get("/health")
 def health():
-    """Проверка живости и доступности Redis."""
+    """
+    Проверка живости и readiness: 200 только при доступном Redis.
+    Сервис зависит только от Redis; ключ подписи опционально из env или Secrets.
+    """
     try:
         _redis().ping()
         return {"status": "ok"}
     except Exception:
-        return JSONResponse(status_code=503, content={"status": "error"})
+        return JSONResponse(status_code=503, content={"status": "error", "detail": "redis unavailable"})

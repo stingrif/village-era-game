@@ -29,8 +29,8 @@ def test_verify_no_body():
 
 def test_verify_empty_init_data_unauthorized():
     r = client.post("/verify", json={"init_data": ""})
-    # Без токена в Secrets или с пустым init_data — 401 или 500
-    assert r.status_code in (401, 500)
+    # Пустой init_data: 400 (required) или без токена/невалидные данные — 401/500
+    assert r.status_code in (400, 401, 500)
 
 
 def test_verify_invalid_init_data_unauthorized():

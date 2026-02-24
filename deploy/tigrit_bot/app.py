@@ -1,4 +1,4 @@
-import os, asyncio, random, logging, time, math
+import os, asyncio, random, logging, time, math, json
 from pathlib import Path
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types
@@ -59,6 +59,8 @@ def themed(text: str) -> str:
     footer = f"\n\n🔥 PHXPW: Купить ({PHX_BUY}) • Стейкинг ({PHX_STAKE})"
     return f"{header}\n{text}{footer}"
 
+MSG_UNAVAILABLE = "Сервис игры временно недоступен. Попробуйте позже."
+
 async def _ensure_home_chat(chat_id: int):
     home = await get_setting("home_chat_id")
     if not home:
@@ -66,8 +68,13 @@ async def _ensure_home_chat(chat_id: int):
 
 @dp.message(CommandStart())
 async def start(m: types.Message):
-    await ensure_tigrit_profile(m.from_user.id, m.from_user.username)
+    if await ensure_tigrit_profile(m.from_user.id, m.from_user.username) is None:
+        await m.answer(MSG_UNAVAILABLE)
+        return
     prof = await get_profile(m.from_user.id)
+    if not prof:
+        await m.answer(MSG_UNAVAILABLE)
+        return
     if m.chat.type == 'private':
         text = (f"<b>Добро пожаловать в деревню Тигрит!</b>\n"
                 f"Твоя раса: <b>{prof['race']}</b>\n"
@@ -106,8 +113,13 @@ async def save_group_link(m: types.Message):
 
 @dp.message(Command("me"))
 async def me(m: types.Message):
-    await ensure_tigrit_profile(m.from_user.id, m.from_user.username)
+    if await ensure_tigrit_profile(m.from_user.id, m.from_user.username) is None:
+        await m.answer(MSG_UNAVAILABLE)
+        return
     prof = await get_profile(m.from_user.id)
+    if not prof:
+        await m.answer(MSG_UNAVAILABLE)
+        return
     text = (f"<b>@{prof['username'] or 'игрок'}</b>\n"
             f"Раса: {prof['race']} | Класс: {prof['clazz']}\n"
             f"XP: {prof['xp']} | Уровень: {prof['level']}\n"
@@ -216,11 +228,47 @@ async def on_msg(m: types.Message):
         pass
 
     user_id = await ensure_tigrit_profile(m.from_user.id, m.from_user.username)
+    if user_id is None:
+        return
     try:
+        zone_row = await query_one(
+            "SELECT zone_id FROM zones WHERE tg_chat_id = $1 LIMIT 1",
+            int(m.chat.id),
+        )
+        zone_id = zone_row["zone_id"] if zone_row else None
+        payload = json.dumps(
+            {
+                "text": (m.text or "")[:200],
+                "zone_id": zone_id,
+                "chat_id": int(m.chat.id),
+                "username": m.from_user.username or "",
+            },
+            ensure_ascii=False,
+        )
         await execute(
             "INSERT INTO tigrit_interactions(kind, actor_id, target_id, payload) VALUES ($1,$2,$3,$4)",
-            "msg", user_id, None, (m.text or "")[:200],
+            "msg", user_id, None, payload,
         )
+        if zone_id:
+            await execute(
+                """
+                UPDATE tigrit_user_profile
+                SET home_zone_first_activity_at = COALESCE(home_zone_first_activity_at, NOW()),
+                    trust_score = GREATEST(-100, LEAST(100, COALESCE(trust_score, 50) + 2))
+                WHERE user_id = $1
+                  AND home_zone_id = $2
+                """,
+                user_id,
+                zone_id,
+            )
+            await execute(
+                """
+                INSERT INTO game_events(user_id, event_type, reason_code, payload, created_at)
+                VALUES ($1, 'trust_change', 'zone_chat_activity', $2, NOW())
+                """,
+                user_id,
+                json.dumps({"delta": 2, "zone_id": zone_id}, ensure_ascii=False),
+            )
         await upsert_chat(chat_id=m.chat.id, type_=m.chat.type, title=m.chat.title or m.chat.full_name or "")
     except Exception:
         pass
@@ -430,6 +478,9 @@ async def on_event_callback(c: types.CallbackQuery):
     decision = 'join' if action == 'join' else 'skip'
     try:
         uid = await get_user_id(c.from_user.id)
+        if uid is None:
+            await c.answer(MSG_UNAVAILABLE, show_alert=True)
+            return
         await execute(
             """INSERT INTO tigrit_event_participants(event_id, user_id, decision, ts) VALUES($1,$2,$3,$4)
                ON CONFLICT(event_id, user_id) DO UPDATE SET decision=EXCLUDED.decision, ts=EXCLUDED.ts""",
@@ -458,8 +509,10 @@ async def village_loop():
     while True:
         await asyncio.sleep(TICK_SECONDS)
 
-        msgs = []  # TODO: async village_tick на tigrit_* при необходимости
-        meetings = []  # TODO: async simulate_agents при необходимости
+        # Сообщения от деревенских событий и диалоги между жителями.
+        # Заполняются при реализации village_tick и simulate_agents (Фаза расширения Тигрит).
+        msgs: list = []
+        meetings: list = []
 
         home_chat = await get_setting("home_chat_id")
         if not home_chat:

@@ -436,6 +436,13 @@
               >
                 {{ activeZoneId === zone.id ? '✓ Выбрана' : '💬 Войти в чат' }}
               </button>
+              <button
+                class="btn btn-sm btn-ghost"
+                @click.stop="homeZoneId ? changeHomeZone(zone.id) : bindHomeZone(zone.id)"
+                :title="homeZoneId ? 'Сменить домашнюю зону (за токены)' : 'Привязать домашнюю зону'"
+              >
+                {{ homeZoneId === zone.id ? '🏠 Дом' : (homeZoneId ? '🔁 Сменить' : '🏕️ Поселиться') }}
+              </button>
               <a
                 :href="joinZoneLink(zone)"
                 target="_blank" rel="noopener"
@@ -454,6 +461,21 @@
         <!-- Правая колонка: карта зон -->
         <div class="zone-map-panel">
           <div class="zone-map-title">🗺️ Карта мира Тигрит</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--text-secondary)">
+            <span>🧍 Trust: <strong>{{ trustScore }}</strong></span>
+            <span>🏠 Home: <strong>{{ homeZoneId || 'не выбрана' }}</strong></span>
+            <span v-if="characterState !== 'alive'" style="color:#ef4444">☠️ Состояние: {{ characterState }}</span>
+          </div>
+          <div v-if="travelCurrent?.id" class="card" style="padding:8px 10px;margin-top:8px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+              <span>🧭 Путешествие к {{ travelCurrent.to_id }}</span>
+              <span>{{ travelProgressPercent() }}%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill teal" :style="{ width: travelProgressPercent() + '%' }"></div></div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <button class="btn btn-sm btn-secondary" :disabled="!canArriveTravel()" @click="arriveTravel">📍 Прибыть</button>
+            </div>
+          </div>
           <div class="zone-map" ref="zoneMapEl">
             <!-- SVG линии-связи -->
             <svg>
@@ -481,9 +503,86 @@
               </div>
               <div class="zone-node-label">{{ zone.name }}</div>
             </div>
+
+            <!-- Локации survival -->
+            <div
+              class="zone-node"
+              v-for="loc in locationsWithCoords"
+              :key="'loc-' + loc.location_id"
+              :style="{ left: (loc.mapX ?? loc.map_x) + '%', top: (loc.mapY ?? loc.map_y) + '%' }"
+              @click="selectedLocationId = loc.location_id"
+              :title="loc.name"
+            >
+              <div class="zone-node-circle" style="border-color:rgba(74,127,165,0.6);background:rgba(74,127,165,0.2)">🧭</div>
+              <div class="zone-node-label">{{ loc.name }}</div>
+            </div>
+
+            <!-- Базы игроков -->
+            <div
+              class="zone-node"
+              v-for="base in basesWithCoords"
+              :key="'base-' + base.user_id"
+              :style="{ left: base.map_x + '%', top: base.map_y + '%' }"
+              :title="'База ' + (base.username || ('#' + base.user_id))"
+              @click="raidTargetUserId = base.user_id"
+            >
+              <div class="zone-node-circle" style="border-color:var(--accent-gold);background:rgba(200,146,42,0.22)">🏠</div>
+              <div class="zone-node-label">{{ base.username || ('Игрок ' + base.user_id) }}</div>
+            </div>
+
+            <!-- Маркер текущего игрока -->
+            <div
+              v-if="playerBase"
+              class="zone-node active-zone"
+              :style="{ left: playerBase.map_x + '%', top: playerBase.map_y + '%' }"
+              title="Ваша база"
+            >
+              <div class="zone-node-circle" style="border-color:#22c55e;background:rgba(34,197,94,0.18)">🧍</div>
+              <div class="zone-node-label">Вы</div>
+            </div>
           </div>
           <div style="font-size:11px;color:var(--text-muted);text-align:center;padding-top:4px">
             Кликни на зону чтобы войти в чат • Пунктир = связь между зонами
+          </div>
+          <div class="card" style="margin-top:10px">
+            <div class="card-title">🧭 Локации</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button
+                v-for="loc in locations"
+                :key="'travel-'+loc.location_id"
+                class="btn btn-sm"
+                :class="selectedLocationId === loc.location_id ? 'btn-primary' : 'btn-ghost'"
+                @click="startTravel(loc.location_id)"
+              >
+                {{ loc.name }}
+              </button>
+            </div>
+            <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
+              <button class="btn btn-secondary btn-sm" :disabled="!selectedLocationId" @click="lootCurrentLocation">🎁 Добыть</button>
+              <span v-if="locationLootLast" style="font-size:12px;color:var(--text-secondary)">
+                Последний лут: {{ locationLootLast.item_key }} ×{{ locationLootLast.qty }}
+              </span>
+            </div>
+          </div>
+          <div class="card" style="margin-top:10px">
+            <div class="card-title">🏰 Кланы и рейды</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <input v-model="clanCreateName" placeholder="Название клана" />
+              <button class="btn btn-primary btn-sm" @click="createClan">Создать клан</button>
+              <input v-model.number="clanTargetId" placeholder="clan_id" type="number" />
+              <button class="btn btn-ghost btn-sm" @click="joinClan">Вступить</button>
+              <input v-model.number="clanContributeAmount" placeholder="Вклад PHOEX" type="number" min="1" />
+              <button class="btn btn-secondary btn-sm" @click="clanContribute">Внести вклад</button>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <button class="btn btn-danger btn-sm" @click="clanBetray">🗡️ Предать клан</button>
+              <input v-model.number="raidTargetUserId" placeholder="user_id цели рейда" type="number" min="1" style="max-width:170px" />
+              <button class="btn btn-secondary btn-sm" @click="startRaid">⚔️ Рейд</button>
+            </div>
+            <div v-if="raidCombatId" style="margin-top:8px;font-size:12px;color:var(--accent-gold)">Активный бой #{{ raidCombatId }} — используйте скиллы в режиме 3-го лица.</div>
+            <div v-if="clanInfo?.clan" style="margin-top:8px;font-size:12px;color:var(--text-secondary)">
+              Клан: <strong>{{ clanInfo.clan.name }}</strong> · Казна: {{ clanInfo.clan.treasury }} · Участников: {{ clanInfo.members?.length || 0 }}
+            </div>
           </div>
         </div>
 
